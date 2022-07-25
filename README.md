@@ -1,4 +1,4 @@
-This is the branch for HackFS22, checkout master branch for progress
+### This is the branch for HackFS22, checkout master branch for progress
 ---
 # 💤ync 
 > sync with offline orbitdb peers using web3.storage and w3name
