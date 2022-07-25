@@ -36,7 +36,7 @@ const e6 = await Entry.create({ identity, tag, payload, refs, next: [e1.block.ci
 const e7 = await Entry.create({ identity, tag, payload, refs, next: [e4.block.cid, e5.block.cid] }) // notice it does not link e6, there are 2 log heads
 
 const entries1 = [e1, e2, e3, e4, e5, e6, e7]
-const heads = [e6.block.cid, e7.block.cid]
+const heads = entries1.map(e => e.block.cid) // hack until i learn car files better
 const cid = await zync1.backup(heads, entries1)
 console.log(`zync1 backed up some entries. entry backup cid: ${cid}`)
 
@@ -52,16 +52,19 @@ await zync2.start() // watching zync1 name for updates
 const reader = await new Promise(resolve => zync2.events.once('car', resolve))
 
 const entries2 = []
-for await (const entry of entries1) {
-  console.log({ ...entry.block })
+for await (const { block: { cid } } of entries1) {
+  const { bytes: entryBytes } = await reader.get(cid)
+  console.log(entryBytes)
+  const entryBlock = await Block.decode({ bytes: entryBytes, codec, hasher })
+  console.log(entryBlock)
+  const { bytes: identityBytes } = await reader.get(entryBlock.value.auth)
+  const identityBlock = await Block.decode({ bytes: identityBytes, codec, hasher })
+  const identity = await Identity.asIdentity({ block: identityBlock })
+  const entry = await Entry.asEntry({ block: entryBlock, identity })
   entries2.push(entry)
-  // const { bytes: entryBytes } = await reader.get(cid)
-  // const entryBlock = await Block.decode({ bytes: entryBytes, codec, hasher })
-  // const { bytes: identityBytes } = await reader.get(entryBlock.auth)
-  // const identityBlock = await Block.decode({ bytes: identityBytes, codec, hasher })
-  // const identity = await Identity.asIdentity({ block: identityBlock })
-  // const entry = await Entry.asEntry({ block: entryBlock, identity })
-  // entries2.push(entry)
 }
 
-console.log('received 7/7 entries')
+console.log(`received ${entries2.length}/7 entries`)
+
+await new Promise(resolve => setTimeout(resolve, 1000))
+process.exit()

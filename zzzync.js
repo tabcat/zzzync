@@ -80,6 +80,8 @@ class Zzzync {
       return
     }
 
+    console.log(`new revision for ${name}, fetching car`)
+
     this.sequences.set(name, revision.sequence)
     this._getCar(revision.value)
   }
@@ -92,6 +94,7 @@ class Zzzync {
 
     const bytes = new Uint8Array(await res.arrayBuffer())
     const reader = await CarReader.fromBytes(bytes)
+    console.log('reading car file')
     for await (const cid of reader.cids()) { console.log(cid) }
 
     this.events.emit('car', reader)
