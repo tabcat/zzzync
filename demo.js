@@ -36,8 +36,8 @@ const e6 = await Entry.create({ identity, tag, payload, refs, next: [e1.block.ci
 const e7 = await Entry.create({ identity, tag, payload, refs, next: [e4.block.cid, e5.block.cid] }) // notice it does not link e6, there are 2 log heads
 
 const entries1 = [e1, e2, e3, e4, e5, e6, e7]
-const heads = entries1.map(e => e.block.cid) // hack until i learn car files better
-const cid = await zync1.backup(heads, entries1)
+const heads1 = entries1.map(e => e.block.cid) // hack until i learn car files better
+const cid = await zync1.backup(heads1, entries1)
 console.log(`zync1 backed up some entries. entry backup cid: ${cid}`)
 
 // zync1 goes offline; zync2 comes online
@@ -51,10 +51,13 @@ await zync2.start() // watching zync1 name for updates
 
 const reader = await new Promise(resolve => zync2.events.once('car', resolve))
 
+const [root] = await reader.getRoots()
+const heads2 = await Block.decode({ bytes: (await reader.get(root)).bytes, codec, hasher })
 const entries2 = []
-for await (const { block: { cid } } of entries1) {
+console.log('zync2 is reading entries')
+for await (const cid of heads2.value){
   const { bytes: entryBytes } = await reader.get(cid)
-  console.log(entryBytes)
+  console.log({entryBytes})
   const entryBlock = await Block.decode({ bytes: entryBytes, codec, hasher })
   console.log(entryBlock)
   const { bytes: identityBytes } = await reader.get(entryBlock.value.auth)
