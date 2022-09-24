@@ -1,6 +1,6 @@
 # 💤ync
 <span>
-  <a href="https://www.dictionary.com/browse/zinc" referrerpolicy="no-referrer">
+  <a href="https://static.sfdict.com/audio/Z00/Z0026700.mp3" referrerpolicy="no-referrer">
     <img src="https://camo.githubusercontent.com/b900202928a33c7574d271fb0ef74b60036da10fe81079709e87b86b939ed8e7/68747470733a2f2f6475636b6475636b676f2e636f6d2f6173736574732f69636f6e732f706c61792d627574746f6e2e737667" />
   </a>
   zĭngk
