@@ -17,8 +17,12 @@
   },
   "homepage": "",
   "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "c8": "^7.12.0",
     "eslint": "^8.26.0",
     "eslint-config-standard-with-typescript": "^23.0.0",
+    "mocha": "^10.1.0",
+    "polendina": "^3.1.0",
     "prettier": "^2.7.1",
     "prettier-config-standard": "^5.0.0",
     "resolve-typescript-plugin": "^1.2.0",
