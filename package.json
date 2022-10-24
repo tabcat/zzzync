@@ -4,7 +4,12 @@
   "description": "ts project description",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint src test",
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test:node": "c8 -c ./config/.c8rc.json npx mocha --config ./config/.mocharc.json",
+    "test:browser": "polendina --worker --serviceworker --cleanup --webpack-config ./config/webpack.config.ts.js test/test.ts",
+    "test": "npm run lint && npm run test:node && npm run test:browser"
   },
   "repository": {
     "type": "git",
