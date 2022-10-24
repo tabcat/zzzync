@@ -8,7 +8,7 @@
 
 > sync with peers that have gone to sleep Zzz
 
-This is replicator module for [Opal](https://github.com/cypsela/opal) that allows for persistent replication. Persistent replication is a way to replicate data that uses data types and protocols with persistence in mind.
+This is replicator module for [Opal](https://github.com/cypsela/opal), built to allow persistent replication.
 
 Zzzync works by coupling an immutable storage network with mutable pointers.
 It uploads updated replicas to a storage network and has the pointer resolve to the roots of a Merkle-DAG.
