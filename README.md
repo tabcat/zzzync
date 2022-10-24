@@ -10,6 +10,6 @@
 
 This is replicator module for [Opal](https://github.com/cypsela/opal) that allows for persistent replication. Persistent replication is a way to replicate data that uses data types and protocols with persistence in mind.
 
-Zzzync works by coupling an immutable storage network with a mutable, signed pointer.
-It uploads updated replicas to a storage network and has the pointer resolve to the Merkle-DAG heads of the replica.
+Zzzync works by coupling an immutable storage network with mutable pointers.
+It uploads updated replicas to a storage network and has the pointer resolve to the roots of a Merkle-DAG.
 IPNS/IPFS pinning services will be used in the short term, with the goal of moving toward services like ENS/Filecoin.
