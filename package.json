@@ -15,10 +15,10 @@
     "type": "git",
     "url": ""
   },
-  "author": "",
+  "author": /"",
   "license": "(MIT OR Apache-2.0)",
   "bugs": {
-    "url": ""
+    "url": /""
   },
   "homepage": "",
   "devDependencies": {
