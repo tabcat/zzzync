@@ -8,8 +8,7 @@
 
 > sync with peers that have gone to sleep Zzz
 
-This is replicator module for [Opal](https://github.com/cypsela/opal), built to allow persistent replication.
+This is a replicator module for [Welo](https://github.com/hldb/welo).
 
-Zzzync works by coupling an immutable storage network with mutable pointers.
-It uploads updated replicas to a storage network and has the pointer resolve to the roots of a Merkle-DAG.
-IPNS/IPFS pinning services will be used in the short term, with the goal of moving toward services like ENS/Filecoin.
+Zzzync couples an immutable storage network (IPFS) with signed, versioned documents (IPNS) to backup [HLDB](https://github.com/hldb) replicas.
+Database replica data can remain available while the node is offline after the IPFS/IPNS data and record have been pinned.
