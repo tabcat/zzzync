@@ -1,8 +1,11 @@
 {
-  "name": "ts-project-name",
+  "name": "zzzync",
   "version": "1.0.0",
-  "description": "ts project description",
-  "main": "src/index.ts",
+  "description": "offline replicator module for welo",
+  "main": "dist/src/index.js",
+  "files": [
+    "dist/src"
+  ],
   "scripts": {
     "lint": "eslint src test",
     "build": "tsc",
@@ -13,14 +16,14 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/tabcat/zzzync.git"
   },
-  "author": /"",
+  "author": "tabcat <tabcat00@proton.me>",
   "license": "(MIT OR Apache-2.0)",
   "bugs": {
-    "url": /""
+    "url": "https://github.com/tabcat/zzzync/issues"
   },
-  "homepage": "",
+  "homepage": "https://github.com/tabcat/zzzync",
   "devDependencies": {
     "@types/mocha": "^10.0.0",
     "c8": "^7.12.0",
