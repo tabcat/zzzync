@@ -12,4 +12,4 @@ This is a replicator module for [Welo](https://github.com/hldb/welo).
 
 Zzzync uses an immutable storage network (IPFS) with signed, versioned documents (IPNS) to backup [HLDB](https://github.com/hldb) replicas.
 Nodes upload their replicas and point the the latest version using IPFS/IPNS pinning services.
-Afterwards data remains available while the node is offline. after the IPFS/IPNS replica and record have been pinned.
+Afterwards the pinned data and name remain available while the node is offline.
