@@ -1,0 +1,26 @@
+{
+  "name": "zzzync",
+  "version": "1.0.0",
+  "description": "replication protocol over IPLD, IPNS, and IPFS Provider Records",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tabcat/zzzync.git"
+  },
+  "keywords": [
+    "IPFS",
+    "IPLD",
+    "IPNS",
+    "DHT",
+    "replication"
+  ],
+  "author": "tabcat <tabcat00@proton.me>",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/tabcat/zzzync/issues"
+  },
+  "homepage": "https://github.com/tabcat/zzzync#readme"
+}
