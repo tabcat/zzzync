@@ -14,6 +14,8 @@ sync with peers that have gone to sleep 😴
 
 ---
 
+### There's not much here yet but will be developing this heavily for the next 1.5 months
+
 Zzzync uses [IPLD](https://ipld.io/), [IPNS](https://docs.ipfs.tech/concepts/ipns/), and [Provider Records](https://docs.ipfs.tech/concepts/dht/) to replicate dynamic content over IPFS. Read about the design in [tabcat/dynamic-content](https://github.com/tabcat/dynamic-content).
 
 IPLD is used to store replica data
