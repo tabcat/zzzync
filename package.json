@@ -51,5 +51,10 @@
   },
   "typedoc": {
     "entryPoint": "./src/index.ts"
+  },
+  "dependencies": {
+    "@libp2p/kad-dht": "^9.2.0",
+    "ipns": "^6.0.0",
+    "multiformats": "^11.0.2"
   }
 }
