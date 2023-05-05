@@ -1,10 +1,33 @@
 {
   "name": "zzzync",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "replication protocol over IPLD, IPNS, and IPFS Provider Records",
+  "type": "module",
+  "files": [
+    "dist/src",
+    "!**/*.tsbuildinfo"
+  ],
+  "eslintConfig": {
+    "extends": "ipfs",
+    "parserOptions": {
+      "sourceType": "module"
+    }
+  },
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "clean": "aegir clean",
+    "lint": "aegir lint",
+    "dep-check": "aegir dep-check",
+    "build": "aegir build",
+    "docs": "aegir docs",
+    "test": "aegir test",
+    "test:chrome": "aegir test -t browser --cov",
+    "test:chrome-webworker": "aegir test -t webworker",
+    "test:firefox": "aegir test -t browser -- --browser firefox",
+    "test:firefox-webworker": "aegir test -t webworker -- --browser firefox",
+    "test:node": "aegir test -t node --cov",
+    "test:electron-main": "aegir test -t electron-main",
+    "release": "aegir release"
   },
   "repository": {
     "type": "git",
@@ -22,5 +45,11 @@
   "bugs": {
     "url": "https://github.com/tabcat/zzzync/issues"
   },
-  "homepage": "https://github.com/tabcat/zzzync#readme"
+  "homepage": "https://github.com/tabcat/zzzync#readme",
+  "devDependencies": {
+    "aegir": "^39.0.5"
+  },
+  "typedoc": {
+    "entryPoint": "./src/index.ts"
+  }
 }
