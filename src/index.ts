@@ -7,13 +7,14 @@
  * ```
  */
 
+import type { PeerId } from '@libp2p/interface-peer-id'
 import type { QueryEvent } from '@libp2p/kad-dht'
 import type { IPNSEntry } from 'ipns'
 import type { CID } from 'multiformats/cid'
 
 export interface Namer {
-  publish: (key: string, value: string) => Promise<IPNSEntry>
-  resolve: (key: string) => Promise<IPNSEntry>
+  publish: (key: PeerId, value: CID) => Promise<IPNSEntry>
+  resolve: (key: PeerId) => Promise<CID>
 }
 
 export interface Advertiser {
