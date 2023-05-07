@@ -53,6 +53,7 @@
     "entryPoint": "./src/index.ts"
   },
   "dependencies": {
+    "@helia/interface": "^1.0.0",
     "@helia/ipns": "^1.1.1",
     "@libp2p/interface-dht": "^2.0.3",
     "@libp2p/interface-peer-id": "^2.0.2",
