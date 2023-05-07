@@ -7,8 +7,8 @@
  * ```
  */
 
+import type { QueryEvent } from '@libp2p/interface-dht'
 import type { PeerId } from '@libp2p/interface-peer-id'
-import type { QueryEvent } from '@libp2p/kad-dht'
 import type { IPNSEntry } from 'ipns'
 import type { CID } from 'multiformats/cid'
 
@@ -18,8 +18,8 @@ export interface Namer {
 }
 
 export interface Advertiser {
-  collaborate: (cid: CID) => AsyncIterable<QueryEvent>
-  findCollaborators: (cid: CID) => AsyncIterable<QueryEvent>
+  collaborate: (dcid: CID, provider: PeerId) => AsyncIterable<QueryEvent>
+  findCollaborators: (dcid: CID) => AsyncIterable<QueryEvent>
 }
 
 export interface Zzzync {
