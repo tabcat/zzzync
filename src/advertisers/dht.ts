@@ -13,7 +13,7 @@ const collaborate = (libp2p: Libp2p) =>
     const finalPeers: FinalPeerEvent[] = (await all(libp2p.dht.getClosestPeers(dcid.multihash.bytes)))
       .filter((event): event is FinalPeerEvent => event.name === 'FINAL_PEER')
     const ephemeral: Libp2p = await createLibp2p(libp2pOptions(provider))
-    await Promise.race(finalPeers.map(async (event: FinalPeerEvent) => ephemeral.dial(event.peer.multiaddrs)))
+    await Promise.race(finalPeers.map(async (event: FinalPeerEvent) => ephemeral.dialProtocol(event.peer.multiaddrs, '/ipfs/kad/1.0.0')))
     yield * ephemeral.dht.provide(dcid)
   }
 
