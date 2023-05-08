@@ -4,11 +4,11 @@ import all from 'it-all'
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p'
 import type { Advertiser } from '../index.js'
 import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
-import type { PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
 const collaborate = (libp2p: Libp2p) =>
-  async function * (dcid: CID, provider: PeerId): AsyncIterable<QueryEvent> {
+  async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
     // quick and dirty
     const finalPeers: FinalPeerEvent[] = (await all(libp2p.dht.getClosestPeers(dcid.multihash.bytes)))
       .filter((event): event is FinalPeerEvent => event.name === 'FINAL_PEER')
@@ -29,7 +29,7 @@ export function advertiser (libp2p: Libp2p): Advertiser {
   }
 }
 
-const libp2pOptions = (peerId: PeerId): Libp2pOptions => {
+const libp2pOptions = (peerId: Ed25519PeerId): Libp2pOptions => {
   return {
     peerId,
     datastore: new MemoryDatastore(),
