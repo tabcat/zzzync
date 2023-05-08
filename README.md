@@ -14,7 +14,7 @@ sync with peers that have gone to sleep 😴
 
 ---
 
-### There's not much here yet but will be developing this heavily over the next 1.5 months
+### There's not much here yet but will be [developed over the next 1.5 months](https://github.com/tabcat/zzzync/issues/6)
 
 Zzzync uses [IPLD](https://ipld.io/), [IPNS](https://docs.ipfs.tech/concepts/ipns/), and [Provider Records](https://docs.ipfs.tech/concepts/dht/) to replicate dynamic content over IPFS. Read about the design in [tabcat/dynamic-content](https://github.com/tabcat/dynamic-content).
 
