@@ -5,7 +5,7 @@ import type { Helia } from '@helia/interface'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
-const publish = (ipns: IPNS) => async (peerId: Ed25519PeerId, value: CID) => ipns.publish(peerId, value)
+const publish = (ipns: IPNS) => async (peerId: Ed25519PeerId, value: CID) => { void ipns.publish(peerId, value) }
 
 const resolve = (ipns: IPNS) => async (peerId: Ed25519PeerId) => ipns.resolve(peerId)
 

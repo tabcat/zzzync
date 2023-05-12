@@ -9,11 +9,10 @@
 
 import type { QueryEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
-import type { IPNSEntry } from 'ipns'
 import type { CID } from 'multiformats/cid'
 
 export interface Namer {
-  publish: (key: Ed25519PeerId, value: CID) => Promise<IPNSEntry>
+  publish: (key: Ed25519PeerId, value: CID) => Promise<void>
   resolve: (key: Ed25519PeerId) => Promise<CID>
 }
 
