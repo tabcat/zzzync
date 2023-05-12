@@ -19,7 +19,7 @@ const publish =
   (service: W3NameService, revisions: RevisionState): Namer['publish'] =>
     async (peerId: Ed25519PeerId, value: CID) => {
       if (peerId.privateKey == null) {
-        throw new Error()
+        throw new Error('namers/w3: unable to publish, peerId.privateKey undefined')
       }
 
       const name = new Name.WritableName(await keys.unmarshalPrivateKey(peerId.privateKey))
