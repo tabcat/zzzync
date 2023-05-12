@@ -60,9 +60,12 @@
     "@libp2p/kad-dht": "^9.2.0",
     "datastore-core": "^9.1.1",
     "helia": "^1.0.4",
+    "interface-store": "^5.1.0",
     "ipns": "^6.0.0",
     "it-all": "^3.0.1",
     "libp2p": "^0.44.0",
-    "multiformats": "^11.0.2"
+    "libp2p-crypto": "^0.21.2",
+    "multiformats": "^11.0.2",
+    "w3name": "^1.0.8"
   }
 }
