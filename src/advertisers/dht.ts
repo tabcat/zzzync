@@ -18,8 +18,8 @@ const collaborate = (libp2p: Libp2p) =>
   }
 
 const findCollaborators = (libp2p: Libp2p) =>
-  async function * (cid: CID): AsyncIterable<QueryEvent> {
-    yield * libp2p.dht.findProviders(cid)
+  function (cid: CID): AsyncIterable<QueryEvent> {
+    return libp2p.dht.findProviders(cid)
   }
 
 export function advertiser (libp2p: Libp2p): Advertiser {
