@@ -22,4 +22,6 @@ IPLD is used to store replica data
 IPNS is used to point to the latest version of a collaborator's local replica
 Provider Records are used to find the [peerIDs](https://docs.libp2p.io/concepts/fundamentals/peers/#peer-id) of collaborators, which can be turned into IPNS names
 
+---
+
 This work is being funded as part of a [grant](https://github.com/tabcat/rough-opal) by [Protocol Labs](https://protocol.ai)
