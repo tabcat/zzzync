@@ -7,7 +7,7 @@ import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
-const collaborate = (libp2p: Libp2p) =>
+const collaborate = (libp2p: Libp2p): Advertiser['collaborate'] =>
   async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
     // quick and dirty
     const finalPeers: FinalPeerEvent[] = (await all(libp2p.dht.getClosestPeers(dcid.multihash.bytes)))
@@ -17,7 +17,7 @@ const collaborate = (libp2p: Libp2p) =>
     yield * ephemeral.dht.provide(dcid)
   }
 
-const findCollaborators = (libp2p: Libp2p) =>
+const findCollaborators = (libp2p: Libp2p): Advertiser['findCollaborators'] =>
   function (cid: CID): AsyncIterable<QueryEvent> {
     return libp2p.dht.findProviders(cid)
   }
