@@ -47,7 +47,16 @@
   },
   "homepage": "https://github.com/tabcat/zzzync#readme",
   "devDependencies": {
-    "aegir": "^39.0.5"
+    "aegir": "^39.0.5",
+    "@chainsafe/libp2p-noise": "^11.0.4",
+    "@chainsafe/libp2p-yamux": "^3.0.7",
+    "@libp2p/peer-id-factory": "^2.0.3",
+    "@libp2p/tcp": "^6.1.5",
+    "go-ipfs": "^0.20.0",
+    "ipfsd-ctl": "^13.0.0",
+    "kubo-rpc-client": "^3.0.1",
+    "merge-options": "^3.0.4",
+    "wherearewe": "^2.0.1"
   },
   "typedoc": {
     "entryPoint": "./src/index.ts"
@@ -57,7 +66,7 @@
     "@helia/ipns": "^1.1.1",
     "@libp2p/interface-dht": "^2.0.3",
     "@libp2p/interface-peer-id": "^2.0.2",
-    "@libp2p/kad-dht": "^9.2.0",
+    "@libp2p/kad-dht": "^8.0.6",
     "datastore-core": "^9.1.1",
     "interface-store": "^5.1.0",
     "it-all": "^3.0.1",

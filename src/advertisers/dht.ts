@@ -1,20 +1,25 @@
+import { noise } from '@chainsafe/libp2p-noise'
+import { yamux } from '@chainsafe/libp2p-yamux'
 import { kadDHT } from '@libp2p/kad-dht'
+import { tcp } from '@libp2p/tcp'
 import { MemoryDatastore } from 'datastore-core'
 import all from 'it-all'
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p'
 import type { Advertiser } from '../index.js'
-import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
+import type { DualDHT, QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
 const collaborate = (libp2p: Libp2p): Advertiser['collaborate'] =>
   async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
     // quick and dirty
-    const finalPeers: FinalPeerEvent[] = (await all(libp2p.dht.getClosestPeers(dcid.multihash.bytes)))
-      .filter((event): event is FinalPeerEvent => event.name === 'FINAL_PEER')
+    const finalPeers: FinalPeerEvent[] = await all(
+      libp2p.dht.getClosestPeers(dcid.multihash.bytes)
+    ).then((res: QueryEvent[]) => res.filter((event): event is FinalPeerEvent => event.name === 'FINAL_PEER'))
     const ephemeral: Libp2p = await createLibp2p(libp2pOptions(provider))
-    await Promise.race(finalPeers.map(async (event: FinalPeerEvent) => ephemeral.dialProtocol(event.peer.multiaddrs, '/ipfs/kad/1.0.0')))
+    await Promise.all(finalPeers.map(async (event: FinalPeerEvent) => ephemeral.dialProtocol(event.peer.multiaddrs, '/ipfs/lan/kad/1.0.0')))
     yield * ephemeral.dht.provide(dcid)
+    void ephemeral.stop()
   }
 
 const findCollaborators = (libp2p: Libp2p): Advertiser['findCollaborators'] =>
@@ -33,6 +38,18 @@ const libp2pOptions = (peerId: Ed25519PeerId): Libp2pOptions => {
   return {
     peerId,
     datastore: new MemoryDatastore(),
-    dht: kadDHT({ clientMode: true })
+    addresses: {
+      listen: ['/ip4/0.0.0.0/tcp/0']
+    },
+    transports: [
+      tcp()
+    ],
+    connectionEncryption: [
+      noise()
+    ],
+    streamMuxers: [
+      yamux()
+    ],
+    dht: kadDHT({ clientMode: true }) as unknown as DualDHT
   }
 }
