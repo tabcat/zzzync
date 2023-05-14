@@ -6,7 +6,7 @@ import { MemoryDatastore } from 'datastore-core'
 import all from 'it-all'
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p'
 import type { Advertiser } from '../index.js'
-import type { DualDHT, QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
+import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
@@ -50,6 +50,6 @@ const libp2pOptions = (peerId: Ed25519PeerId): Libp2pOptions => {
     streamMuxers: [
       yamux()
     ],
-    dht: kadDHT({ clientMode: true }) as unknown as DualDHT
+    dht: kadDHT({ clientMode: true })
   }
 }
