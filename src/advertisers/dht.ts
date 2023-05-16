@@ -1,10 +1,6 @@
-import { noise } from '@chainsafe/libp2p-noise'
-import { yamux } from '@chainsafe/libp2p-yamux'
-import { kadDHT } from '@libp2p/kad-dht'
-import { tcp } from '@libp2p/tcp'
-import { MemoryDatastore } from 'datastore-core'
 import all from 'it-all'
-import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p'
+import { type Libp2p, createLibp2p } from 'libp2p'
+import { libp2pOptions } from './ephemeral-libp2p.js'
 import type { Advertiser } from '../index.js'
 import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
@@ -31,25 +27,5 @@ export function advertiser (libp2p: Libp2p): Advertiser {
   return {
     collaborate: collaborate(libp2p),
     findCollaborators: findCollaborators(libp2p)
-  }
-}
-
-const libp2pOptions = (peerId: Ed25519PeerId): Libp2pOptions => {
-  return {
-    peerId,
-    datastore: new MemoryDatastore(),
-    addresses: {
-      listen: ['/ip4/0.0.0.0/tcp/0']
-    },
-    transports: [
-      tcp()
-    ],
-    connectionEncryption: [
-      noise()
-    ],
-    streamMuxers: [
-      yamux()
-    ],
-    dht: kadDHT({ clientMode: true })
   }
 }
