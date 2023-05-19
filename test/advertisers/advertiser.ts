@@ -46,7 +46,7 @@ async function findCollaborators ({ findCollaborators, server, provider, dcid }:
   expect(response?.providers[0].id.equals(provider)).to.equal(true)
 }
 
-export const specs = {
+export const spec = {
   collaborate,
   findCollaborators
 }

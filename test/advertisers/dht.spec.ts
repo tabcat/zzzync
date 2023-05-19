@@ -4,7 +4,7 @@ import { CID } from 'multiformats'
 import * as dhtAdvertiser from '../../src/advertisers/dht.js'
 import { lanKadProtocol } from '../../src/utils/constant.js'
 import { createLibp2pNode } from '../../src/utils/libp2p.js'
-import { specs } from './advertisers.spec.js'
+import { spec } from './advertiser.js'
 import type { Advertiser } from '../../src/index.js'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { Controller } from 'ipfsd-ctl'
@@ -39,7 +39,7 @@ describe('advertisers/dht.ts', () => {
   })
 
   it('advertises non-self peerId as collaborator', async () => {
-    await specs.collaborate({
+    await spec.collaborate({
       collaborate: advertiser.collaborate,
       server: server.peerId as Ed25519PeerId,
       provider,
@@ -48,7 +48,7 @@ describe('advertisers/dht.ts', () => {
   })
 
   it('finds non-self peerId as collaborator', async () => {
-    await specs.collaborate({
+    await spec.collaborate({
       collaborate: advertiser.findCollaborators,
       server: server.peerId as Ed25519PeerId,
       provider,
