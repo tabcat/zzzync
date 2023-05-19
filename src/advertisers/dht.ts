@@ -1,9 +1,11 @@
+import { kadDHT } from '@libp2p/kad-dht'
+import { multiaddr } from '@multiformats/multiaddr'
 import all from 'it-all'
-import { type Libp2p, createLibp2p } from 'libp2p'
-import { libp2pOptions } from './ephemeral-libp2p.js'
+import { createLibp2pNode } from '../utils/libp2p.js'
 import type { Advertiser } from '../index.js'
 import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Libp2p } from 'libp2p'
 import type { CID } from 'multiformats/cid'
 
 const collaborate = (libp2p: Libp2p): Advertiser['collaborate'] =>
@@ -12,8 +14,18 @@ const collaborate = (libp2p: Libp2p): Advertiser['collaborate'] =>
     const finalPeers: FinalPeerEvent[] = await all(
       libp2p.dht.getClosestPeers(dcid.multihash.bytes)
     ).then((res: QueryEvent[]) => res.filter((event): event is FinalPeerEvent => event.name === 'FINAL_PEER'))
-    const ephemeral: Libp2p = await createLibp2p(libp2pOptions(provider))
-    await Promise.all(finalPeers.map(async (event: FinalPeerEvent) => ephemeral.dialProtocol(event.peer.multiaddrs, '/ipfs/lan/kad/1.0.0')))
+
+    const ephemeral: Libp2p = await createLibp2pNode({
+      peerId: provider,
+      dht: kadDHT({ clientMode: true })
+    })
+    await Promise.all(
+      finalPeers.map(
+        async (event: FinalPeerEvent) => ephemeral.dial(
+          event.peer.multiaddrs.map(m => multiaddr(m.toString() + '/p2p/' + event.peer.id.toString()))
+        )
+      )
+    )
     yield * ephemeral.dht.provide(dcid)
     void ephemeral.stop()
   }
