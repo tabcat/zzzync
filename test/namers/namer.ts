@@ -31,12 +31,12 @@ interface UpdateOptions extends PublishOptions, ResolveOptions {
 }
 
 async function update ({ publish, resolve, key, value, newValue }: UpdateOptions): Promise<void> {
-  await specs.resolve({ resolve, key, value })
-  await specs.publish({ publish, key, value: newValue })
-  await specs.resolve({ resolve, key, value: newValue })
+  await spec.resolve({ resolve, key, value })
+  await spec.publish({ publish, key, value: newValue })
+  await spec.resolve({ resolve, key, value: newValue })
 }
 
-export const specs = {
+export const spec = {
   publish,
   resolve,
   update
