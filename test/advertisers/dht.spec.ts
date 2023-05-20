@@ -45,8 +45,8 @@ describe('advertisers/dht.ts', () => {
   })
 
   it('finds non-self peerId as collaborator', async () => {
-    await spec.collaborate({
-      collaborate: advertiser.findCollaborators,
+    await spec.findCollaborators({
+      findCollaborators: advertiser.findCollaborators,
       server: server.peerId as Ed25519PeerId,
       provider,
       dcid
