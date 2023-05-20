@@ -11,7 +11,7 @@ import type { Helia } from '@helia/interface'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { CID } from 'multiformats/cid'
 
-describe('advertisers/dht.ts', () => {
+describe('namers/ipns.ts', () => {
   let
     client: Helia,
     server: Helia,
