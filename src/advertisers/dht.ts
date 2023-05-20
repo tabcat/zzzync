@@ -1,6 +1,7 @@
 import { kadDHT } from '@libp2p/kad-dht'
 import { multiaddr } from '@multiformats/multiaddr'
 import all from 'it-all'
+import { kadProtocol } from '../utils/constant.js'
 import { createLibp2pNode } from '../utils/libp2p.js'
 import type { Advertiser } from '../index.js'
 import type { QueryEvent, FinalPeerEvent } from '@libp2p/interface-dht'
@@ -21,8 +22,9 @@ const collaborate = (libp2p: Libp2p): Advertiser['collaborate'] =>
     })
     await Promise.all(
       finalPeers.map(
-        async (event: FinalPeerEvent) => ephemeral.dial(
-          event.peer.multiaddrs.map(m => multiaddr(m.toString() + '/p2p/' + event.peer.id.toString()))
+        async (event: FinalPeerEvent) => ephemeral.dialProtocol(
+          event.peer.multiaddrs.map(m => multiaddr(m.toString() + '/p2p/' + event.peer.id.toString())),
+          kadProtocol
         )
       )
     )
