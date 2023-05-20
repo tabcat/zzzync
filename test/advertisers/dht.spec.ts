@@ -7,14 +7,12 @@ import { createLibp2pNode } from '../../src/utils/libp2p.js'
 import { spec } from './advertiser.js'
 import type { Advertiser } from '../../src/index.js'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
-import type { Controller } from 'ipfsd-ctl'
 import type { Libp2p } from 'libp2p'
 
 describe('advertisers/dht.ts', () => {
   let
     client: Libp2p,
     server: Libp2p,
-    kubo: Controller,
     advertiser: Advertiser,
     dcid: CID,
     provider: Ed25519PeerId
@@ -35,7 +33,6 @@ describe('advertisers/dht.ts', () => {
   after(async () => {
     await client.stop()
     await server.stop()
-    if (kubo !== null) await kubo.stop()
   })
 
   it('advertises non-self peerId as collaborator', async () => {
