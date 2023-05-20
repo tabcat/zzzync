@@ -78,6 +78,6 @@
     "w3name": "^1.0.8"
   },
   "browser": {
-    "./dist/src/utils/libp2p.js": "./dist/src/utils/libp2p.browser.js",
+    "./dist/src/utils/libp2p.js": "./dist/src/utils/libp2p.browser.js"
   }
 }
