@@ -37,7 +37,7 @@ describe('namers/w3.ts', () => {
   after(async () => {
   })
 
-  it('advertises non-self peerId as collaborator', async () => {
+  it('publishes name/value pair', async () => {
     await spec.publish({
       publish: namer.publish,
       key,
@@ -45,7 +45,7 @@ describe('namers/w3.ts', () => {
     })
   })
 
-  it('finds non-self peerId as collaborator', async () => {
+  it('resolve name/value pair', async () => {
     await spec.resolve({
       resolve: namer.resolve,
       key,
@@ -53,7 +53,7 @@ describe('namers/w3.ts', () => {
     })
   })
 
-  it('updates the value for a name', async () => {
+  it('updates name/value pair', async () => {
     await spec.update({
       publish: namer.publish,
       resolve: namer.resolve,

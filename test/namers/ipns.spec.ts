@@ -39,7 +39,7 @@ describe('namers/ipns.ts', () => {
     await server.stop()
   })
 
-  it('advertises non-self peerId as collaborator', async () => {
+  it('publishes name/value pair', async () => {
     await spec.publish({
       publish: namer.publish,
       key,
@@ -47,7 +47,7 @@ describe('namers/ipns.ts', () => {
     })
   })
 
-  it('finds non-self peerId as collaborator', async () => {
+  it('resolves name/value pair', async () => {
     await spec.resolve({
       resolve: namer.resolve,
       key,
@@ -55,7 +55,7 @@ describe('namers/ipns.ts', () => {
     })
   })
 
-  it('updates the value for a name', async () => {
+  it('updates name/value pair', async () => {
     await spec.update({
       publish: namer.publish,
       resolve: namer.resolve,
