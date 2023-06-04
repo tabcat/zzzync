@@ -1,10 +1,10 @@
-import { kadDHT } from '@libp2p/kad-dht'
+// import { kadDHT } from '@libp2p/kad-dht'
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { createHelia } from 'helia'
 import * as ipnsNamer from '../../src/namers/ipns.js'
 import { lanKadProtocol } from '../../src/utils/constant.js'
-import { createLibp2pNode } from '../../src/utils/libp2p.js'
 import { createCID } from '../utils/create-cid.js'
+import { createLibp2pNode } from '../utils/create-libp2p.js'
 import { spec } from './namer.js'
 import type { Namer } from '../../src/index.js'
 import type { Helia } from '@helia/interface'
@@ -22,10 +22,10 @@ describe('namers/ipns.ts', () => {
 
   before(async () => {
     client = await createHelia({
-      libp2p: await createLibp2pNode({ dht: kadDHT({ clientMode: true }) })
+      libp2p: await createLibp2pNode()
     })
     server = await createHelia({
-      libp2p: await createLibp2pNode({ dht: kadDHT({ clientMode: false }) })
+      libp2p: await createLibp2pNode()
     })
     await client.libp2p.dialProtocol(server.libp2p.getMultiaddrs(), lanKadProtocol)
     namer = ipnsNamer.namer(client)

@@ -1,31 +1,39 @@
-import { kadDHT } from '@libp2p/kad-dht'
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { CID } from 'multiformats'
 import * as dhtAdvertiser from '../../src/advertisers/dht.js'
 import { lanKadProtocol } from '../../src/utils/constant.js'
-import { createLibp2pNode } from '../../src/utils/libp2p.js'
+import { createLibp2pNode } from '../utils/create-libp2p.js'
 import { spec } from './advertiser.js'
+import type { CreateEphemeralLibp2p, Libp2pWithDHT } from '../../src/advertisers/dht.js'
 import type { Advertiser } from '../../src/index.js'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
-import type { Libp2p } from 'libp2p'
+import type { Multiaddr } from '@multiformats/multiaddr'
 
 describe('advertisers/dht.ts', () => {
   let
-    client: Libp2p,
-    server: Libp2p,
+    client: Libp2pWithDHT,
+    server: Libp2pWithDHT,
     advertiser: Advertiser,
     dcid: CID,
-    provider: Ed25519PeerId
+    provider: Ed25519PeerId,
+    addrs: Multiaddr[]
+
+  const createEphemeralLibp2p: CreateEphemeralLibp2p = async (peerId: Ed25519PeerId): Promise<Libp2pWithDHT> => {
+    const libp2p = await createLibp2pNode({
+      peerId
+    })
+
+    await libp2p.dialProtocol(addrs, lanKadProtocol)
+
+    return libp2p
+  }
 
   before(async () => {
-    client = await createLibp2pNode({
-      dht: kadDHT({ clientMode: true })
-    })
-    server = await createLibp2pNode({
-      dht: kadDHT({ clientMode: false })
-    })
-    await client.dialProtocol(server.getMultiaddrs(), lanKadProtocol)
-    advertiser = dhtAdvertiser.advertiser(client)
+    client = await createLibp2pNode()
+    server = await createLibp2pNode()
+    addrs = server.getMultiaddrs()
+    await client.dialProtocol(addrs, lanKadProtocol)
+    advertiser = dhtAdvertiser.advertiser(client, createEphemeralLibp2p)
     provider = await createEd25519PeerId()
     dcid = CID.parse('bafyreihypffwyzhujryetatiy5imqq3p4mokuz36xmgp7wfegnhnjhwrsq')
   })

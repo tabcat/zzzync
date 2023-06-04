@@ -1,7 +1,7 @@
 import { expect } from 'aegir/chai'
 import type { Advertiser } from '../../src'
-import type { PeerResponseEvent } from '@libp2p/interface-dht'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { PeerResponseEvent } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 
 interface AdvertiserOptions {
@@ -18,7 +18,7 @@ async function collaborate ({ collaborate, server, dcid, provider }: Collaborate
   let response: PeerResponseEvent | undefined
   for await (const event of collaborate(dcid, provider)) {
     if (event.name === 'PEER_RESPONSE' && event.messageName === 'ADD_PROVIDER') {
-      if (event.from.equals(server)) {
+      if (event.from.equals(server) === true) {
         response = event
       }
     }
@@ -35,8 +35,9 @@ async function findCollaborators ({ findCollaborators, server, provider, dcid }:
   let response: PeerResponseEvent | undefined
   for await (const event of findCollaborators(dcid)) {
     if (event.name === 'PEER_RESPONSE' && event.messageName === 'GET_PROVIDERS') {
-      if (event.from.equals(server)) {
+      if (event.from.equals(server) === true) {
         response = event
+        break // findCollaborators never done
       }
     }
   }
