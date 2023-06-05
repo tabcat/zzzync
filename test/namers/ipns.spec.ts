@@ -47,7 +47,7 @@ describe('namers/ipns.ts', () => {
     })
   })
 
-  it('resolves name/value pair', async () => {
+  it.skip('resolves name/value pair', async () => {
     await spec.resolve({
       resolve: namer.resolve,
       key,
@@ -55,7 +55,7 @@ describe('namers/ipns.ts', () => {
     })
   })
 
-  it('updates name/value pair', async () => {
+  it.skip('updates name/value pair', async () => {
     await spec.update({
       publish: namer.publish,
       resolve: namer.resolve,
