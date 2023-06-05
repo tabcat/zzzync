@@ -5,7 +5,7 @@ import { CID } from 'multiformats/cid'
 import * as Name from 'w3name'
 import type { Namer } from '../index.js'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
-import type { BaseDatastore } from 'datastore-core'
+import type { Datastore } from 'interface-datastore'
 import type { Await } from 'interface-store'
 import type W3NameService from 'w3name/service'
 
@@ -14,7 +14,7 @@ interface RevisionState {
   set: (peerId: Ed25519PeerId, revision: Name.Revision) => Await<void>
 }
 
-export const revisionState = (datastore: BaseDatastore): RevisionState => {
+export const revisionState = (datastore: Datastore): RevisionState => {
   const get: RevisionState['get'] = (peerId): Await<Name.Revision | undefined> => {
     try {
       const datastoreGet = datastore.get(new Key(peerId.toString()))
