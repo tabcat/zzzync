@@ -1,5 +1,5 @@
 {
-  "name": "zzzync",
+  "name": "@tabcat/zzzync",
   "version": "0.0.0",
   "description": "replication protocol over IPLD, IPNS, and IPFS Provider Records",
   "type": "module",
