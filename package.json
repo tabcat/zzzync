@@ -26,8 +26,7 @@
     "test:firefox": "aegir test -b -t browser -- --browser firefox",
     "test:firefox-webworker": "aegir test -b -t webworker -- --browser firefox",
     "test:node": "aegir test -b -t node --cov",
-    "test:electron-main": "aegir test -b -t electron-main",
-    "release": "aegir release"
+    "test:electron-main": "aegir test -b -t electron-main"
   },
   "repository": {
     "type": "git",
