@@ -18,7 +18,7 @@ async function collaborate ({ collaborate, server, dcid, provider }: Collaborate
   let response: PeerResponseEvent | undefined
   for await (const event of collaborate(dcid, provider)) {
     if (event.name === 'PEER_RESPONSE' && event.messageName === 'ADD_PROVIDER') {
-      if (event.from.equals(server) === true) {
+      if (event.from.equals(server)) {
         response = event
       }
     }
@@ -35,7 +35,7 @@ async function findCollaborators ({ findCollaborators, server, provider, dcid }:
   let response: PeerResponseEvent | undefined
   for await (const event of findCollaborators(dcid)) {
     if (event.name === 'PEER_RESPONSE' && event.messageName === 'GET_PROVIDERS') {
-      if (event.from.equals(server) === true) {
+      if (event.from.equals(server)) {
         response = event
         break // findCollaborators never done
       }
