@@ -28,6 +28,7 @@
     }
   },
   "scripts": {
+    "prepublishOnly": "npm run build",
     "clean": "aegir clean",
     "lint": "aegir lint",
     "dep-check": "aegir dep-check",
