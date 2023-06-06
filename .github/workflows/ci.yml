@@ -95,7 +95,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
       - run: |
           npm version `node -p -e "require('./package.json').version"`-`git rev-parse --short HEAD` --no-git-tag-version
-          npm publish --tag next
+          npm publish --tag next --access public
         if: ${{ !steps.release.outputs.release_created }}
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
