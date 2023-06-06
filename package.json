@@ -13,7 +13,20 @@
       "sourceType": "module"
     }
   },
-  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./advertisers": {
+      "types": "./dist/src/advertisers/index.d.ts",
+      "import": "./dist/src/advertisers/index.js"
+    },
+    "./namers": {
+      "types": "./dist/src/namers/index.d.ts",
+      "import": "./dist/src/namers/index.js"
+    }
+  },
   "scripts": {
     "clean": "aegir clean",
     "lint": "aegir lint",
