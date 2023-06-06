@@ -3,6 +3,23 @@
   "version": "0.0.0",
   "description": "replication protocol over IPLD, IPNS, and IPFS Provider Records",
   "type": "module",
+  "types": "./dist/src/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "*",
+        "dist/*",
+        "dist/src/*",
+        "dist/src/*/index"
+      ],
+      "src/*": [
+        "*",
+        "dist/*",
+        "dist/src/*",
+        "dist/src/*/index"
+      ]
+    }
+  },
   "files": [
     "dist/src",
     "!**/*.tsbuildinfo"
