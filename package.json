@@ -16,7 +16,7 @@
   "main": "index.js",
   "scripts": {
     "clean": "aegir clean",
-    "lint": "aegir lint",
+    "lint": "npm run build && aegir lint",
     "dep-check": "aegir dep-check",
     "build": "aegir build",
     "docs": "aegir docs",
