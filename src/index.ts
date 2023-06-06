@@ -26,7 +26,7 @@ export interface Zzzync {
   advertiser: Advertiser
 }
 
-class DefaultZzzync implements DefaultZzzync {
+class DefaultZzzync implements Zzzync {
   readonly namer: Namer
   readonly advertiser: Advertiser
 
@@ -42,6 +42,6 @@ class DefaultZzzync implements DefaultZzzync {
 export function zzzync (
   namer: Namer,
   advertiser: Advertiser
-): DefaultZzzync {
+): Zzzync {
   return new DefaultZzzync(namer, advertiser)
 }
