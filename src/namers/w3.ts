@@ -9,7 +9,7 @@ import type { Datastore } from 'interface-datastore'
 import type { Await } from 'interface-store'
 import type W3NameService from 'w3name/service'
 
-interface RevisionState {
+export interface RevisionState {
   get: (peerId: Ed25519PeerId) => Await<Name.Revision | undefined>
   set: (peerId: Ed25519PeerId, revision: Name.Revision) => Await<void>
 }
