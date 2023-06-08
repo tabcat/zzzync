@@ -11,6 +11,8 @@ import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
 import type { QueryEvent } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 
+export { toDcid } from './dcid.js'
+
 export interface Namer {
   publish: (key: Ed25519PeerId, value: CID) => Promise<void>
   resolve: (key: Ed25519PeerId) => Promise<CID>
