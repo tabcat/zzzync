@@ -1,6 +1,5 @@
 import { Key } from 'interface-datastore'
 import { keys } from 'libp2p-crypto'
-import { base32 } from 'multiformats/bases/base32'
 import { CID } from 'multiformats/cid'
 import * as Name from 'w3name'
 import type { Namer } from '../index.js'
@@ -54,7 +53,7 @@ const publish =
 
       const name = new Name.WritableName(await keys.unmarshalPrivateKey(peerId.privateKey))
 
-      const revisionValue = value.toString(base32)
+      const revisionValue = `/ipfs/${value.toString()}`
       const existing = await revisions.get(peerId)
       let updated: Name.Revision
       if (existing == null) {
