@@ -13,6 +13,8 @@ export interface RevisionState {
   set: (peerId: Ed25519PeerId, revision: Name.Revision) => Await<void>
 }
 
+const ipfsPrefix = '/ipfs/'
+
 export const revisionState = (datastore: Datastore): RevisionState => {
   const get: RevisionState['get'] = (peerId): Await<Name.Revision | undefined> => {
     try {
@@ -53,7 +55,7 @@ const publish =
 
       const name = new Name.WritableName(await keys.unmarshalPrivateKey(peerId.privateKey))
 
-      const revisionValue = `/ipfs/${value.toString()}`
+      const revisionValue = `${ipfsPrefix}${value.toString()}`
       const existing = await revisions.get(peerId)
       let updated: Name.Revision
       if (existing == null) {
@@ -69,7 +71,7 @@ const resolve =
   (service: W3NameService): Namer['resolve'] =>
     async (peerId: Ed25519PeerId) =>
       Name.resolve(pid2Name(peerId), service)
-        .then((revision: Name.Revision) => CID.parse(revision.value))
+        .then((revision: Name.Revision) => CID.parse(revision.value.slice(ipfsPrefix.length)))
 
 export function namer (service: W3NameService, revisions: RevisionState): Namer {
   return {
