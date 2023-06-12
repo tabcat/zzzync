@@ -11,12 +11,8 @@ const DCOI_KEY = fromString('/dcoi/')
 const routingKey = (cid: CID): Uint8Array => concat([DCOI_KEY, cid.multihash.bytes])
 
 // Use CID as Routing Key to make APIs easier to work with
-export function toDcid (cid: CID): CID {
-  const digest = sha256.digest(routingKey(cid))
-
-  if (digest instanceof Promise) {
-    throw new Error('unexpected asynchronous digest')
-  }
+export async function toDcid (cid: CID): Promise<CID> {
+  const digest = await sha256.digest(routingKey(cid))
 
   const dcid = CID.create(1, raw.code, digest)
 
