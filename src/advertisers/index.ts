@@ -1,1 +1,1 @@
-export * from './dht.js'
+export { dht } from './dht.js'

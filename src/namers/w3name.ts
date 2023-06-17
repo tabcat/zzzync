@@ -67,13 +67,14 @@ const publish =
 
       await Name.publish(updated, name.key)
     }
+
 const resolve =
   (service: W3NameService): Namer['resolve'] =>
     async (peerId: Ed25519PeerId) =>
       Name.resolve(pid2Name(peerId), service)
         .then((revision: Name.Revision) => CID.parse(revision.value.slice(ipfsPrefix.length)))
 
-export function namer (service: W3NameService, revisions: RevisionState): Namer {
+export function w3name (service: W3NameService, revisions: RevisionState): Namer {
   return {
     publish: publish(service, revisions),
     resolve: resolve(service)

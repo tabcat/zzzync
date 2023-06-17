@@ -20,7 +20,7 @@ const findCollaborators = (libp2p: Libp2pWithDHT): Advertiser['findCollaborators
     return libp2p.services.dht.findProviders(dcid)
   }
 
-export function advertiser (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p): Advertiser {
+export function dht (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p): Advertiser {
   return {
     collaborate: collaborate(createEphemeralLibp2p),
     findCollaborators: findCollaborators(libp2p)

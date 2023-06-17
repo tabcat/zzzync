@@ -28,7 +28,7 @@ describe.skip('namers/ipns.ts', () => {
       libp2p: await createLibp2pNode()
     })
     await client.libp2p.dialProtocol(server.libp2p.getMultiaddrs(), lanKadProtocol)
-    namer = ipnsNamer.namer(client)
+    namer = ipnsNamer.ipnsNamer(client)
     key = await createEd25519PeerId()
     value = await createCID()
     newValue = await createCID()

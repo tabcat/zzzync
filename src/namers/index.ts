@@ -1,4 +1,4 @@
-export * from './w3.js'
+export { w3name } from './w3name.js'
 
 // not ready
-// export * from './ipns.js'
+// export { ipns } from './ipns.js'

@@ -11,7 +11,7 @@ const publish = (ipns: IPNS): Namer['publish'] =>
 const resolve = (ipns: IPNS): Namer['resolve'] =>
   async (peerId: Ed25519PeerId) => ipns.resolve(peerId)
 
-export function namer (helia: Helia): Namer {
+export function ipnsNamer (helia: Helia): Namer {
   const ns = ipns(helia, [dht(helia)])
 
   return {
