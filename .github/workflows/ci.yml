@@ -86,6 +86,9 @@ jobs:
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
+      - run: npx aegir docs --publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The logic below handles the npm publication:
       # these if statements ensure that a publication only occurs when
       # a new release is created:
