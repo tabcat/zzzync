@@ -4,7 +4,7 @@ import { sha256 } from 'multiformats/hashes/sha2'
 import { concat } from 'uint8arrays/concat'
 import { fromString } from 'uint8arrays/from-string'
 
-// dynamic content on ipfs
+// dynamic content over ipfs
 const DCOI_KEY = fromString('/dcoi/')
 
 // similar to ipns routing key in js-ipns
