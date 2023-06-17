@@ -26,6 +26,10 @@ Provider Records are used to find the [peerIDs](https://docs.libp2p.io/concepts/
 
 https://tabcat.github.io/zzzync/
 
+## Spec
+
+https://github.com/tabcat/zzzync/blob/master/spec.md
+
 ---
 
 This work is being funded as part of a [grant](https://github.com/tabcat/rough-opal) by [Protocol Labs](https://protocol.ai)
