@@ -11,13 +11,13 @@ export interface CreateEphemeralLibp2p { (peerId: Ed25519PeerId): Promise<Libp2p
 const collaborate = (createEphemeralLibp2p: CreateEphemeralLibp2p): Advertiser['collaborate'] =>
   async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
     const ephemeral = await createEphemeralLibp2p(provider)
-    yield * ephemeral.services.dht.provide(dcid)
+    yield * ephemeral.services.dht.lan.provide(dcid)
     void ephemeral.stop()
   }
 
 const findCollaborators = (libp2p: Libp2pWithDHT): Advertiser['findCollaborators'] =>
   function (dcid: CID): AsyncIterable<QueryEvent> {
-    return libp2p.services.dht.findProviders(dcid)
+    return libp2p.services.dht.lan.findProviders(dcid)
   }
 
 export function dht (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p): Advertiser {
