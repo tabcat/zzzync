@@ -35,13 +35,13 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     },
-    "./advertisers": {
-      "types": "./dist/src/advertisers/index.d.ts",
-      "import": "./dist/src/advertisers/index.js"
+    "./advertisers/dht": {
+      "types": "./dist/src/advertisers/dht.d.ts",
+      "import": "./dist/src/advertisers/dht.js"
     },
-    "./namers": {
-      "types": "./dist/src/namers/index.d.ts",
-      "import": "./dist/src/namers/index.js"
+    "./namers/w3name": {
+      "types": "./dist/src/namers/w3name.d.ts",
+      "import": "./dist/src/namers/w3name.js"
     }
   },
   "scripts": {
