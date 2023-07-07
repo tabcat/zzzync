@@ -29,7 +29,8 @@ interface Options {
   scope?: Scope
 }
 
-export function dht (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p, options: Options): Advertiser {
+export function dht (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p, options?: Options): Advertiser {
+  options = options ?? {}
   return {
     collaborate: collaborate(createEphemeralLibp2p, options),
     findCollaborators: findCollaborators(libp2p, options)
