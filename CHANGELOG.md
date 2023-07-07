@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/tabcat/zzzync/compare/v1.0.0...v1.1.0) (2023-07-07)
+
+
+### Features
+
+* optionally scope the dht to lan|wan ([a835682](https://github.com/tabcat/zzzync/commit/a83568280dd201cd1f597f1332c63e12fd87dc83))
+
+
+### Bug Fixes
+
+* make dht options optional ([90c6c30](https://github.com/tabcat/zzzync/commit/90c6c30e73994851944443bbcc07328b6a9a461a))
+
 ## 1.0.0 (2023-06-17)
 
 
