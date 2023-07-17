@@ -18,7 +18,7 @@ const collaborate = (createEphemeralLibp2p: CreateEphemeralLibp2p, options: Opti
     const { stop, libp2p: ephemeral } = await createEphemeralLibp2p(provider)
     yield * scopedDht(ephemeral, options.scope).provide(dcid)
     if (stop != null) {
-      stop(ephemeral)
+      await stop(ephemeral)
     }
   }
 
