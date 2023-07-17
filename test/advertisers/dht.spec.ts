@@ -1,3 +1,4 @@
+import { stop } from '@libp2p/interfaces/startable'
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { CID } from 'multiformats'
 import * as dhtAdvertiser from '../../src/advertisers/dht.js'
@@ -18,14 +19,17 @@ describe('advertisers/dht.ts', () => {
     provider: Ed25519PeerId,
     addrs: Multiaddr[]
 
-  const createEphemeralLibp2p: CreateEphemeralLibp2p = async (peerId: Ed25519PeerId): Promise<Libp2pWithDHT> => {
+  const createEphemeralLibp2p: CreateEphemeralLibp2p = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralLibp2p> => {
     const libp2p = await createLibp2pNode({
       peerId
     })
 
     await libp2p.dialProtocol(addrs, lanKadProtocol)
 
-    return libp2p
+    return {
+      stop,
+      libp2p
+    }
   }
 
   before(async () => {
