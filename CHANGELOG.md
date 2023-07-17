@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/tabcat/zzzync/compare/v1.1.0...v2.0.0) (2023-07-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* optionally stops ephemeral libp2p node
+
+### Features
+
+* optionally stops ephemeral libp2p node ([5fddc7e](https://github.com/tabcat/zzzync/commit/5fddc7e3fec8fa2712d5baebcf8355a5b2cccacd))
+
 ## [1.1.0](https://github.com/tabcat/zzzync/compare/v1.0.0...v1.1.0) (2023-07-07)
 
 
