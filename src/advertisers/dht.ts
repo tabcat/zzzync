@@ -1,42 +1,33 @@
 import type { Advertiser } from '../index.js'
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
-import type { QueryEvent, DualKadDHT, SingleKadDHT } from '@libp2p/kad-dht'
-import type { Libp2p } from 'libp2p'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
+import type { QueryEvent, KadDHT } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 
-export type Libp2pWithDHT = Libp2p<{ dht: DualKadDHT }>
-
-export interface CreateEphemeralLibp2p {
-  (peerId: Ed25519PeerId): Promise<{ stop?: (libp2p: Libp2pWithDHT) => Promise<void>, libp2p: Libp2pWithDHT }>
+export interface CreateEphemeralKadDHT {
+  (provider: Ed25519PeerId): Promise<{ dht: KadDHT, stop?: () => Promise<void> }>
 }
 
-const scopedDht = ({ services: { dht } }: Libp2pWithDHT, scope?: Scope): DualKadDHT | SingleKadDHT =>
-  scope != null && scope in dht ? dht[scope] : dht
-
-const collaborate = (createEphemeralLibp2p: CreateEphemeralLibp2p, options: Options): Advertiser['collaborate'] =>
+const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['collaborate'] =>
   async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
-    const { stop, libp2p: ephemeral } = await createEphemeralLibp2p(provider)
-    yield * scopedDht(ephemeral, options.scope).provide(dcid)
-    if (stop != null) {
-      await stop(ephemeral)
+    const { dht, stop } = await createEphemeralKadDHT(provider)
+
+    try {
+      yield * dht.provide(dcid)
+    } finally {
+      if (stop != null) {
+        await stop()
+      }
     }
   }
 
-const findCollaborators = (libp2p: Libp2pWithDHT, options: Options): Advertiser['findCollaborators'] =>
+const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
   function (dcid: CID): AsyncIterable<QueryEvent> {
-    return scopedDht(libp2p, options.scope).findProviders(dcid)
+    return dht.findProviders(dcid)
   }
 
-type Scope = 'wan' | 'lan'
-
-interface Options {
-  scope?: Scope
-}
-
-export function dht (libp2p: Libp2pWithDHT, createEphemeralLibp2p: CreateEphemeralLibp2p, options?: Options): Advertiser {
-  options = options ?? {}
+export function dht (dht: KadDHT, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
   return {
-    collaborate: collaborate(createEphemeralLibp2p, options),
-    findCollaborators: findCollaborators(libp2p, options)
+    collaborate: collaborate(createEphemeralKadDHT),
+    findCollaborators: findCollaborators(dht)
   }
 }
