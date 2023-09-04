@@ -1,14 +1,17 @@
-import { stop } from '@libp2p/interfaces/startable'
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { CID } from 'multiformats'
-import * as dhtAdvertiser from '../../src/advertisers/dht.js'
+import { dhtAdvertiser } from '../../src/advertisers/dht.js'
 import { createLibp2pNode } from '../utils/create-libp2p.js'
 import { lanKadProtocol } from '../utils/protocols.js'
 import { spec } from './advertiser.js'
-import type { CreateEphemeralLibp2p, Libp2pWithDHT } from '../../src/advertisers/dht.js'
+import type { CreateEphemeralKadDHT } from '../../src/advertisers/dht.js'
 import type { Advertiser } from '../../src/index.js'
 import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { DualKadDHT } from '@libp2p/kad-dht'
 import type { Multiaddr } from '@multiformats/multiaddr'
+import type { Libp2p } from 'libp2p'
+
+type Libp2pWithDHT = Libp2p<{ dht: DualKadDHT }>
 
 describe('advertisers/dht.ts', () => {
   let
@@ -19,7 +22,7 @@ describe('advertisers/dht.ts', () => {
     provider: Ed25519PeerId,
     addrs: Multiaddr[]
 
-  const createEphemeralLibp2p: CreateEphemeralLibp2p = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralLibp2p> => {
+  const createEphemeralLibp2p: CreateEphemeralKadDHT = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralKadDHT> => {
     const libp2p = await createLibp2pNode({
       peerId
     })
@@ -27,8 +30,8 @@ describe('advertisers/dht.ts', () => {
     await libp2p.dialProtocol(addrs, lanKadProtocol)
 
     return {
-      stop,
-      libp2p
+      dht: libp2p.services.dht,
+      stop: async () => libp2p.stop()
     }
   }
 
@@ -37,7 +40,7 @@ describe('advertisers/dht.ts', () => {
     server = await createLibp2pNode()
     addrs = server.getMultiaddrs()
     await client.dialProtocol(addrs, lanKadProtocol)
-    advertiser = dhtAdvertiser.dht(client, createEphemeralLibp2p)
+    advertiser = dhtAdvertiser(client.services.dht, createEphemeralLibp2p)
     provider = await createEd25519PeerId()
     dcid = CID.parse('bafyreihypffwyzhujryetatiy5imqq3p4mokuz36xmgp7wfegnhnjhwrsq')
   })
