@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.0](https://github.com/tabcat/zzzync/compare/v2.0.0...v3.0.0) (2023-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename w3name to just w3
+* rename w3namer and dhtAdvertiser exports
+* dht advertiser takes kad-dht not libp2p
+
+### Code Refactoring
+
+* dht advertiser takes kad-dht not libp2p ([d0ee166](https://github.com/tabcat/zzzync/commit/d0ee1667d77f2c275f62e2d92fa60c00114a47ec))
+* rename w3name to just w3 ([bb74965](https://github.com/tabcat/zzzync/commit/bb749659725692e1dc1cd956f4942dfcea1fc4df))
+* rename w3namer and dhtAdvertiser exports ([45baedd](https://github.com/tabcat/zzzync/commit/45baedd8c46887801bfbea1e7f0a6bb64a84c7f7))
+
 ## [2.0.0](https://github.com/tabcat/zzzync/compare/v1.1.0...v2.0.0) (2023-07-17)
 
 
