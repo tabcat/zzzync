@@ -7,7 +7,7 @@
  * ```
  */
 
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { QueryEvent } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 

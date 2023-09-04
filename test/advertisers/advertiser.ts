@@ -1,6 +1,6 @@
 import { expect } from 'aegir/chai'
 import type { Advertiser } from '../../src'
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { PeerResponseEvent } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 

@@ -1,6 +1,6 @@
 import { expect } from 'aegir/chai'
 import type { Namer } from '../../src'
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
 interface NamerOptions {

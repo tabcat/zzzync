@@ -2,7 +2,7 @@ import { ipns, type IPNS } from '@helia/ipns'
 import { dht } from '@helia/ipns/routing'
 import type { Namer } from '../index.js'
 import type { Helia } from '@helia/interface'
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
 const publish = (ipns: IPNS): Namer['publish'] =>

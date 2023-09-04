@@ -6,7 +6,7 @@ import { createCID } from '../utils/create-cid.js'
 // import { createRateLimiter } from '../utils/create-rate-limitter.js'
 import { spec } from './namer.js'
 import type { Namer } from '../../src/index.js'
-import type { Ed25519PeerId } from '@libp2p/interface-peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
 describe('namers/w3.ts', () => {
