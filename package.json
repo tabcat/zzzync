@@ -39,9 +39,9 @@
       "types": "./dist/src/advertisers/dht.d.ts",
       "import": "./dist/src/advertisers/dht.js"
     },
-    "./namers/w3name": {
-      "types": "./dist/src/namers/w3name.d.ts",
-      "import": "./dist/src/namers/w3name.js"
+    "./namers/w3": {
+      "types": "./dist/src/namers/w3.d.ts",
+      "import": "./dist/src/namers/w3.js"
     }
   },
   "scripts": {

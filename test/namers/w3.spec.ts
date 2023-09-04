@@ -1,7 +1,7 @@
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { MemoryDatastore } from 'datastore-core'
 import W3NameService from 'w3name/service'
-import { w3Namer, revisionState } from '../../src/namers/w3name.js'
+import { w3Namer, revisionState } from '../../src/namers/w3.js'
 import { createCID } from '../utils/create-cid.js'
 // import { createRateLimiter } from '../utils/create-rate-limitter.js'
 import { spec } from './namer.js'
