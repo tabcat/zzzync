@@ -1,7 +1,7 @@
 import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { MemoryDatastore } from 'datastore-core'
 import W3NameService from 'w3name/service'
-import * as w3Namer from '../../src/namers/w3name.js'
+import { w3Namer, revisionState } from '../../src/namers/w3name.js'
 import { createCID } from '../utils/create-cid.js'
 // import { createRateLimiter } from '../utils/create-rate-limitter.js'
 import { spec } from './namer.js'
@@ -26,9 +26,9 @@ describe('namers/w3.ts', () => {
     // }
 
     const datastore = new MemoryDatastore()
-    const revisions = w3Namer.revisionState(datastore)
+    const revisions = revisionState(datastore)
 
-    namer = w3Namer.w3name(new W3NameService(), revisions)
+    namer = w3Namer(new W3NameService(), revisions)
     key = await createEd25519PeerId()
     value = await createCID()
     newValue = await createCID()

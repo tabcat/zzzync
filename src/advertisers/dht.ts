@@ -25,7 +25,7 @@ const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
     return dht.findProviders(dcid)
   }
 
-export function dht (dht: KadDHT, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
+export function dhtAdvertiser (dht: KadDHT, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
   return {
     collaborate: collaborate(createEphemeralKadDHT),
     findCollaborators: findCollaborators(dht)

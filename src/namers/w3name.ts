@@ -74,7 +74,7 @@ const resolve =
       Name.resolve(pid2Name(peerId), service)
         .then((revision: Name.Revision) => CID.parse(revision.value.slice(ipfsPrefix.length)))
 
-export function w3name (service: W3NameService, revisions: RevisionState): Namer {
+export function w3Namer (service: W3NameService, revisions: RevisionState): Namer {
   return {
     publish: publish(service, revisions),
     resolve: resolve(service)
