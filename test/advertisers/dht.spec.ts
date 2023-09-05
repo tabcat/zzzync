@@ -23,9 +23,7 @@ describe('advertisers/dht.ts', () => {
     addrs: Multiaddr[]
 
   const createEphemeralKadDHT: CreateEphemeralKadDHT = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralKadDHT> => {
-    const libp2p = await createLibp2pNode({
-      peerId
-    })
+    const libp2p = await createLibp2pNode({ peerId })
 
     await libp2p.dialProtocol(addrs, lanKadProtocol)
 
