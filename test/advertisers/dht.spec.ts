@@ -22,7 +22,7 @@ describe('advertisers/dht.ts', () => {
     provider: Ed25519PeerId,
     addrs: Multiaddr[]
 
-  const createEphemeralLibp2p: CreateEphemeralKadDHT = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralKadDHT> => {
+  const createEphemeralKadDHT: CreateEphemeralKadDHT = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralKadDHT> => {
     const libp2p = await createLibp2pNode({
       peerId
     })
@@ -40,7 +40,7 @@ describe('advertisers/dht.ts', () => {
     server = await createLibp2pNode()
     addrs = server.getMultiaddrs()
     await client.dialProtocol(addrs, lanKadProtocol)
-    advertiser = dhtAdvertiser(client.services.dht, createEphemeralLibp2p)
+    advertiser = dhtAdvertiser(client.services.dht, createEphemeralKadDHT)
     provider = await createEd25519PeerId()
     dcid = CID.parse('bafyreihypffwyzhujryetatiy5imqq3p4mokuz36xmgp7wfegnhnjhwrsq')
   })
