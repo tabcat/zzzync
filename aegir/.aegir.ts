@@ -1,18 +1,19 @@
-import getPort from 'aegir/get-port'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
 import { MemoryDatastore } from 'datastore-core'
-import { createLibp2p, } from 'libp2p'
+import { Libp2pOptions, createLibp2p, } from 'libp2p'
 import { circuitRelayServer, } from 'libp2p/circuit-relay'
 import { kadDHT } from '@libp2p/kad-dht'
 import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
 import { identifyService } from 'libp2p/identify'
 import { MemoryBlockstore } from 'blockstore-core'
-import { createHelia } from 'helia'
+import { HeliaInit, createHelia } from 'helia'
+import type { GlobalOptions, TestOptions } from 'aegir'
+import type { Helia } from '@helia/interface'
 
 const services = {
   identify: identifyService(),
@@ -22,7 +23,7 @@ const services = {
   })
 }
 
-async function createLibp2pNode (options) {
+async function createLibp2pNode (options?: Libp2pOptions) {
   const datastore = new MemoryDatastore()
   return createLibp2p({
     addresses: {
@@ -51,7 +52,7 @@ async function createLibp2pNode (options) {
   })
 }
 
-export async function createHeliaNode (init) {
+export async function createHeliaNode (init?: HeliaInit) {
   const blockstore = new MemoryBlockstore()
   const datastore = new MemoryDatastore()
 
@@ -67,10 +68,16 @@ export async function createHeliaNode (init) {
   return helia
 }
 
-/** @type {import('aegir').PartialOptions} */
+interface BeforeResult {
+  env?: {
+    RELAY_MULTI_ADDR: string
+  },
+  helia?: Helia
+}
+
 export default {
   test: {
-    before: async (options) => {
+    before: async (options: GlobalOptions & TestOptions): Promise<BeforeResult> => {
       if (options.runner !== 'node') {
         const helia = await createHeliaNode()
 
@@ -93,20 +100,22 @@ export default {
         //   }
         // }).start()
 
-        return {
+        const result: BeforeResult = {
           env: {
             RELAY_MULTI_ADDR: helia.libp2p.getMultiaddrs()[0].toString()
           },
           helia
         }
+
+        return result
       }
 
       return {}
     },
-    after: async (options, beforeResult) => {
+    after: async (options: GlobalOptions & TestOptions, beforeResult: BeforeResult) => {
       if (options.runner !== 'node') {
         // await beforeResult.ipfsdServer.stop()
-        await beforeResult.helia.stop()
+        await beforeResult.helia?.stop()
       }
     }
   }
