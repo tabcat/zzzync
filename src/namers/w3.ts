@@ -62,9 +62,14 @@ const publish =
 
 const resolve =
   (service: W3NameService): Namer['resolve'] =>
-    async (peerId: Ed25519PeerId) =>
-      Name.resolve(pid2Name(peerId), service)
-        .then((revision: Name.Revision) => CID.parse(revision.value.slice(ipfsPrefix.length)))
+    async (peerId: Ed25519PeerId) => {
+      try {
+        const revision = await Name.resolve(pid2Name(peerId), service)
+        return CID.parse(revision.value.slice(ipfsPrefix.length))
+      } catch {
+        throw new Error('unable to resolve peerId to value')
+      }
+    }
 
 export function w3Namer (service: W3NameService, revisions: RevisionState): Namer {
   return {
