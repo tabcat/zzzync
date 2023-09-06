@@ -57,7 +57,7 @@ const publish =
       }
       await revisions.set(peerId, updated)
 
-      await Name.publish(updated, name.key)
+      await Name.publish(updated, name.key, service)
     }
 
 const resolve =
