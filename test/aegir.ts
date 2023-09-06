@@ -1,19 +1,22 @@
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
+import { kadDHT } from '@libp2p/kad-dht'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
+import { MemoryBlockstore } from 'blockstore-core'
 import { MemoryDatastore } from 'datastore-core'
-import { Libp2pOptions, createLibp2p, } from 'libp2p'
-import { circuitRelayServer, } from 'libp2p/circuit-relay'
-import { kadDHT } from '@libp2p/kad-dht'
+import { type HeliaInit, createHelia } from 'helia'
 import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
+import { type Libp2pOptions, createLibp2p } from 'libp2p'
+import { circuitRelayServer } from 'libp2p/circuit-relay'
 import { identifyService } from 'libp2p/identify'
-import { MemoryBlockstore } from 'blockstore-core'
-import { HeliaInit, createHelia } from 'helia'
-import type { GlobalOptions, TestOptions } from 'aegir'
+import server from './mocks/w3name'
 import type { Helia } from '@helia/interface'
+import type { GlobalOptions, TestOptions } from 'aegir'
+
+server.listen()
 
 const services = {
   identify: identifyService(),
@@ -71,13 +74,14 @@ export async function createHeliaNode (init?: HeliaInit) {
 interface BeforeResult {
   env?: {
     RELAY_MULTI_ADDR: string
-  },
+  }
   helia?: Helia
 }
 
 export default {
   test: {
     before: async (options: GlobalOptions & TestOptions): Promise<BeforeResult> => {
+      const result: BeforeResult = {}
       if (options.runner !== 'node') {
         const helia = await createHeliaNode()
 
@@ -100,17 +104,13 @@ export default {
         //   }
         // }).start()
 
-        const result: BeforeResult = {
-          env: {
-            RELAY_MULTI_ADDR: helia.libp2p.getMultiaddrs()[0].toString()
-          },
-          helia
+        result.env = {
+          RELAY_MULTI_ADDR: helia.libp2p.getMultiaddrs()[0].toString()
         }
-
-        return result
+        result.helia = helia
       }
 
-      return {}
+      return result
     },
     after: async (options: GlobalOptions & TestOptions, beforeResult: BeforeResult) => {
       if (options.runner !== 'node') {
