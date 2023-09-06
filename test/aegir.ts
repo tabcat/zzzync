@@ -4,19 +4,18 @@ import { kadDHT } from '@libp2p/kad-dht'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
+import getPort from 'aegir/get-port'
 import { MemoryBlockstore } from 'blockstore-core'
 import { MemoryDatastore } from 'datastore-core'
 import { type HeliaInit, createHelia } from 'helia'
 import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
-import { type Libp2pOptions, createLibp2p } from 'libp2p'
+import { type Libp2pOptions, createLibp2p, type Libp2p } from 'libp2p'
 import { circuitRelayServer } from 'libp2p/circuit-relay'
 import { identifyService } from 'libp2p/identify'
-import server from './mocks/w3name'
+import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
 import type { GlobalOptions, TestOptions } from 'aegir'
-
-server.listen()
 
 const services = {
   identify: identifyService(),
@@ -26,7 +25,7 @@ const services = {
   })
 }
 
-async function createLibp2pNode (options?: Libp2pOptions) {
+async function createLibp2pNode (options?: Libp2pOptions): Promise<Libp2p> {
   const datastore = new MemoryDatastore()
   return createLibp2p({
     addresses: {
@@ -55,7 +54,7 @@ async function createLibp2pNode (options?: Libp2pOptions) {
   })
 }
 
-export async function createHeliaNode (init?: HeliaInit) {
+export async function createHeliaNode (init?: HeliaInit): Promise<Helia> {
   const blockstore = new MemoryBlockstore()
   const datastore = new MemoryDatastore()
 
@@ -72,16 +71,22 @@ export async function createHeliaNode (init?: HeliaInit) {
 }
 
 interface BeforeResult {
-  env?: {
-    RELAY_MULTI_ADDR: string
-  }
+  env: typeof process.env
   helia?: Helia
 }
 
 export default {
   test: {
     before: async (options: GlobalOptions & TestOptions): Promise<BeforeResult> => {
-      const result: BeforeResult = {}
+      const W3_NAME_PORT = await getPort()
+      w3nameServer.listen(W3_NAME_PORT)
+
+      const result: BeforeResult = {
+        env: {
+          W3_NAME_PORT: W3_NAME_PORT.toString()
+        }
+      }
+
       if (options.runner !== 'node') {
         const helia = await createHeliaNode()
 
@@ -105,6 +110,7 @@ export default {
         // }).start()
 
         result.env = {
+          ...result.env,
           RELAY_MULTI_ADDR: helia.libp2p.getMultiaddrs()[0].toString()
         }
         result.helia = helia
@@ -116,6 +122,7 @@ export default {
       if (options.runner !== 'node') {
         // await beforeResult.ipfsdServer.stop()
         await beforeResult.helia?.stop()
+        w3nameServer.close()
       }
     }
   }

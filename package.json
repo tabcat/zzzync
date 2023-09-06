@@ -49,7 +49,7 @@
     "clean": "aegir clean",
     "lint": "aegir lint",
     "dep-check": "aegir dep-check",
-    "build": "rm -rf dist && aegir build && ln -sf ./dist/test/aegir.js ./.aegir.js",
+    "build": "rm -rf dist .aegir.js && aegir build && ln -sf ./dist/test/aegir.js ./.aegir.js",
     "docs": "aegir docs",
     "test": "aegir test",
     "test:chrome": "aegir test -t browser --cov",
