@@ -16,13 +16,9 @@ export interface RevisionState {
 const ipfsPrefix = '/ipfs/'
 
 export const revisionState = (datastore: Datastore): RevisionState => {
-  const get: RevisionState['get'] = (peerId): Await<Name.Revision | undefined> => {
+  const get: RevisionState['get'] = async (peerId): Promise<Name.Revision | undefined> => {
     try {
-      const datastoreGet = datastore.get(new Key(peerId.toString()))
-
-      return datastoreGet instanceof Promise
-        ? datastoreGet.then(Name.Revision.decode).catch(() => undefined)
-        : Name.Revision.decode(datastoreGet)
+      return Name.Revision.decode(await datastore.get(new Key(peerId.toString())))
     } catch (e) {
       if (String(e) !== 'Error: Not Found') {
         throw e
@@ -32,12 +28,8 @@ export const revisionState = (datastore: Datastore): RevisionState => {
     }
   }
 
-  const set: RevisionState['set'] = (peerId, revision): Await<void> => {
-    const datastorePut = datastore.put(new Key(peerId.toString()), Name.Revision.encode(revision))
-
-    return datastorePut instanceof Promise
-      ? datastorePut.then(() => {})
-      : undefined
+  const set: RevisionState['set'] = async (peerId, revision): Promise<void> => {
+    await datastore.put(new Key(peerId.toString()), Name.Revision.encode(revision))
   }
 
   return { get, set }
