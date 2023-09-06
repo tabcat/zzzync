@@ -34,9 +34,6 @@ describe('namers/w3.ts', () => {
     newValue = await createCID()
   })
 
-  after(async () => {
-  })
-
   it('publishes name/value pair', async () => {
     await spec.publish({
       publish: namer.publish,
