@@ -14,11 +14,12 @@ export class Web3StoragePinner implements Blockstore {
   async put (cid: CID, bytes: Uint8Array): Promise<CID> {
     const { writer, out } = CarWriter.create(cid)
 
-    await writer.put({ cid, bytes })
-    await writer.close()
+    void writer.put({ cid, bytes })
+    void writer.close()
 
+    const reader = await CarReader.fromIterable(out)
     // @ts-expect-error Types of parameters 'key' and 'key' are incompatible.
-    await this.client.putCar(await CarReader.fromIterable(out))
+    await this.client.putCar(reader)
 
     return cid
   }
