@@ -3,4 +3,5 @@ coverage
 dist
 .docs
 .aegir.js
+.token
 

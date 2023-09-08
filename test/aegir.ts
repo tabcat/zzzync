@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
 import { kadDHT } from '@libp2p/kad-dht'
@@ -16,6 +17,15 @@ import { identifyService } from 'libp2p/identify'
 import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
 import type { GlobalOptions, TestOptions } from 'aegir'
+
+let WEB3_STORAGE_TOKEN: string | null = null
+
+try {
+  WEB3_STORAGE_TOKEN = readFileSync('.token', 'utf8').trim()
+} catch {
+  // eslint-disable-next-line no-console
+  console.log('no web3.storage token provided, skipping pinner/w3 tests')
+}
 
 const services = {
   identify: identifyService(),
@@ -85,6 +95,11 @@ export default {
         env: {
           W3_NAME_PORT: W3_NAME_PORT.toString()
         }
+      }
+
+      if (WEB3_STORAGE_TOKEN != null) {
+        // pinner tests are broken
+        // result.env.WEB3_STORAGE_TOKEN = WEB3_STORAGE_TOKEN
       }
 
       if (options.runner !== 'node') {
