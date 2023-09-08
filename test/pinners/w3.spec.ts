@@ -4,8 +4,6 @@ import { interfaceBlockstoreTests as suite } from './pinner.js'
 
 const token = process.env.WEB3_STORAGE_TOKEN
 
-// eslint-disable-next-line no-console
-console.log(token)
 describe('pinners/w3.ts', () => {
   if (token != null) {
     suite({
