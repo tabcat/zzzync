@@ -14,7 +14,7 @@ import { ipnsValidator } from 'ipns/validator'
 import { type Libp2pOptions, createLibp2p, type Libp2p } from 'libp2p'
 import { circuitRelayServer } from 'libp2p/circuit-relay'
 import { identifyService } from 'libp2p/identify'
-import w3nameServer from './mocks/w3name.js'
+// import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
 import type { GlobalOptions, TestOptions } from 'aegir'
 
@@ -89,7 +89,7 @@ export default {
   test: {
     before: async (options: GlobalOptions & TestOptions): Promise<BeforeResult> => {
       const W3_NAME_PORT = await getPort()
-      w3nameServer.listen(W3_NAME_PORT)
+      // w3nameServer.listen(W3_NAME_PORT)
 
       const result: BeforeResult = {
         env: {
@@ -137,7 +137,7 @@ export default {
       if (options.runner !== 'node') {
         // await beforeResult.ipfsdServer.stop()
         await beforeResult.helia?.stop()
-        w3nameServer.close()
+        // w3nameServer.close()
       }
     }
   }

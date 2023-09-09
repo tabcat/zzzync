@@ -16,7 +16,7 @@ describe('namers/w3.ts', () => {
     value: CID,
     newValue: CID
 
-  const endpoint = new URL('http://localhost:' + process.env.W3_NAME_PORT)
+  // const endpoint = new URL('http://localhost:' + process.env.W3_NAME_PORT)
 
   before(async () => {
     // if (process?.env?.W3NS == null) {
@@ -30,7 +30,7 @@ describe('namers/w3.ts', () => {
     const datastore = new MemoryDatastore()
     const revisions = revisionState(datastore)
 
-    namer = w3Namer(new W3NameService(endpoint), revisions)
+    namer = w3Namer(new W3NameService(), revisions)
     key = await createEd25519PeerId()
     value = await createCID()
     newValue = await createCID()
