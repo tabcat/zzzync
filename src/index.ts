@@ -7,16 +7,15 @@
  * ```
  */
 
-import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
-import type { QueryEvent } from '@libp2p/kad-dht'
+import type { Ed25519PeerId, PeerId } from '@libp2p/interface/peer-id'
 import type { Blockstore } from 'interface-blockstore'
 import type { CID } from 'multiformats/cid'
 
 export { toDcid } from './dcid.js'
 
 export interface Advertiser {
-  collaborate: (dcid: CID, provider: Ed25519PeerId) => AsyncIterable<QueryEvent>
-  findCollaborators: (dcid: CID) => AsyncIterable<QueryEvent>
+  collaborate: (dcid: CID, provider: PeerId) => Promise<void>
+  findCollaborators: (dcid: CID) => AsyncIterable<PeerId>
 }
 
 export interface Namer {

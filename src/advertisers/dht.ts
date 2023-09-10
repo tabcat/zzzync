@@ -1,18 +1,19 @@
+import drain from 'it-all'
 import type { Advertiser } from '../index.js'
-import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
-import type { QueryEvent, KadDHT } from '@libp2p/kad-dht'
+import type { PeerId } from '@libp2p/interface/peer-id'
+import type { KadDHT } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 
 export interface CreateEphemeralKadDHT {
-  (provider: Ed25519PeerId): Promise<{ dht: KadDHT, stop?: () => Promise<void> }>
+  (provider: PeerId): Promise<{ dht: KadDHT, stop?: () => Promise<void> }>
 }
 
 const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['collaborate'] =>
-  async function * (dcid: CID, provider: Ed25519PeerId): AsyncIterable<QueryEvent> {
+  async function (dcid: CID, provider: PeerId): Promise<void> {
     const { dht, stop } = await createEphemeralKadDHT(provider)
 
     try {
-      yield * dht.provide(dcid)
+      await drain(dht.provide(dcid))
     } finally {
       if (stop != null) {
         await stop()
@@ -21,8 +22,14 @@ const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['
   }
 
 const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
-  function (dcid: CID): AsyncIterable<QueryEvent> {
-    return dht.findProviders(dcid)
+  async function * (dcid: CID): AsyncIterable<PeerId> {
+    for await (const event of dht.findProviders(dcid)) {
+      if (event.name === 'PROVIDER' || event.name === 'PEER_RESPONSE') {
+        for (const { id: peerId } of event.providers) {
+          yield peerId
+        }
+      }
+    }
   }
 
 export function dhtAdvertiser (dht: KadDHT, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {

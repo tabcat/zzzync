@@ -1,7 +1,6 @@
 import { expect } from 'aegir/chai'
 import type { Advertiser } from '../../src'
-import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
-import type { PeerResponseEvent } from '@libp2p/kad-dht'
+import type { Ed25519PeerId, PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
 interface AdvertiserOptions {
@@ -14,37 +13,21 @@ interface CollaborateOptions extends AdvertiserOptions {
   collaborate: Advertiser['collaborate']
 }
 
-async function collaborate ({ collaborate, server, dcid, provider }: CollaborateOptions): Promise<void> {
-  let response: PeerResponseEvent | undefined
-  for await (const event of collaborate(dcid, provider)) {
-    if (event.name === 'PEER_RESPONSE' && event.messageName === 'ADD_PROVIDER') {
-      if (event.from.equals(server)) {
-        response = event
-      }
-    }
-  }
-
-  expect(response).to.not.equal(undefined)
+async function collaborate ({ collaborate, dcid, provider }: CollaborateOptions): Promise<void> {
+  await collaborate(dcid, provider)
 }
 
 interface FindCollaboratorsOptions extends AdvertiserOptions {
   findCollaborators: Advertiser['findCollaborators']
 }
 
-async function findCollaborators ({ findCollaborators, server, provider, dcid }: FindCollaboratorsOptions): Promise<void> {
-  let response: PeerResponseEvent | undefined
-  for await (const event of findCollaborators(dcid)) {
-    if (event.name === 'PEER_RESPONSE' && event.messageName === 'GET_PROVIDERS') {
-      if (event.from.equals(server)) {
-        response = event
-        break // findCollaborators never done
-      }
-    }
+async function findCollaborators ({ findCollaborators, provider, dcid }: FindCollaboratorsOptions): Promise<void> {
+  const providers: PeerId[] = []
+  for await (const peerId of findCollaborators(dcid)) {
+    providers.push(peerId)
   }
 
-  expect(response).to.not.equal(undefined)
-  expect(response?.providers.length).to.equal(1)
-  expect(response?.providers[0].id.equals(provider)).to.equal(true)
+  expect(providers[0].toString()).to.equal(provider.toString())
 }
 
 export const spec = {

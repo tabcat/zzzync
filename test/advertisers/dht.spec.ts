@@ -6,7 +6,7 @@ import { lanKadProtocol } from '../utils/protocols.js'
 import { spec } from './advertiser.js'
 import type { CreateEphemeralKadDHT } from '../../src/advertisers/dht.js'
 import type { Advertiser } from '../../src/index.js'
-import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
+import type { Ed25519PeerId, PeerId } from '@libp2p/interface/peer-id'
 import type { DualKadDHT } from '@libp2p/kad-dht'
 import type { Multiaddr } from '@multiformats/multiaddr'
 import type { Libp2p } from 'libp2p'
@@ -22,7 +22,7 @@ describe('advertisers/dht.ts', () => {
     provider: Ed25519PeerId,
     addrs: Multiaddr[]
 
-  const createEphemeralKadDHT: CreateEphemeralKadDHT = async (peerId: Ed25519PeerId): ReturnType<CreateEphemeralKadDHT> => {
+  const createEphemeralKadDHT: CreateEphemeralKadDHT = async (peerId: PeerId): ReturnType<CreateEphemeralKadDHT> => {
     const libp2p = await createLibp2pNode({ peerId })
 
     await libp2p.dialProtocol(addrs, lanKadProtocol)
