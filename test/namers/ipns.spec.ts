@@ -11,7 +11,7 @@ import type { Helia } from '@helia/interface'
 import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
-describe.skip('namers/ipns.ts', () => {
+describe('namers/ipns.ts', () => {
   let
     client: Helia,
     server: Helia,
@@ -47,7 +47,7 @@ describe.skip('namers/ipns.ts', () => {
     })
   })
 
-  it.skip('resolves name/value pair', async () => {
+  it('resolves name/value pair', async () => {
     await spec.resolve({
       resolve: namer.resolve,
       key,
@@ -55,7 +55,7 @@ describe.skip('namers/ipns.ts', () => {
     })
   })
 
-  it.skip('updates name/value pair', async () => {
+  it('updates name/value pair', async () => {
     await spec.update({
       publish: namer.publish,
       resolve: namer.resolve,
