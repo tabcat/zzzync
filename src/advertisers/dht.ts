@@ -23,12 +23,17 @@ const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['
 
 const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
   async function * (dcid: CID): AsyncIterable<PeerId> {
-    for await (const event of dht.findProviders(dcid)) {
-      if (event.name === 'PROVIDER' || event.name === 'PEER_RESPONSE') {
-        for (const { id: peerId } of event.providers) {
-          yield peerId
+    try {
+      for await (const event of dht.findProviders(dcid)) {
+        if (event.name === 'PROVIDER' || event.name === 'PEER_RESPONSE') {
+          for (const { id: peerId } of event.providers) {
+            yield peerId
+          }
         }
       }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e)
     }
   }
 
