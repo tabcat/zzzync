@@ -1,14 +1,14 @@
 import { readFileSync } from 'fs'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
-import { kadDHT } from '@libp2p/kad-dht'
+import { type KadDHT, kadDHT } from '@libp2p/kad-dht'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
 import getPort from 'aegir/get-port'
 import { MemoryBlockstore } from 'blockstore-core'
 import { MemoryDatastore } from 'datastore-core'
-import { type HeliaInit, createHelia } from 'helia'
+import { createHelia } from 'helia'
 import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
 import { type Libp2pOptions, createLibp2p, type Libp2p } from 'libp2p'
@@ -16,7 +16,9 @@ import { circuitRelayServer } from 'libp2p/circuit-relay'
 import { identifyService } from 'libp2p/identify'
 // import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
+import type { ServiceMap } from '@libp2p/interface'
 import type { GlobalOptions, TestOptions } from 'aegir'
+import type { DefaultIdentifyService } from 'libp2p/identify/identify'
 
 let WEB3_STORAGE_TOKEN: string | null = null
 
@@ -27,17 +29,14 @@ try {
   console.log('no web3.storage token provided, skipping pinner/w3 tests')
 }
 
-const services = {
-  identify: identifyService(),
-  dht: kadDHT({
-    validators: { ipns: ipnsValidator },
-    selectors: { ipns: ipnsSelector }
-  })
+interface Services extends ServiceMap {
+  identify: DefaultIdentifyService
+  dht: KadDHT
 }
 
-async function createLibp2pNode (options?: Libp2pOptions): Promise<Libp2p> {
+async function createLibp2pNode (): Promise<Libp2p<Services>> {
   const datastore = new MemoryDatastore()
-  return createLibp2p({
+  const options: Libp2pOptions<Services> = {
     addresses: {
       listen: [
         '/ip4/127.0.0.1/tcp/0/ws'
@@ -56,25 +55,28 @@ async function createLibp2pNode (options?: Libp2pOptions): Promise<Libp2p> {
       yamux()
     ],
     datastore,
-    ...options,
     services: {
-      ...services,
+      identify: identifyService(),
+      dht: kadDHT({
+        validators: { ipns: ipnsValidator },
+        selectors: { ipns: ipnsSelector }
+      }),
       relay: circuitRelayServer({ advertise: true })
     }
-  })
+  }
+  return createLibp2p(options)
 }
 
-export async function createHeliaNode (init?: HeliaInit): Promise<Helia> {
+export async function createHeliaNode (): Promise<Helia<Libp2p<Services>>> {
   const blockstore = new MemoryBlockstore()
   const datastore = new MemoryDatastore()
 
   const libp2p = await createLibp2pNode()
 
-  const helia = await createHelia({
+  const helia = await createHelia<Libp2p<Services>>({
     libp2p,
     blockstore,
-    datastore,
-    ...init
+    datastore
   })
 
   return helia
@@ -82,7 +84,7 @@ export async function createHeliaNode (init?: HeliaInit): Promise<Helia> {
 
 interface BeforeResult {
   env: typeof process.env
-  helia?: Helia
+  helia?: Helia<Libp2p<Services>>
 }
 
 export default {

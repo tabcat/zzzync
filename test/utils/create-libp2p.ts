@@ -4,17 +4,20 @@ import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
 import { MemoryDatastore } from 'datastore-core'
-import { createLibp2p, type Libp2p, type Libp2pOptions } from 'libp2p'
+import { createLibp2p, type Libp2p } from 'libp2p'
 import { circuitRelayServer, type CircuitRelayService } from 'libp2p/circuit-relay'
 import services, { type Services } from './services.js'
+import type { PeerId } from '@libp2p/interface/peer-id'
 
 interface WithRelay extends Services {
   relay: CircuitRelayService
 }
 
-export async function createLibp2pNode (options?: Libp2pOptions<any>): Promise<Libp2p<WithRelay>> {
+export async function createLibp2pNode (peerId?: PeerId): Promise<Libp2p<WithRelay>> {
   const datastore = new MemoryDatastore()
+
   return createLibp2p({
+    peerId,
     addresses: {
       listen: [
         '/ip4/127.0.0.1/tcp/0/ws'
@@ -33,7 +36,6 @@ export async function createLibp2pNode (options?: Libp2pOptions<any>): Promise<L
       yamux()
     ],
     datastore,
-    ...options,
     services: {
       ...services,
       relay: circuitRelayServer({ advertise: true })
