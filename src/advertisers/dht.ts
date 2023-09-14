@@ -1,4 +1,4 @@
-import drain from 'it-all'
+import drain from 'it-drain'
 import type { Advertiser } from '../index.js'
 import type { PeerId } from '@libp2p/interface/peer-id'
 import type { KadDHT } from '@libp2p/kad-dht'
