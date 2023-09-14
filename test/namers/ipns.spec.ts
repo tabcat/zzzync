@@ -3,18 +3,19 @@ import { createEd25519PeerId } from '@libp2p/peer-id-factory'
 import { createHelia } from 'helia'
 import * as ipnsNamer from '../../src/namers/ipns.js'
 import { createCID } from '../utils/create-cid.js'
-import { createLibp2pNode } from '../utils/create-libp2p.js'
+import { type WithRelay, createLibp2pNode } from '../utils/create-libp2p.js'
 import { lanKadProtocol } from '../utils/protocols.js'
 import { spec } from './namer.js'
 import type { Namer } from '../../src/index.js'
 import type { Helia } from '@helia/interface'
 import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
+import type { Libp2p } from 'libp2p'
 import type { CID } from 'multiformats/cid'
 
 describe('namers/ipns.ts', () => {
   let
-    client: Helia,
-    server: Helia,
+    client: Helia<Libp2p<WithRelay>>,
+    server: Helia<Libp2p<WithRelay>>,
     namer: Namer,
     key: Ed25519PeerId,
     value: CID,

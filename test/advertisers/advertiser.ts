@@ -1,6 +1,5 @@
-import { expect } from 'aegir/chai'
 import type { Advertiser } from '../../src'
-import type { Ed25519PeerId, PeerId } from '@libp2p/interface/peer-id'
+import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { CID } from 'multiformats/cid'
 
 interface AdvertiserOptions {
@@ -22,12 +21,13 @@ interface FindCollaboratorsOptions extends AdvertiserOptions {
 }
 
 async function findCollaborators ({ findCollaborators, provider, dcid }: FindCollaboratorsOptions): Promise<void> {
-  const providers: PeerId[] = []
   for await (const peerId of findCollaborators(dcid)) {
-    providers.push(peerId)
+    if (peerId.toString() === provider.toString()) {
+      return
+    }
   }
 
-  expect(providers[0].toString()).to.equal(provider.toString())
+  throw new Error('did not find provider')
 }
 
 export const spec = {

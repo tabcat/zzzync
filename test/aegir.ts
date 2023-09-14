@@ -13,12 +13,11 @@ import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
 import { type Libp2pOptions, createLibp2p, type Libp2p } from 'libp2p'
 import { circuitRelayServer } from 'libp2p/circuit-relay'
-import { identifyService } from 'libp2p/identify'
+import { type IdentifyService, identifyService } from 'libp2p/identify'
 // import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
 import type { ServiceMap } from '@libp2p/interface'
 import type { GlobalOptions, TestOptions } from 'aegir'
-import type { DefaultIdentifyService } from 'libp2p/identify/identify'
 
 let WEB3_STORAGE_TOKEN: string | null = null
 
@@ -30,7 +29,7 @@ try {
 }
 
 interface Services extends ServiceMap {
-  identify: DefaultIdentifyService
+  identify: IdentifyService
   dht: KadDHT
 }
 

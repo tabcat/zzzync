@@ -9,7 +9,7 @@ import { circuitRelayServer, type CircuitRelayService } from 'libp2p/circuit-rel
 import services, { type Services } from './services.js'
 import type { PeerId } from '@libp2p/interface/peer-id'
 
-interface WithRelay extends Services {
+export interface WithRelay extends Services {
   relay: CircuitRelayService
 }
 
