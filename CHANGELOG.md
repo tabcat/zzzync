@@ -1,5 +1,31 @@
 # Changelog
 
+## [4.0.0](https://github.com/tabcat/zzzync/compare/v3.0.0...v4.0.0) (2023-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* change advertiser interface
+* add pinner to zzzync interface
+
+### Features
+
+* add pinner to zzzync interface ([1d23cff](https://github.com/tabcat/zzzync/commit/1d23cffdb8a05b41d7afd7e6da45b832596efa7a))
+
+
+### Bug Fixes
+
+* catch advertisers/dht query abort error ([d3a5aea](https://github.com/tabcat/zzzync/commit/d3a5aea6c68beefc64b6f3a81f43c9a61fa45608))
+* handle sync and async code the same ([277086b](https://github.com/tabcat/zzzync/commit/277086be56a0255125ff76e6d0591b2557a2d506))
+* handle w3 name resolution errors ([31ffe91](https://github.com/tabcat/zzzync/commit/31ffe910de56cc46f724fbda96cb838ad0ccf537))
+* pinner/w3 uses CarWriter correctly ([3f1b3ec](https://github.com/tabcat/zzzync/commit/3f1b3ec79a8a0ddd02aa2347a381ce0bcdccfd27))
+* w3 namer uses passed service option ([20e1ad3](https://github.com/tabcat/zzzync/commit/20e1ad32d6fae6225655c9f23dacc17ef23dadeb))
+
+
+### Code Refactoring
+
+* change advertiser interface ([7af6741](https://github.com/tabcat/zzzync/commit/7af674178640527e36ea7a37a2163c0d902dcb34))
+
 ## [3.0.0](https://github.com/tabcat/zzzync/compare/v2.0.0...v3.0.0) (2023-09-04)
 
 
