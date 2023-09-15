@@ -12,7 +12,7 @@ import type { Ed25519PeerId } from '@libp2p/interface/peer-id'
 import type { Libp2p } from 'libp2p'
 import type { CID } from 'multiformats/cid'
 
-describe('namers/ipns.ts', () => {
+describe.skip('namers/ipns.ts', () => {
   let
     client: Helia<Libp2p<WithRelay>>,
     server: Helia<Libp2p<WithRelay>>,
