@@ -14,6 +14,14 @@ export interface RevisionState {
 }
 
 const ipfsPrefix = '/ipfs/'
+const revision2cid = (revision: string): CID => {
+  if (!revision.startsWith(ipfsPrefix)) {
+    throw new Error('invalid revision: missing /ipfs/ prefix')
+  }
+
+  return CID.parse(revision.slice(ipfsPrefix.length))
+}
+const cid2revision = (cid: CID): string => ipfsPrefix + cid.toString()
 
 export const revisionState = (datastore: Datastore): RevisionState => {
   const get: RevisionState['get'] = async (peerId): Promise<Name.Revision | undefined> => {
@@ -40,14 +48,14 @@ const pid2Name = (peerId: Ed25519PeerId): Name.Name =>
 
 const publish =
   (service: W3NameService, revisions: RevisionState): Namer['publish'] =>
-    async (peerId: Ed25519PeerId, value: CID) => {
+    async (peerId: Ed25519PeerId, cid: CID) => {
       if (peerId.privateKey == null) {
         throw new Error('namers/w3: unable to publish, peerId.privateKey undefined')
       }
 
       const name = new Name.WritableName(await keys.unmarshalPrivateKey(peerId.privateKey))
 
-      const revisionValue = `${ipfsPrefix}${value.toString()}`
+      const revisionValue = cid2revision(cid)
       const existing = await revisions.get(peerId)
       let updated: Name.Revision
       if (existing == null) {
@@ -61,19 +69,26 @@ const publish =
     }
 
 const resolve =
-  (service: W3NameService): Namer['resolve'] =>
+  (service: W3NameService, revisions: RevisionState, localResolutions: boolean): Namer['resolve'] =>
     async (peerId: Ed25519PeerId) => {
+      let revision: Name.Revision | undefined = await revisions.get(peerId)
+
+      if (revision != null && localResolutions) {
+        return revision2cid(revision.value)
+      }
+
       try {
-        const revision = await Name.resolve(pid2Name(peerId), service)
-        return CID.parse(revision.value.slice(ipfsPrefix.length))
+        revision = await Name.resolve(pid2Name(peerId), service)
       } catch {
         throw new Error('unable to resolve peerId to value')
       }
+
+      return revision2cid(revision.value)
     }
 
-export function w3Namer (service: W3NameService, revisions: RevisionState): Namer {
+export function w3Namer (service: W3NameService, revisions: RevisionState, options?: { localResolutions: boolean }): Namer {
   return {
     publish: publish(service, revisions),
-    resolve: resolve(service)
+    resolve: resolve(service, revisions, Boolean(options?.localResolutions))
   }
 }
