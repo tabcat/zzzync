@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/tabcat/zzzync/compare/v4.1.0...v4.2.0) (2023-09-16)
+
+
+### Features
+
+* resolve local names using cache ([f4b18bf](https://github.com/tabcat/zzzync/commit/f4b18bf38f8e661740ce63ad824a026ada4c4c5c))
+
 ## [4.1.0](https://github.com/tabcat/zzzync/compare/v4.0.0...v4.1.0) (2023-09-15)
 
 
