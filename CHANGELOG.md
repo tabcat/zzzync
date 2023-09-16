@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0](https://github.com/tabcat/zzzync/compare/v4.0.0...v4.1.0) (2023-09-15)
+
+
+### Features
+
+* **namers/w3:** local resolutions of names ([8fd4760](https://github.com/tabcat/zzzync/commit/8fd47605f3878e4e22b29e83f2a230484e5ccb10))
+
 ## [4.0.0](https://github.com/tabcat/zzzync/compare/v3.0.0...v4.0.0) (2023-09-14)
 
 
