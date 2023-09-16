@@ -69,26 +69,26 @@ const publish =
     }
 
 const resolve =
-  (service: W3NameService, revisions: RevisionState, localResolutions: boolean): Namer['resolve'] =>
+  (service: W3NameService, revisions: RevisionState): Namer['resolve'] =>
     async (peerId: Ed25519PeerId) => {
       let revision: Name.Revision | undefined = await revisions.get(peerId)
 
-      if (revision != null && localResolutions) {
+      if (revision != null) {
+        // keys must not be updated concurrently by other devices
         return revision2cid(revision.value)
       }
 
       try {
         revision = await Name.resolve(pid2Name(peerId), service)
+        return revision2cid(revision.value)
       } catch {
         throw new Error('unable to resolve peerId to value')
       }
-
-      return revision2cid(revision.value)
     }
 
-export function w3Namer (service: W3NameService, revisions: RevisionState, options?: { localResolutions: boolean }): Namer {
+export function w3Namer (service: W3NameService, revisions: RevisionState): Namer {
   return {
     publish: publish(service, revisions),
-    resolve: resolve(service, revisions, Boolean(options?.localResolutions))
+    resolve: resolve(service, revisions)
   }
 }
