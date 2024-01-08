@@ -9,8 +9,8 @@ import type { Await } from 'interface-store'
 import type W3NameService from 'w3name/service'
 
 export interface RevisionState {
-  get: (peerId: Ed25519PeerId) => Await<Name.Revision | undefined>
-  set: (peerId: Ed25519PeerId, revision: Name.Revision) => Await<void>
+  get(peerId: Ed25519PeerId): Await<Name.Revision | undefined>
+  set(peerId: Ed25519PeerId, revision: Name.Revision): Await<void>
 }
 
 const ipfsPrefix = '/ipfs/'

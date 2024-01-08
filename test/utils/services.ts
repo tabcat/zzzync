@@ -1,19 +1,23 @@
-import { type KadDHT, kadDHT } from '@libp2p/kad-dht'
-import { ipnsSelector } from 'ipns/selector'
-import { ipnsValidator } from 'ipns/validator'
-import { type IdentifyService, identifyService } from 'libp2p/identify'
+import { ipnsSelector, ipnsValidator } from '@helia/ipns'
+import { type Identify, identify } from '@libp2p/identify'
+import { type KadDHT, kadDHT, removePublicAddressesMapper } from '@libp2p/kad-dht'
+import { lanKadProtocol } from './protocols.js'
 import type { ServiceMap } from '@libp2p/interface'
 
 export interface Services extends ServiceMap {
-  identify: IdentifyService
+  identify: Identify
   dht: KadDHT
 }
 
 const services = {
-  identify: identifyService(),
+  identify: identify(),
+
   dht: kadDHT({
+    protocol: lanKadProtocol,
+    peerInfoMapper: removePublicAddressesMapper,
     validators: { ipns: ipnsValidator },
-    selectors: { ipns: ipnsSelector }
+    selectors: { ipns: ipnsSelector },
+    clientMode: false
   })
 }
 

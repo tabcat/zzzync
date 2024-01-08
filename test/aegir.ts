@@ -1,6 +1,8 @@
 import { readFileSync } from 'fs'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
+import { circuitRelayServer } from '@libp2p/circuit-relay-v2'
+import { type Identify, identify } from '@libp2p/identify'
 import { type KadDHT, kadDHT } from '@libp2p/kad-dht'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
@@ -12,8 +14,6 @@ import { createHelia } from 'helia'
 import { ipnsSelector } from 'ipns/selector'
 import { ipnsValidator } from 'ipns/validator'
 import { type Libp2pOptions, createLibp2p, type Libp2p } from 'libp2p'
-import { circuitRelayServer } from 'libp2p/circuit-relay'
-import { type IdentifyService, identifyService } from 'libp2p/identify'
 // import w3nameServer from './mocks/w3name.js'
 import type { Helia } from '@helia/interface'
 import type { ServiceMap } from '@libp2p/interface'
@@ -29,7 +29,7 @@ try {
 }
 
 interface Services extends ServiceMap {
-  identify: IdentifyService
+  identify: Identify
   dht: KadDHT
 }
 
@@ -55,7 +55,7 @@ async function createLibp2pNode (): Promise<Libp2p<Services>> {
     ],
     datastore,
     services: {
-      identify: identifyService(),
+      identify: identify(),
       dht: kadDHT({
         validators: { ipns: ipnsValidator },
         selectors: { ipns: ipnsSelector }
