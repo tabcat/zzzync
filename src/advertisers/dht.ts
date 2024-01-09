@@ -1,8 +1,8 @@
 import drain from 'it-drain'
 import type { Advertiser } from '../index.js'
+import type { ContentRouting } from '@libp2p/interface/content-routing'
 import type { PeerId } from '@libp2p/interface/peer-id'
 import type { KadDHT } from '@libp2p/kad-dht'
-import type { Libp2p } from 'libp2p'
 import type { CID } from 'multiformats/cid'
 
 export interface CreateEphemeralKadDHT {
@@ -22,7 +22,7 @@ const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['
     }
   }
 
-const findCollaborators = (libp2p: Libp2p): Advertiser['findCollaborators'] =>
+const findCollaborators = (libp2p: { contentRouting: ContentRouting }): Advertiser['findCollaborators'] =>
   async function * (dcid: CID): AsyncIterable<PeerId> {
     try {
       for await (const peerInfo of libp2p.contentRouting.findProviders(dcid)) {
@@ -34,7 +34,7 @@ const findCollaborators = (libp2p: Libp2p): Advertiser['findCollaborators'] =>
     }
   }
 
-export function dhtAdvertiser (libp2p: Libp2p, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
+export function dhtAdvertiser (libp2p: { contentRouting: ContentRouting }, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
   return {
     collaborate: collaborate(createEphemeralKadDHT),
     findCollaborators: findCollaborators(libp2p)
