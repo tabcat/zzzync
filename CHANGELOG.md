@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/tabcat/zzzync/compare/v4.2.0...v5.0.0) (2024-01-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* Update packages.
+
+### Miscellaneous Chores
+
+* Update packages. ([f1d2032](https://github.com/tabcat/zzzync/commit/f1d203233e81bbdf64752d81ff4e49f7e357bbd2))
+
 ## [4.2.0](https://github.com/tabcat/zzzync/compare/v4.1.0...v4.2.0) (2023-09-16)
 
 
