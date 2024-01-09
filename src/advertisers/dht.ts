@@ -1,11 +1,12 @@
 import drain from 'it-drain'
 import type { Advertiser } from '../index.js'
+import type { ContentRouting } from '@libp2p/interface/content-routing'
 import type { PeerId } from '@libp2p/interface/peer-id'
 import type { KadDHT } from '@libp2p/kad-dht'
 import type { CID } from 'multiformats/cid'
 
 export interface CreateEphemeralKadDHT {
-  (provider: PeerId): Promise<{ dht: KadDHT, stop?: () => Promise<void> }>
+  (provider: PeerId): Promise<{ dht: KadDHT, stop?(): Promise<void> }>
 }
 
 const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['collaborate'] =>
@@ -21,15 +22,11 @@ const collaborate = (createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser['
     }
   }
 
-const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
+const findCollaborators = (libp2p: { contentRouting: ContentRouting }): Advertiser['findCollaborators'] =>
   async function * (dcid: CID): AsyncIterable<PeerId> {
     try {
-      for await (const event of dht.findProviders(dcid)) {
-        if (event.name === 'PROVIDER' || event.name === 'PEER_RESPONSE') {
-          for (const { id: peerId } of event.providers) {
-            yield peerId
-          }
-        }
+      for await (const peerInfo of libp2p.contentRouting.findProviders(dcid)) {
+        yield peerInfo.id
       }
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -37,9 +34,9 @@ const findCollaborators = (dht: KadDHT): Advertiser['findCollaborators'] =>
     }
   }
 
-export function dhtAdvertiser (dht: KadDHT, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
+export function dhtAdvertiser (libp2p: { contentRouting: ContentRouting }, createEphemeralKadDHT: CreateEphemeralKadDHT): Advertiser {
   return {
     collaborate: collaborate(createEphemeralKadDHT),
-    findCollaborators: findCollaborators(dht)
+    findCollaborators: findCollaborators(libp2p)
   }
 }

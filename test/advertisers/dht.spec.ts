@@ -38,7 +38,7 @@ describe('advertisers/dht.ts', () => {
     server = await createLibp2pNode()
     addrs = server.getMultiaddrs()
     await client.dialProtocol(addrs, lanKadProtocol)
-    advertiser = dhtAdvertiser(client.services.dht, createEphemeralKadDHT)
+    advertiser = dhtAdvertiser(client, createEphemeralKadDHT)
     provider = await createEd25519PeerId()
     dcid = CID.parse('bafyreihypffwyzhujryetatiy5imqq3p4mokuz36xmgp7wfegnhnjhwrsq')
   })

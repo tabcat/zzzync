@@ -14,13 +14,13 @@ import type { CID } from 'multiformats/cid'
 export { toDcid } from './dcid.js'
 
 export interface Advertiser {
-  collaborate: (dcid: CID, provider: PeerId) => Promise<void>
-  findCollaborators: (dcid: CID) => AsyncIterable<PeerId>
+  collaborate(dcid: CID, provider: PeerId): Promise<void>
+  findCollaborators(dcid: CID): AsyncIterable<PeerId>
 }
 
 export interface Namer {
-  publish: (key: Ed25519PeerId, value: CID) => Promise<void>
-  resolve: (key: Ed25519PeerId) => Promise<CID>
+  publish(key: Ed25519PeerId, value: CID): Promise<void>
+  resolve(key: Ed25519PeerId): Promise<CID>
 }
 
 export interface Pinner extends Blockstore {}

@@ -1,12 +1,12 @@
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
+import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 import { webRTC, webRTCDirect } from '@libp2p/webrtc'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
 import { multiaddr } from '@multiformats/multiaddr'
 import { MemoryDatastore } from 'datastore-core'
 import { createLibp2p, type Libp2p, type Libp2pOptions } from 'libp2p'
-import { circuitRelayTransport } from 'libp2p/circuit-relay'
 import services, { type Services } from './services.js'
 
 export async function createLibp2pNode (options?: Libp2pOptions<any>): Promise<Libp2p<Services>> {

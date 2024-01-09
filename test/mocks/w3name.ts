@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
           entry = ipns.unmarshal(record)
           res.write(
             JSON.stringify({
-              value: uint8arrays.toString(entry.value, 'base64pad'),
+              value: entry.value,
               record: db.get(key)
             })
           )

@@ -1,11 +1,11 @@
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
+import { circuitRelayServer, type CircuitRelayService } from '@libp2p/circuit-relay-v2'
 import { tcp } from '@libp2p/tcp'
 import { webSockets } from '@libp2p/websockets'
 import * as filters from '@libp2p/websockets/filters'
 import { MemoryDatastore } from 'datastore-core'
 import { createLibp2p, type Libp2p } from 'libp2p'
-import { circuitRelayServer, type CircuitRelayService } from 'libp2p/circuit-relay'
 import services, { type Services } from './services.js'
 import type { PeerId } from '@libp2p/interface/peer-id'
 
