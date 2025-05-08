@@ -1,123 +1,44 @@
 {
-  "name": "@tabcat/zzzync",
-  "version": "5.0.0",
-  "description": "replication protocol over IPLD, IPNS, and IPFS Provider Records",
+  "name": "ts-template-pnpm",
+  "version": "1.0.0",
+  "description": "",
   "type": "module",
-  "types": "./dist/src/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": [
-        "*",
-        "dist/*",
-        "dist/src/*",
-        "dist/src/*/index"
-      ],
-      "src/*": [
-        "*",
-        "dist/*",
-        "dist/src/*",
-        "dist/src/*/index"
-      ]
-    }
-  },
-  "files": [
-    "dist/src",
-    "!**/*.tsbuildinfo"
-  ],
-  "eslintConfig": {
-    "extends": "ipfs",
-    "parserOptions": {
-      "sourceType": "module"
-    }
-  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
-    },
-    "./advertisers/dht": {
-      "types": "./dist/src/advertisers/dht.d.ts",
-      "import": "./dist/src/advertisers/dht.js"
-    },
-    "./namers/w3": {
-      "types": "./dist/src/namers/w3.d.ts",
-      "import": "./dist/src/namers/w3.js"
     }
   },
-  "scripts": {
-    "prepublishOnly": "npm run build",
-    "clean": "aegir clean",
-    "lint": "aegir lint",
-    "dep-check": "aegir dep-check",
-    "build": "rm -rf dist .aegir.js && aegir build && ln -sf ./dist/test/aegir.js ./.aegir.js",
-    "docs": "aegir docs",
-    "test": "npm run test:node",
-    "test:chrome": "aegir test -t browser --cov",
-    "test:chrome-webworker": "aegir test -t webworker",
-    "test:firefox": "aegir test -t browser -- --browser firefox",
-    "test:firefox-webworker": "aegir test -t webworker -- --browser firefox",
-    "test:node": "aegir test -t node --cov",
-    "test:electron-main": "aegir test -t electron-main"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tabcat/zzzync.git"
-  },
-  "keywords": [
-    "IPFS",
-    "IPLD",
-    "IPNS",
-    "DHT",
-    "replication"
+  "files": [
+    "./dist/src"
   ],
-  "author": "tabcat <tabcat00@proton.me>",
-  "license": "Apache-2.0 OR MIT",
-  "bugs": {
-    "url": "https://github.com/tabcat/zzzync/issues"
+  "keywords": [],
+  "author": "tabcat",
+  "license": "MIT",
+  "scripts": {
+    "lint": "prettier src test --check",
+    "format": "prettier src test --write",
+    "build": "tsc",
+    "test": "vitest --config vitest.config.ts --run",
+    "test:watch": "vitest --config vitest.config.ts",
+    "api-docs": "typedoc src",
+    "ci": "pnpm build && pnpm lint && pnpm test"
   },
-  "homepage": "https://github.com/tabcat/zzzync#readme",
-  "typedoc": {
-    "entryPoint": "./src/index.ts"
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-organize-imports"
+    ]
   },
-  "browser": {
-    "./dist/test/utils/create-libp2p.js": "./dist/test/utils/create-libp2p.browser.js"
+  "lint-staged": {
+    "*.ts": "prettier --ignore-unknown --write"
   },
   "devDependencies": {
-    "@chainsafe/libp2p-noise": "^14.1.0",
-    "@chainsafe/libp2p-yamux": "^6.0.1",
-    "@libp2p/circuit-relay-v2": "^1.0.10",
-    "@libp2p/identify": "^1.0.9",
-    "@libp2p/peer-id-factory": "^4.0.3",
-    "@libp2p/tcp": "^9.0.10",
-    "@libp2p/webrtc": "^4.0.14",
-    "aegir": "^42.1.0",
-    "blockstore-core": "^4.3.10",
-    "go-ipfs": "^0.22.0",
-    "helia": "^3.0.0",
-    "ipfsd-ctl": "^13.0.0",
-    "kubo-rpc-client": "^3.0.2",
-    "merge-options": "^3.0.4",
-    "wherearewe": "^2.0.1"
-  },
-  "dependencies": {
-    "@helia/interface": "^3.0.0",
-    "@helia/ipns": "^4.0.0",
-    "@ipld/car": "^5.2.5",
-    "@libp2p/crypto": "^3.0.4",
-    "@libp2p/interface": "^1.1.1",
-    "@libp2p/kad-dht": "^12.0.2",
-    "@libp2p/websockets": "^8.0.10",
-    "@multiformats/multiaddr": "^12.1.12",
-    "datastore-core": "^9.2.7",
-    "interface-blockstore": "^5.2.9",
-    "interface-blockstore-tests": "^6.1.9",
-    "interface-datastore": "^8.2.10",
-    "interface-store": "^5.1.7",
-    "it-drain": "^3.0.5",
-    "libp2p": "^1.1.1",
-    "multiformats": "^13.0.0",
-    "uint8arrays": "^5.0.1",
-    "w3name": "^1.0.8",
-    "web3.storage": "^4.5.5"
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "typedoc": "^0.28.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
   }
 }

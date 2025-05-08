@@ -1,0 +1,42 @@
+name: publish
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    branches: [master]  # Ensure it only triggers for pushes to master
+    types:
+      - completed  # Runs only if Workflow A completes successfully
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # Single deploy job since we're just deploying
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use PNPM
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org/'
+          always-auth: true
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Check latest version
+        id: check-version
+        run: |
+          echo "LOCAL_VERSION=$(npm pkg get version | tr -d '"')" >> $GITHUB_OUTPUT
+          echo "PUBLISHED_VERSION=$(npm view $(npm pkg get name | tr -d '"') version 2>/dev/null || echo "")" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+      - name: Publish to NPM
+        if: steps.check-version.outputs.LOCAL_VERSION != steps.check-version.outputs.PUBLISHED_VERSION
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
