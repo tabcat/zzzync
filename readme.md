@@ -1,4 +1,28 @@
-# ts-template-pnpm
+# 💤<sub><sup>ync</sup></sub>
+
+> sync with peers that have gone to sleep 😴
+
+---
+
+## HEAVY RECONSTRUCTION
+
+🚧
+🚧
+🚧
+🚧
+🚧
+
+ZZZYNC IS BEING REDESIGNED INTO A LIBP2P PROTOCOL HANDLER
+
+FOLLOW PROGRESS HERE:
+
+https://github.com/tabcat/zzzync/issues/38
+
+---
+
+This work was originally funded as part of a [grant](https://github.com/tabcat/rough-opal) by [Protocol Labs](https://protocol.ai)
+
+<!-- # ts-template-pnpm
 
 ## Usage
 
@@ -16,4 +40,4 @@ For the publish workflow to work, you need to add your NPM token as a secret to 
 
 This will let the pages workflow complete.
 
-> Done!
+> Done! -->
