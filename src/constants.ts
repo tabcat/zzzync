@@ -1,0 +1,11 @@
+export const CID_VERSION_1 = 0x01;
+export const CODEC_IDENTITY = 0x00;
+export const CODEC_SHA2_256 = 0x12;
+export const CODEC_RAW = 0x55;
+export const CODEC_DAG_PB = 0x70;
+export const CODEC_DAG_CBOR = 0x71;
+export const IPFS_PREFIX = "/ipfs/";
+export const IPNS_PREFIX = "/ipns/";
+export const ZZZYNC_PREFIX = "/zzzync/";
+export const ZZZYNC_VERSION = "1.0.0";
+export const ZZZYNC_PROTOCOL_ID = `${ZZZYNC_PREFIX}${ZZZYNC_VERSION}`;
