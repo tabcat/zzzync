@@ -90,10 +90,16 @@ async function* normalizeUint8Array(
 	}
 }
 
+interface ReadCarStreamOptions {
+	maxLength?: number
+}
+
 export async function* readCarStream(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
 	expectedRoot: CID<unknown, typeof CODEC_DAG_PB, number, 1>,
+	options: ReadCarStreamOptions = {}
 ): AsyncGenerator<Block> {
+	const maxLength = options.maxLength ?? Infinity
 	const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
 
 	const [root] = await car.getRoots();
@@ -103,8 +109,14 @@ export async function* readCarStream(
 	}
 
 	// TODO: only support DFS Car streams with duplicates.
+	let length = 0;
 	const references = new Set<string>(root.toString());
 	for await (const { cid, bytes } of car) {
+		length += bytes.length
+		if (length >= maxLength) {
+			throw new Error('ERR_MAX_CAR_SIZE_EXCEEDED')
+		}
+
 		if (!references.has(cid.toString())) {
 			throw new Error("ERR_UNREFERENCED_BLOCK");
 		}
@@ -129,7 +141,7 @@ export async function* readCarStream(
 	}
 }
 
-export interface CreateHandlerOptions {
+export interface CreateHandlerOptions extends ReadCarStreamOptions {
 	allow?: AllowFn;
 }
 
@@ -165,6 +177,6 @@ export const createHandler =
 		const { source } = messageStreamToDuplex(stream);
 
 		// this should also close the connection
-		await importer.import({ blocks: () => readCarStream(source, cid) });
+		await importer.import({ blocks: () => readCarStream(source, cid, options) });
 		// await ipns.republish(ipnsKey, { record: remoteRecord, force: true })
 	};
