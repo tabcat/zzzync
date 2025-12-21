@@ -14,7 +14,13 @@ import {
 import type { CID } from "multiformats/cid";
 import { ZZZYNC_PROTOCOL_ID } from "./constants.js";
 import { createInitiator } from "./initiator.js";
-import type { Blockfetcher, IpnsKey, IpnsRecordFetcher } from "./interface.js";
+import type {
+	Blockfetcher,
+	IpnsKey,
+	IpnsRecordFetcher,
+	ZzzyncClient,
+	ZzzyncUploader,
+} from "./interface.js";
 import { fetchKeyFromCid } from "./lookups.js";
 
 export interface IpnsRecordFetcherComponents {
@@ -91,7 +97,7 @@ export const createZzzyncUploader = (
 	components: ZzzyncUploaderComponents,
 	peerId: PeerId,
 	car: Car,
-) => {
+): ZzzyncUploader => {
 	async function upload(
 		publicKey: PublicKey,
 		record: IPNSRecord,
@@ -108,4 +114,20 @@ export const createZzzyncUploader = (
 	}
 
 	return { upload };
+};
+
+export type ClientComponents = IpnsRecordFetcherComponents &
+	BlockFetcherComponents &
+	ZzzyncUploaderComponents;
+
+export const createClient = (
+	components: ClientComponents,
+	peerId: PeerId,
+	car: Car,
+): ZzzyncClient => {
+	return {
+		blocks: createBlockFetcher(components, peerId),
+		records: createIpnsRecordFetcher(components, peerId),
+		uploader: createZzzyncUploader(components, peerId, car),
+	};
 };
