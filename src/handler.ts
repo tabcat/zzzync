@@ -179,4 +179,5 @@ export const createHandler =
 		// this should also close the connection
 		await importer.import({ blocks: () => readCarStream(source, cid, options) });
 		// await ipns.republish(ipnsKey, { record: remoteRecord, force: true })
+		await stream.close()
 	};

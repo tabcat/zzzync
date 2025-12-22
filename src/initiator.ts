@@ -46,5 +46,10 @@ export const createInitiator = (
 				exporter: new UnixFSExporter(),
 			}),
 		);
+
+		// wait for server handler to close remote write stream
+		await new Promise((resolve) =>
+			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
+		);
 	};
 };
