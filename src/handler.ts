@@ -1,4 +1,5 @@
 import type { Car } from "@helia/car";
+import type { Pins } from "@helia/interface";
 import type { IPNS } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
 import * as DagPB from "@ipld/dag-pb";
@@ -91,15 +92,15 @@ async function* normalizeUint8Array(
 }
 
 interface ReadCarStreamOptions {
-	maxLength?: number
+	maxLength?: number;
 }
 
 export async function* readCarStream(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
 	expectedRoot: CID<unknown, typeof CODEC_DAG_PB, number, 1>,
-	options: ReadCarStreamOptions = {}
+	options: ReadCarStreamOptions = {},
 ): AsyncGenerator<Block> {
-	const maxLength = options.maxLength ?? Infinity
+	const maxLength = options.maxLength ?? Infinity;
 	const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
 
 	const [root] = await car.getRoots();
@@ -112,9 +113,9 @@ export async function* readCarStream(
 	let length = 0;
 	const references = new Set<string>(root.toString());
 	for await (const { cid, bytes } of car) {
-		length += bytes.length
+		length += bytes.length;
 		if (length >= maxLength) {
-			throw new Error('ERR_MAX_CAR_SIZE_EXCEEDED')
+			throw new Error("ERR_MAX_CAR_SIZE_EXCEEDED");
 		}
 
 		if (!references.has(cid.toString())) {
@@ -141,6 +142,34 @@ export async function* readCarStream(
 	}
 }
 
+async function pin (pins: Pins, pinner: IpnsKey, root: CID): Promise<void> {
+	try {
+		for await (const _ of pins.add(root, { metadata: { [pinner.toString()]: Date.now() }})) {}
+	} catch (e) {
+		if (e instanceof Error && e.name === 'AlreadyPinnedError') {
+			const { metadata } = await pins.get(root)
+			metadata[pinner.toString()] = true
+			await pins.setMetadata(root, metadata)
+		} else {
+			throw e;
+		}
+	}
+}
+
+async function unpin (pins: Pins, pinner: IpnsKey, prevRoot: CID): Promise<void> {
+	const { metadata } = await pins.get(prevRoot)
+
+	if (metadata[pinner.toString()]) {
+		delete metadata[pinner.toString()]
+	}
+
+	if (Object.keys(metadata).length > 0) {
+		await pins.setMetadata(prevRoot, metadata)
+	} else {
+		for await (const _ of pins.rm(prevRoot)) {}
+	}
+}
+
 export interface CreateHandlerOptions extends ReadCarStreamOptions {
 	allow?: AllowFn;
 }
@@ -149,6 +178,7 @@ export const createHandler =
 	(
 		ipns: IPNS,
 		importer: Pick<Car, "import">,
+		pins: Pins,
 		options: CreateHandlerOptions = {},
 	): StreamHandler =>
 	async (stream: Stream): Promise<void> => {
@@ -164,20 +194,32 @@ export const createHandler =
 		const remoteRecord = await readIpnsRecord(bs, ipnsKey);
 		const localRecord = await ipns
 			.resolve(ipnsKey, { offline: true })
+			.then((result) => result.record)
 			.catch(() => undefined);
 
-		if (localRecord && localRecord.record.sequence >= remoteRecord.sequence) {
+		if (localRecord && localRecord.sequence > remoteRecord.sequence) {
 			stream.abort(new Error("RECORD_OBSOLETE"));
 			return;
 		}
 
-		const cid = parseRecordValue(remoteRecord.value);
+		const root = parseRecordValue(remoteRecord.value);
 
 		bs.unwrap();
 		const { source } = messageStreamToDuplex(stream);
 
-		// this should also close the connection
-		await importer.import({ blocks: () => readCarStream(source, cid, options) });
-		// await ipns.republish(ipnsKey, { record: remoteRecord, force: true })
-		await stream.close()
+		// the write side should be closed after import completes
+		await importer.import({
+			blocks: () => readCarStream(source, root, options),
+		});
+
+		// do these in serial just to be safe
+		await pin(pins, ipnsKey, root)
+		// ipns.republish(ipnsKey, { record: remoteRecord, force: true }),
+
+		await stream.close();
+
+		if (localRecord != null) {
+			const prevRoot = parseRecordValue(localRecord.value)
+			await unpin(pins, ipnsKey, prevRoot)
+		}
 	};
