@@ -1,5 +1,5 @@
 import { type CarComponents, car } from "@helia/car";
-import type { Routing } from "@helia/interface";
+import type { Pins, Routing } from "@helia/interface";
 import { type IPNSComponents, ipns } from "@helia/ipns";
 import type {
 	ComponentLogger,
@@ -19,6 +19,7 @@ export interface ZzzyncServerComponents extends CarComponents, IPNSComponents {
 	routing: Routing;
 	logger: ComponentLogger;
 	libp2p: Libp2p<ZzzyncServices>;
+	pins: Pins;
 }
 
 interface RegisterHandlersOptions
@@ -42,7 +43,7 @@ export const registerHandlers = (
 	);
 	components.libp2p.handle(
 		ZZZYNC_PROTOCOL_ID,
-		createHandler(ipns(components), car(components), options),
+		createHandler(ipns(components), car(components), components.pins, options),
 		options,
 	);
 
