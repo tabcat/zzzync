@@ -1,9 +1,9 @@
-import type { Car } from "@helia/car";
+import { type Car, UnixFSExporter } from "@helia/car";
 import type { Pins } from "@helia/interface";
 import type { IPNS } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
 import * as DagPB from "@ipld/dag-pb";
-import type { Stream, StreamHandler } from "@libp2p/interface";
+import type { AbortOptions, Stream, StreamHandler } from "@libp2p/interface";
 import {
 	type ByteStream,
 	byteStream,
@@ -11,24 +11,91 @@ import {
 } from "@libp2p/utils";
 import {
 	type IPNSRecord,
+	marshalIPNSRecord,
 	multihashToIPNSRoutingKey,
 	unmarshalIPNSRecord,
 } from "ipns";
 import { ipnsValidator } from "ipns/validator";
-import type { CID } from "multiformats";
+import type { Duplex } from "it-stream-types";
+import type { CID, MultihashDigest } from "multiformats";
 import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 import { sha256 } from "multiformats/hashes/sha2";
+import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
-import { isUint8ArrayList, type Uint8ArrayList } from "uint8arraylist";
+import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import {
 	CODEC_DAG_PB,
 	CODEC_IDENTITY,
 	CODEC_RAW,
 	CODEC_SHA2_256,
 } from "./constants.js";
-import type { AllowFn, IpnsKey } from "./interface.js";
+import { pin, unpin } from "./pins.js";
 import { parseRecordValue } from "./utils.js";
+
+export type IpnsKey = MultihashDigest<
+	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
+>;
+
+async function writeIpnsKey(
+	bs: ByteStream<Stream>,
+	ipnsKey: IpnsKey,
+): Promise<void> {
+	await bs.write(ipnsKey.bytes);
+}
+
+async function writeIpnsRecord(
+	bs: ByteStream<Stream>,
+	record: IPNSRecord,
+): Promise<void> {
+	const marshalledRecord = marshalIPNSRecord(record);
+	const recordLength = varint.encode(marshalledRecord.length);
+	console.log(recordLength);
+	await bs.write(new Uint8ArrayList(recordLength, marshalledRecord));
+}
+
+async function writeCarFile(
+	duplex: Pick<
+		Duplex<AsyncGenerator<Uint8ArrayList | Uint8Array<ArrayBufferLike>>>,
+		"sink"
+	>,
+	exporter: Pick<Car, "export">,
+	cid: CID,
+	options: AbortOptions = {},
+): Promise<void> {
+	await duplex.sink(
+		exporter.export(cid, {
+			...options,
+			exporter: new UnixFSExporter(),
+		}),
+	);
+}
+
+export async function zzzync(
+	stream: Stream,
+	exporter: Pick<Car, "export">,
+	ipnsKey: IpnsKey,
+	record: IPNSRecord,
+	cid: CID,
+	options: AbortOptions = {},
+): Promise<void> {
+	const bs = byteStream(stream);
+
+	await writeIpnsKey(bs, ipnsKey);
+	await writeIpnsRecord(bs, record);
+
+	bs.unwrap();
+	const duplex = messageStreamToDuplex(stream);
+
+	await writeCarFile(duplex, exporter, cid, options);
+
+	await raceSignal(
+		new Promise((resolve) =>
+			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
+		),
+		options.signal,
+	);
+}
 
 async function readByte(bs: ByteStream<Stream>): Promise<number> {
 	const [byte] = await bs.read({ bytes: 1 });
@@ -91,14 +158,14 @@ async function* normalizeUint8Array(
 	}
 }
 
-interface ReadCarStreamOptions {
+interface ReadCarFileOptions {
 	maxLength?: number;
 }
 
-export async function* readCarStream(
+export async function* readCarFile(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
 	expectedRoot: CID<unknown, typeof CODEC_DAG_PB, number, 1>,
-	options: ReadCarStreamOptions = {},
+	options: ReadCarFileOptions = {},
 ): AsyncGenerator<Block> {
 	const maxLength = options.maxLength ?? Infinity;
 	const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
@@ -142,35 +209,9 @@ export async function* readCarStream(
 	}
 }
 
-async function pin (pins: Pins, pinner: IpnsKey, root: CID): Promise<void> {
-	try {
-		for await (const _ of pins.add(root, { metadata: { [pinner.toString()]: Date.now() }})) {}
-	} catch (e) {
-		if (e instanceof Error && e.name === 'AlreadyPinnedError') {
-			const { metadata } = await pins.get(root)
-			metadata[pinner.toString()] = true
-			await pins.setMetadata(root, metadata)
-		} else {
-			throw e;
-		}
-	}
-}
+export type AllowFn = (ipnsKey: IpnsKey) => Promise<boolean> | boolean;
 
-async function unpin (pins: Pins, pinner: IpnsKey, prevRoot: CID): Promise<void> {
-	const { metadata } = await pins.get(prevRoot)
-
-	if (metadata[pinner.toString()]) {
-		delete metadata[pinner.toString()]
-	}
-
-	if (Object.keys(metadata).length > 0) {
-		await pins.setMetadata(prevRoot, metadata)
-	} else {
-		for await (const _ of pins.rm(prevRoot)) {}
-	}
-}
-
-export interface CreateHandlerOptions extends ReadCarStreamOptions {
+export interface CreateHandlerOptions extends ReadCarFileOptions {
 	allow?: AllowFn;
 }
 
@@ -209,17 +250,30 @@ export const createHandler =
 
 		// the write side should be closed after import completes
 		await importer.import({
-			blocks: () => readCarStream(source, root, options),
+			blocks: () => readCarFile(source, root, options),
 		});
 
 		// do these in serial just to be safe
-		await pin(pins, ipnsKey, root)
-		// ipns.republish(ipnsKey, { record: remoteRecord, force: true }),
 
+		// pin first
+		await pin(pins, ipnsKey, root);
+
+		// then republish record
+		// ipns.republish(ipnsKey, { record: remoteRecord, force: true }),
+		const routingKey = multihashToIPNSRoutingKey(ipnsKey);
+		const marshaledRecord = marshalIPNSRecord(remoteRecord);
+		await Promise.all(
+			ipns.routers.map(async (r) => {
+				// only republishes one time, waiting for ipns.republish feature
+				await r.put(routingKey, marshaledRecord);
+			}),
+		);
+
+		// close stream after record is republished and data is pinned
 		await stream.close();
 
 		if (localRecord != null) {
-			const prevRoot = parseRecordValue(localRecord.value)
-			await unpin(pins, ipnsKey, prevRoot)
+			const prevRoot = parseRecordValue(localRecord.value);
+			await unpin(pins, ipnsKey, prevRoot);
 		}
 	};
