@@ -1,0 +1,4 @@
+onlyBuiltDependencies:
+  - classic-level
+  - esbuild
+  - node-datachannel
