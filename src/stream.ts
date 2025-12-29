@@ -37,21 +37,25 @@ export type IpnsKey = MultihashDigest<
 	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
 >;
 
+export async function writeVarintPrefixed(
+	bs: ByteStream<Stream>,
+	bytes: Uint8Array,
+): Promise<void> {
+	return bs.write(new Uint8ArrayList(varint.encode(bytes.length), bytes));
+}
+
 async function writeIpnsKey(
 	bs: ByteStream<Stream>,
 	ipnsKey: IpnsKey,
 ): Promise<void> {
-	await bs.write(ipnsKey.bytes);
+	return bs.write(ipnsKey.bytes);
 }
 
 async function writeIpnsRecord(
 	bs: ByteStream<Stream>,
 	record: IPNSRecord,
 ): Promise<void> {
-	const marshalledRecord = marshalIPNSRecord(record);
-	const recordLength = varint.encode(marshalledRecord.length);
-	console.log(recordLength);
-	await bs.write(new Uint8ArrayList(recordLength, marshalledRecord));
+	return writeVarintPrefixed(bs, marshalIPNSRecord(record));
 }
 
 async function writeCarFile(
@@ -121,20 +125,33 @@ async function readVarint(bs: ByteStream<Stream>): Promise<number> {
 	return varint.decode(new Uint8Array(varintBytes));
 }
 
-export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
-	const code = await readVarint(bs);
+export type VarintGuard<T extends number> = (n: number) => asserts n is T;
 
-	if (code !== CODEC_IDENTITY && code !== CODEC_SHA2_256) {
-		throw new Error("UNSUPPORTED_IPNS_KEY");
-	}
+export async function readVarintPrefixed<T extends number>(
+	bs: ByteStream<Stream>,
+	varintGuard: VarintGuard<T>,
+): Promise<[T, Uint8ArrayList]> {
+	const n = await readVarint(bs);
 
-	const digestLength = await readVarint(bs);
-	const digest = (await bs.read({ bytes: digestLength })).subarray();
+	varintGuard(n);
 
-	return Digest.create(code, digest);
+	return [n as T, await bs.read({ bytes: n })];
 }
 
-export async function readIpnsRecord(
+async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
+	const validateIpnsCode: VarintGuard<
+		typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
+	> = (n: number) => {
+		if (n !== CODEC_IDENTITY && n !== CODEC_SHA2_256) {
+			throw new Error("UNSUPPORTED_IPNS_KEY");
+		}
+	};
+
+	const [code, digest] = await readVarintPrefixed(bs, validateIpnsCode);
+	return Digest.create(code, digest.subarray());
+}
+
+async function readIpnsRecord(
 	bs: ByteStream<Stream>,
 	ipnsKey: IpnsKey,
 ): Promise<IPNSRecord> {

@@ -10,6 +10,10 @@
     "zzzync": "./dist/src/cli.js"
   },
   "exports": {
+    "./stream": {
+      "types": "./dist/src/stream.d.ts",
+      "import": "./dist/src/stream.js"
+    },
     "./client": {
       "types": "./dist/src/client.d.ts",
       "import": "./dist/src/client.js"
