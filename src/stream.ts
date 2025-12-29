@@ -44,7 +44,7 @@ export async function writeVarintPrefixed(
 	return bs.write(new Uint8ArrayList(varint.encode(bytes.length), bytes));
 }
 
-async function writeIpnsKey(
+export async function writeIpnsKey(
 	bs: ByteStream<Stream>,
 	ipnsKey: IpnsKey,
 ): Promise<void> {
@@ -138,7 +138,7 @@ export async function readVarintPrefixed<T extends number>(
 	return [n as T, await bs.read({ bytes: n })];
 }
 
-async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
+export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
 	const validateIpnsCode: VarintGuard<
 		typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
 	> = (n: number) => {
