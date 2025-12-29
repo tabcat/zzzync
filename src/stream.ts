@@ -125,7 +125,7 @@ async function readVarint(bs: ByteStream<Stream>): Promise<number> {
 	return varint.decode(new Uint8Array(varintBytes));
 }
 
-export type VarintGuard<T extends number> = (n: number) => asserts n is T;
+export type VarintGuard<T extends number = number> = (n: number) => asserts n is T;
 
 export async function readVarintPrefixed<T extends number>(
 	bs: ByteStream<Stream>,
