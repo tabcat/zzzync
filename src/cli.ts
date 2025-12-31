@@ -4,7 +4,7 @@
  * This simple cli tool is made easy to fork and extend.
 */
 
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { fetch } from "@libp2p/fetch";
 import type { Libp2p } from "@libp2p/interface";
@@ -94,6 +94,7 @@ async function daemon() {
 				},
 			};
 			console.log(`writing config...`);
+      await mkdir(CONFIG_DIR, { recursive: true })
 			await writeFile(
 				`${CONFIG_DIR}/config.json`,
 				JSON.stringify(config, null, 2),
