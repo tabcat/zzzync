@@ -6,6 +6,6 @@ export const CODEC_DAG_PB = 0x70;
 export const CODEC_DAG_CBOR = 0x71;
 export const IPFS_PREFIX = "/ipfs/";
 export const IPNS_PREFIX = "/ipns/";
-export const ZZZYNC_PREFIX = "/zzzync/";
+export const ZZZYNC_PREFIX = "/zzzync/commit/";
 export const ZZZYNC_VERSION = "1.0.0";
 export const ZZZYNC_PROTOCOL_ID = `${ZZZYNC_PREFIX}${ZZZYNC_VERSION}`;
