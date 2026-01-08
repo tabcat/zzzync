@@ -37,6 +37,13 @@ export type IpnsKey = MultihashDigest<
 	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
 >;
 
+export async function writeVarint(
+	bs: ByteStream<Stream>,
+	n: number,
+): Promise<void> {
+	return bs.write(varint.encode(n));
+}
+
 export async function writeVarintPrefixed(
 	bs: ByteStream<Stream>,
 	bytes: Uint8Array,
@@ -108,7 +115,7 @@ async function readByte(bs: ByteStream<Stream>): Promise<number> {
 	return byte![0]!; // byte stream will return 1 byte or throw
 }
 
-async function readVarint(bs: ByteStream<Stream>): Promise<number> {
+export async function readVarint(bs: ByteStream<Stream>): Promise<number> {
 	let byte = await readByte(bs);
 	const varintBytes: number[] = [byte];
 
@@ -153,7 +160,7 @@ export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
 	return Digest.create(code, digest.subarray());
 }
 
-async function readIpnsRecord(
+export async function readIpnsRecord(
 	bs: ByteStream<Stream>,
 	ipnsKey: IpnsKey,
 ): Promise<IPNSRecord> {
