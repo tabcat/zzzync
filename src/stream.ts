@@ -147,16 +147,21 @@ export async function readVarintPrefixed<T extends number>(
 	return [n as T, await bs.read({ bytes: n })];
 }
 
+const validateIpnsCode: VarintGuard<
+	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
+> = (n: number) => {
+	if (n !== CODEC_IDENTITY && n !== CODEC_SHA2_256) {
+		throw new Error("UNSUPPORTED_IPNS_KEY");
+	}
+};
 export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
-	const validateIpnsCode: VarintGuard<
-		typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
-	> = (n: number) => {
-		if (n !== CODEC_IDENTITY && n !== CODEC_SHA2_256) {
-			throw new Error("UNSUPPORTED_IPNS_KEY");
-		}
-	};
+	let [code, digest] = await readVarintPrefixed(bs, validateIpnsCode);
 
-	const [code, digest] = await readVarintPrefixed(bs, validateIpnsCode);
+	if (code === CODEC_IDENTITY) {
+		const [, _digest] = await readVarintPrefixed(bs, () => {});
+		digest = _digest;
+	}
+
 	return Digest.create(code, digest.subarray());
 }
 
