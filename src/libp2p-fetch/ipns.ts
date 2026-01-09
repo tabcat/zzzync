@@ -4,17 +4,17 @@ import type { AbortOptions, PeerId } from "@libp2p/interface";
 import { type Datastore, Key } from "interface-datastore";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
 import { toString as uint8ArrayToString } from "uint8arrays";
-import type { IpnsKey } from "../stream.js";
+import type { IpnsMultihash } from "../interface.js";
 
 export async function fetchIpnsRecord(
 	fetch: Fetch["fetch"],
 	peerId: PeerId,
-	ipnsKey: IpnsKey,
+	ipnsMultihash: IpnsMultihash,
 	options: AbortOptions = {},
 ): Promise<IPNSRecord | undefined> {
 	const marshalledRecord = await fetch(
 		peerId,
-		multihashToIPNSRoutingKey(ipnsKey),
+		multihashToIPNSRoutingKey(ipnsMultihash),
 		options,
 	);
 
