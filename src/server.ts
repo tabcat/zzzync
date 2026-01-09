@@ -1,5 +1,5 @@
 import { type CarComponents, car } from "@helia/car";
-import type { Pins, Routing } from "@helia/interface";
+import type { Helia, Pins, Routing } from "@helia/interface";
 import { type IPNSComponents, ipns } from "@helia/ipns";
 import type { Fetch } from "@libp2p/fetch";
 import type {
@@ -9,6 +9,7 @@ import type {
 	StreamHandlerOptions,
 } from "@libp2p/interface";
 import type { Keychain } from "@libp2p/keychain";
+import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
 import type { Datastore } from "interface-datastore";
 import { IPFS_PREFIX, IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "./constants.js";
@@ -79,3 +80,13 @@ export const registerHandlers = (
 
 	return { unregisterHandlers };
 };
+
+export async function createZzzyncServer<T extends Libp2p<ZzzyncServices>>(
+	init: Partial<HeliaInit<T>>,
+): Promise<Helia<T>> {
+	const helia = await createHelia(init);
+
+	registerHandlers(helia);
+
+	return helia;
+}
