@@ -4,6 +4,7 @@ export const CODEC_SHA2_256 = 0x12;
 export const CODEC_RAW = 0x55;
 export const CODEC_DAG_PB = 0x70;
 export const CODEC_DAG_CBOR = 0x71;
+export const CODEC_LIBP2P_KEY = 0x72;
 export const IPFS_PREFIX = "/ipfs/";
 export const IPNS_PREFIX = "/ipns/";
 export const ZZZYNC_PREFIX = "/zzzync/push/";
