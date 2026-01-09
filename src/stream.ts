@@ -18,7 +18,7 @@ import {
 } from "ipns";
 import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
-import type { CID, MultihashDigest } from "multiformats";
+import type { CID } from "multiformats";
 // import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 // import { sha256 } from "multiformats/hashes/sha2";
@@ -31,14 +31,11 @@ import {
 	// CODEC_RAW,
 	CODEC_SHA2_256,
 } from "./constants.js";
+import type { IpnsMultihash, Libp2pKey } from "./interface.js";
 import { pin, unpin } from "./pins.js";
 import { parseRecordValue } from "./utils.js";
 
-const log = logger("zzzync");
-
-export type IpnsKey = MultihashDigest<
-	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
->;
+const l = logger("zzzync");
 
 export async function writeVarint(
 	bs: ByteStream<Stream>,
@@ -54,11 +51,11 @@ export async function writeVarintPrefixed(
 	return bs.write(new Uint8ArrayList(varint.encode(bytes.length), bytes));
 }
 
-export async function writeIpnsKey(
+export async function writeIpnsMultihash(
 	bs: ByteStream<Stream>,
-	ipnsKey: IpnsKey,
+	ipnsMultihash: IpnsMultihash,
 ): Promise<void> {
-	return bs.write(ipnsKey.bytes);
+	return bs.write(ipnsMultihash.bytes);
 }
 
 async function writeIpnsRecord(
@@ -88,25 +85,48 @@ async function writeCarFile(
 export async function zzzync(
 	stream: Stream,
 	exporter: Pick<Car, "export">,
-	ipnsKey: IpnsKey,
+	libp2pKey: Libp2pKey,
 	record: IPNSRecord,
 	cid: CID,
 	options: AbortOptions = {},
 ): Promise<void> {
+	const log = l.newScope(`push:${stream.id}`);
+
 	log("starting zzzync");
+
 	const bs = byteStream(stream);
 
-	await writeIpnsKey(bs, ipnsKey);
-	log("wrote ipnsKey");
-	await writeIpnsRecord(bs, record);
-	log("wrote ipnsRecord");
+	try {
+		log.trace("writing ipns key");
+		await writeIpnsMultihash(bs, libp2pKey.multihash);
+		log("wrote ipns key");
+	} catch (e) {
+		log.error("failed while writing ipns key");
+		throw e;
+	}
+
+	try {
+		log.trace("writing ipns record");
+		await writeIpnsRecord(bs, record);
+		log("wrote ipns record");
+	} catch (e) {
+		log.error("failed while writing ipns record");
+		throw e;
+	}
 
 	bs.unwrap();
 	const duplex = messageStreamToDuplex(stream);
 
-	await writeCarFile(duplex, exporter, cid, options);
-	log("wrote car file");
+	try {
+		log.trace("writing car file");
+		await writeCarFile(duplex, exporter, cid, options);
+		log("wrote car file");
+	} catch (e) {
+		log.error("failed while writing car file");
+		throw e;
+	}
 
+	log.trace("waiting for remote to close write");
 	await raceSignal(
 		new Promise((resolve) =>
 			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
@@ -161,7 +181,9 @@ const validateIpnsCode: VarintGuard<
 		throw new Error("UNSUPPORTED_IPNS_KEY");
 	}
 };
-export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
+export async function readIpnsMultihash(
+	bs: ByteStream<Stream>,
+): Promise<IpnsMultihash> {
 	let [code, digest] = await readVarintPrefixed(bs, validateIpnsCode);
 
 	if (code === CODEC_IDENTITY) {
@@ -174,12 +196,15 @@ export async function readIpnsKey(bs: ByteStream<Stream>): Promise<IpnsKey> {
 
 export async function readIpnsRecord(
 	bs: ByteStream<Stream>,
-	ipnsKey: IpnsKey,
+	ipnsMultihash: IpnsMultihash,
 ): Promise<IPNSRecord> {
 	const recordLength = await readVarint(bs);
 	const marshalledRecord = (await bs.read({ bytes: recordLength })).subarray();
 
-	await ipnsValidator(multihashToIPNSRoutingKey(ipnsKey), marshalledRecord);
+	await ipnsValidator(
+		multihashToIPNSRoutingKey(ipnsMultihash),
+		marshalledRecord,
+	);
 
 	return unmarshalIPNSRecord(marshalledRecord);
 }
@@ -214,7 +239,7 @@ export async function* readCarFile(
 		throw new Error("ERR_UNEXPECTED_ROOT");
 	}
 
-	yield * car
+	yield* car;
 
 	// TODO: only support DFS Car streams with duplicates.
 	// let length = 0;
@@ -249,92 +274,158 @@ export async function* readCarFile(
 	// }
 }
 
-export type AllowFn = (ipnsKey: IpnsKey) => Promise<boolean> | boolean;
+export type AllowFn = (
+	ipnsMultihash: IpnsMultihash,
+) => Promise<boolean> | boolean;
 
 export interface CreateHandlerOptions extends ReadCarFileOptions {
 	allow?: AllowFn;
 }
 
-export const createHandler = (
-	ipns: IPNS,
-	importer: Pick<Car, "import">,
-	pins: Pins,
-	options: CreateHandlerOptions = {},
-): StreamHandler => {
-	const handle = async (stream: Stream): Promise<void> => {
-		log("start handling zzzync");
-		const bs = byteStream(stream);
+export const createHandler =
+	(
+		ipns: IPNS,
+		importer: Pick<Car, "import">,
+		pins: Pins,
+		options: CreateHandlerOptions = {},
+	): StreamHandler =>
+	async (stream: Stream): Promise<void> => {
+		const log = l.newScope(`handle:${stream.id}`);
 
-		const ipnsKey = await readIpnsKey(bs);
-		log("read ipnsKey");
-
-		if (options.allow && !(await options.allow(ipnsKey))) {
-			stream.abort(new Error("RECORD_KEY_NO_ACCESS"));
-			return;
-		}
-
-		const remoteRecord = await readIpnsRecord(bs, ipnsKey);
-		log("read ipnsKey");
-		const localRecord = await ipns
-			.resolve(ipnsKey, { offline: true })
-			.then((result) => result.record)
-			.catch(() => undefined);
-
-		if (localRecord && localRecord.sequence > remoteRecord.sequence) {
-			stream.abort(new Error("RECORD_OBSOLETE"));
-			return;
-		}
-
-		const root = parseRecordValue(remoteRecord.value);
-
-		bs.unwrap();
-		const { source } = messageStreamToDuplex(stream);
-
-		// the write side should be closed after import completes
-		await importer.import({
-			blocks: () => readCarFile(source, root),
-		});
-		log("imported car files");
-
-		// do these in serial just to be safe
-
-		// pin first
-		log("pinning");
-		await pin(pins, ipnsKey, root);
-		log("pinned");
-
-		// then republish record
-		// ipns.republish(ipnsKey, { record: remoteRecord, force: true }),
-		// const routingKey = multihashToIPNSRoutingKey(ipnsKey);
-		// const marshaledRecord = marshalIPNSRecord(remoteRecord);
-		log("republishing records to routers");
-		// await Promise.all(
-		// 	ipns.routers.map(async (r) => {
-		// 		// only republishes one time, waiting for ipns.republish feature
-		// 		await r.put(routingKey, marshaledRecord);
-		// 	}),
-		// );
-
-		log("closing stream");
-		// close stream after record is republished and data is pinned
-		await stream.close();
-
-		log("finished");
-
-		if (localRecord != null) {
-			const prevRoot = parseRecordValue(localRecord.value);
-			await unpin(pins, ipnsKey, prevRoot);
-		}
-	};
-
-	return async (stream: Stream): Promise<void> => {
-		console.log("here firsty");
-		log("here first");
 		try {
-			await handle(stream);
+			log("new stream");
+
+			const bs = byteStream(stream);
+
+			let ipnsMultihash: IpnsMultihash;
+			try {
+				log.trace("reading ipns key from stream");
+				ipnsMultihash = await readIpnsMultihash(bs);
+			} catch (e) {
+				log.error("failed while reading ipns key from stream");
+				throw e;
+			}
+			log(`reading ipns key`, ipnsMultihash);
+
+			if (options.allow && !(await options.allow(ipnsMultihash))) {
+				const error = new Error("ipns key not allowed");
+				log.error(error.message);
+				throw error;
+			}
+
+			let remoteRecord: IPNSRecord;
+			try {
+				log.trace("reading ipns record from stream");
+				remoteRecord = await readIpnsRecord(bs, ipnsMultihash);
+			} catch (e) {
+				log.error("failed while reading ipns record from stream");
+				throw e;
+			}
+			log("read ipns record");
+
+			let localRecord: IPNSRecord | undefined;
+			let localRecordValue: CID | undefined;
+			try {
+				log.trace("resolving local record for ipns key");
+				localRecord = await ipns
+					.resolve(ipnsMultihash, { offline: true })
+					.then((result) => result.record)
+					.catch((e) => {
+						if (
+							e instanceof Error &&
+							(e.name === "RecordNotFoundError" ||
+								e.name === "RecordsFaileValidationError")
+						) {
+							return undefined;
+						} else {
+							throw e;
+						}
+					});
+				try {
+					localRecordValue = parseRecordValue(localRecord?.value ?? "");
+				} catch {
+					localRecordValue = undefined;
+				}
+			} catch (e) {
+				log.error("failed while resolving local record");
+				throw e;
+			}
+
+			if (localRecord) {
+				log.trace("found a local record");
+				if (localRecord.sequence > remoteRecord.sequence) {
+					const error = new Error(
+						"local record sequence is > received record's sequece",
+					);
+					log.error(error.message);
+					throw error;
+				}
+			} else {
+				log.trace("no local record found");
+			}
+
+			log("received record has value %s", remoteRecord.value);
+			const value = parseRecordValue(remoteRecord.value);
+
+			// if (value.equals(localRecordValue) && await pins.isPinned(value)) {
+			// 	log('record value is already pinned, closing before car stream')
+			// 	await Promise.all(
+			// 		ipns.routers
+			// 			.slice(0, 1)
+			// 			.map((r) =>
+			// 				r.put(
+			// 					multihashToIPNSRoutingKey(ipnsMultihash),
+			// 					marshalIPNSRecord(remoteRecord),
+			// 				),
+			// 			),
+			// 	);
+			// 	await stream.close();
+			// 	return;
+			// }
+
+			bs.unwrap();
+			const { source } = messageStreamToDuplex(stream);
+
+			try {
+				log.trace("importing car stream");
+				// the write side should be closed after import completes
+				await importer.import({
+					blocks: () => readCarFile(source, value),
+				});
+				log("imported car stream");
+			} catch (e) {
+				log.error("failed while reading car stream");
+				throw e;
+			}
+
+			log.trace("pinning", value);
+			await pin(pins, ipnsMultihash, value);
+			log("pinned", value);
+
+			log.trace("closing stream");
+			await stream.close();
+			log("closed stream");
+
+			// then republish record
+			// ipns.republish(ipnsMultihash, { record: remoteRecord, force: true }),
+			const routingKey = multihashToIPNSRoutingKey(ipnsMultihash);
+			const marshaledRecord = marshalIPNSRecord(remoteRecord);
+			log("republishing records to routers");
+			void ipns.routers.map(async (r) => {
+				// only republishes one time, waiting for ipns.republish feature
+				await r.put(routingKey, marshaledRecord);
+			});
+
+			if (localRecordValue != null) {
+				log("unpinning old record value", localRecordValue);
+				await unpin(pins, ipnsMultihash, localRecordValue);
+			}
 		} catch (e) {
-			log.error("Encountered an error while processing stream", e);
-			throw e;
+			log.error("failed while processing stream - %e", e);
+			if (e instanceof Error) {
+				stream.abort(e);
+			} else {
+				throw e;
+			}
 		}
 	};
-};
