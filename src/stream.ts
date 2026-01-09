@@ -2,8 +2,9 @@ import { type Car, UnixFSExporter } from "@helia/car";
 import type { Pins } from "@helia/interface";
 import type { IPNS } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
-import * as DagPB from "@ipld/dag-pb";
+// import * as DagPB from "@ipld/dag-pb";
 import type { AbortOptions, Stream, StreamHandler } from "@libp2p/interface";
+import { logger } from "@libp2p/logger";
 import {
 	type ByteStream,
 	byteStream,
@@ -18,20 +19,22 @@ import {
 import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
 import type { CID, MultihashDigest } from "multiformats";
-import { create } from "multiformats/block";
+// import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
-import { sha256 } from "multiformats/hashes/sha2";
+// import { sha256 } from "multiformats/hashes/sha2";
 import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import {
-	CODEC_DAG_PB,
+	type CODEC_DAG_PB,
 	CODEC_IDENTITY,
-	CODEC_RAW,
+	// CODEC_RAW,
 	CODEC_SHA2_256,
 } from "./constants.js";
 import { pin, unpin } from "./pins.js";
 import { parseRecordValue } from "./utils.js";
+
+const log = logger("zzzync");
 
 export type IpnsKey = MultihashDigest<
 	typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
@@ -90,15 +93,19 @@ export async function zzzync(
 	cid: CID,
 	options: AbortOptions = {},
 ): Promise<void> {
+	log("starting zzzync");
 	const bs = byteStream(stream);
 
 	await writeIpnsKey(bs, ipnsKey);
+	log("wrote ipnsKey");
 	await writeIpnsRecord(bs, record);
+	log("wrote ipnsRecord");
 
 	bs.unwrap();
 	const duplex = messageStreamToDuplex(stream);
 
 	await writeCarFile(duplex, exporter, cid, options);
+	log("wrote car file");
 
 	await raceSignal(
 		new Promise((resolve) =>
@@ -196,9 +203,9 @@ interface ReadCarFileOptions {
 export async function* readCarFile(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
 	expectedRoot: CID<unknown, typeof CODEC_DAG_PB, number, 1>,
-	options: ReadCarFileOptions = {},
+	// options: ReadCarFileOptions = {},
 ): AsyncGenerator<Block> {
-	const maxLength = options.maxLength ?? Infinity;
+	// const maxLength = options.maxLength ?? Infinity;
 	const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
 
 	const [root] = await car.getRoots();
@@ -207,37 +214,39 @@ export async function* readCarFile(
 		throw new Error("ERR_UNEXPECTED_ROOT");
 	}
 
+	yield * car
+
 	// TODO: only support DFS Car streams with duplicates.
-	let length = 0;
-	const references = new Set<string>(root.toString());
-	for await (const { cid, bytes } of car) {
-		length += bytes.length;
-		if (length >= maxLength) {
-			throw new Error("ERR_MAX_CAR_SIZE_EXCEEDED");
-		}
+	// let length = 0;
+	// const references = new Set<string>(root.toString());
+	// for await (const { cid, bytes } of car) {
+	// 	length += bytes.length;
+	// 	if (length >= maxLength) {
+	// 		throw new Error("ERR_MAX_CAR_SIZE_EXCEEDED");
+	// 	}
 
-		if (!references.has(cid.toString())) {
-			throw new Error("ERR_UNREFERENCED_BLOCK");
-		}
+	// 	if (!references.has(cid.toString())) {
+	// 		throw new Error("ERR_UNREFERENCED_BLOCK");
+	// 	}
 
-		if (cid.code === CODEC_RAW) {
-			yield { bytes, cid };
-			continue;
-		}
+	// 	if (cid.code === CODEC_RAW) {
+	// 		yield { bytes, cid };
+	// 		continue;
+	// 	}
 
-		if (cid.code !== CODEC_DAG_PB) {
-			throw new Error("ERR_UNSUPPORTED_CODEC");
-		}
+	// 	if (cid.code !== CODEC_DAG_PB) {
+	// 		throw new Error("ERR_UNSUPPORTED_CODEC");
+	// 	}
 
-		// couldn't find where data was checked against cid in car decoder or importer
-		// otherwise this could be a createUnsafe call
-		const block = await create({ bytes, cid, codec: DagPB, hasher: sha256 });
-		for (const [_, link] of block.links()) {
-			references.add(link.toString());
-		}
+	// 	// couldn't find where data was checked against cid in car decoder or importer
+	// 	// otherwise this could be a createUnsafe call
+	// 	const block = await create({ bytes, cid, codec: DagPB, hasher: sha256 });
+	// 	for (const [_, link] of block.links()) {
+	// 		references.add(link.toString());
+	// 	}
 
-		yield block;
-	}
+	// 	yield block;
+	// }
 }
 
 export type AllowFn = (ipnsKey: IpnsKey) => Promise<boolean> | boolean;
@@ -246,17 +255,18 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
 	allow?: AllowFn;
 }
 
-export const createHandler =
-	(
-		ipns: IPNS,
-		importer: Pick<Car, "import">,
-		pins: Pins,
-		options: CreateHandlerOptions = {},
-	): StreamHandler =>
-	async (stream: Stream): Promise<void> => {
+export const createHandler = (
+	ipns: IPNS,
+	importer: Pick<Car, "import">,
+	pins: Pins,
+	options: CreateHandlerOptions = {},
+): StreamHandler => {
+	const handle = async (stream: Stream): Promise<void> => {
+		log("start handling zzzync");
 		const bs = byteStream(stream);
 
 		const ipnsKey = await readIpnsKey(bs);
+		log("read ipnsKey");
 
 		if (options.allow && !(await options.allow(ipnsKey))) {
 			stream.abort(new Error("RECORD_KEY_NO_ACCESS"));
@@ -264,6 +274,7 @@ export const createHandler =
 		}
 
 		const remoteRecord = await readIpnsRecord(bs, ipnsKey);
+		log("read ipnsKey");
 		const localRecord = await ipns
 			.resolve(ipnsKey, { offline: true })
 			.then((result) => result.record)
@@ -281,30 +292,49 @@ export const createHandler =
 
 		// the write side should be closed after import completes
 		await importer.import({
-			blocks: () => readCarFile(source, root, options),
+			blocks: () => readCarFile(source, root),
 		});
+		log("imported car files");
 
 		// do these in serial just to be safe
 
 		// pin first
+		log("pinning");
 		await pin(pins, ipnsKey, root);
+		log("pinned");
 
 		// then republish record
 		// ipns.republish(ipnsKey, { record: remoteRecord, force: true }),
-		const routingKey = multihashToIPNSRoutingKey(ipnsKey);
-		const marshaledRecord = marshalIPNSRecord(remoteRecord);
-		await Promise.all(
-			ipns.routers.map(async (r) => {
-				// only republishes one time, waiting for ipns.republish feature
-				await r.put(routingKey, marshaledRecord);
-			}),
-		);
+		// const routingKey = multihashToIPNSRoutingKey(ipnsKey);
+		// const marshaledRecord = marshalIPNSRecord(remoteRecord);
+		log("republishing records to routers");
+		// await Promise.all(
+		// 	ipns.routers.map(async (r) => {
+		// 		// only republishes one time, waiting for ipns.republish feature
+		// 		await r.put(routingKey, marshaledRecord);
+		// 	}),
+		// );
 
+		log("closing stream");
 		// close stream after record is republished and data is pinned
 		await stream.close();
+
+		log("finished");
 
 		if (localRecord != null) {
 			const prevRoot = parseRecordValue(localRecord.value);
 			await unpin(pins, ipnsKey, prevRoot);
 		}
 	};
+
+	return async (stream: Stream): Promise<void> => {
+		console.log("here firsty");
+		log("here first");
+		try {
+			await handle(stream);
+		} catch (e) {
+			log.error("Encountered an error while processing stream", e);
+			throw e;
+		}
+	};
+};

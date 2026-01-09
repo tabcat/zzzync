@@ -32,6 +32,9 @@ importers:
       '@libp2p/keychain':
         specifier: ^6.0.9
         version: 6.0.9
+      '@libp2p/logger':
+        specifier: ^6.2.2
+        version: 6.2.2
       '@libp2p/peer-id':
         specifier: ^6.0.4
         version: 6.0.4

@@ -66,7 +66,6 @@ export const registerHandlers = (
 	);
 
 	const unregisterHandlers = (): void => {
-		components.libp2p.unuse(ZZZYNC_PROTOCOL_ID);
 		components.libp2p.services.fetch.unregisterLookupFunction(
 			IPNS_PREFIX,
 			ipnsRecordLookup,
