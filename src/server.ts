@@ -41,7 +41,7 @@ export interface ZzzyncServerComponents
 	pins: Pins;
 }
 
-interface RegisterHandlersOptions
+export interface RegisterHandlersOptions
 	extends CreateHandlerOptions,
 		StreamHandlerOptions {}
 
@@ -83,10 +83,11 @@ export const registerHandlers = (
 
 export async function createZzzyncServer<T extends Libp2p<ZzzyncServices>>(
 	init: Partial<HeliaInit<T>>,
+	options: RegisterHandlersOptions = {},
 ): Promise<Helia<T>> {
 	const helia = await createHelia(init);
 
-	registerHandlers(helia);
+	registerHandlers(helia, options);
 
 	return helia;
 }

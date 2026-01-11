@@ -1,20 +1,31 @@
 #!/usr/bin/env node
 
-/**
- * This simple cli tool is made easy to fork and extend.
-*/
-
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
+import type { Helia } from "@helia/interface";
 import { fetch } from "@libp2p/fetch";
 import type { Libp2p } from "@libp2p/interface";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
-import { createHelia, type DefaultLibp2pServices, libp2pDefaults } from "helia";
+import { type DefaultLibp2pServices, libp2pDefaults } from "helia";
 import type { AddressManagerInit, Libp2pOptions } from "libp2p";
-import { registerHandlers, type ZzzyncServices } from "./server.js";
+import {
+	createZzzyncServer,
+	type RegisterHandlersOptions,
+	type ZzzyncServices,
+} from "./server.js";
 
 const command = "zzzync";
+
+interface Config {
+	beforeStart?: (helia: Helia<Libp2p<ZzzyncServices>>) => Promise<void>;
+	libp2p?: Libp2pOptions<ZzzyncServices>;
+	handlerOptions?: RegisterHandlersOptions;
+}
+
+interface Addresses {
+	addresses: Omit<AddressManagerInit, "announceFilter">;
+}
 
 let stopping = false;
 let cleanup = async () => {};
@@ -52,15 +63,14 @@ switch (cmd) {
 		throw new Error(`Unrecognized command: ${cmd}`);
 }
 
-interface Config {
-	addresses: Omit<AddressManagerInit, "announceFilter">;
-}
-
 async function daemon() {
 	try {
 		const { values } = parseArgs({
 			args: rest,
 			options: {
+				config: {
+					type: "string",
+				},
 				dir: {
 					default: `./.${command}`,
 					type: "string",
@@ -70,60 +80,76 @@ async function daemon() {
 		});
 
 		if (!values.dir.endsWith(`/.${command}`) && values.dir !== `.${command}`) {
-			throw new Error(`--dir option must end with "/.${command}" or ".${command}"`)
+			throw new Error(
+				`--dir option must end with "/.${command}" or ".${command}"`,
+			);
 		}
-
 		const CONFIG_DIR = values.dir;
-		const configExists: boolean = await access(`${CONFIG_DIR}/config.json`)
+		const configExists: boolean = await access(`${CONFIG_DIR}/addresses.json`)
 			.then(() => true)
 			.catch(() => false);
+		const datastore = new LevelDatastore(`${CONFIG_DIR}/datastore`);
+		const blockstore = new LevelBlockstore(`${CONFIG_DIR}/blockstore`);
 
-		const defaultLibp2pOptions = libp2pDefaults();
+		let extension: Config | undefined;
+		if (values.config) {
+			extension = await import(values.config);
+		}
+		const libp2p:
+			| Libp2pOptions<ZzzyncServices>
+			| Libp2pOptions<DefaultLibp2pServices & ZzzyncServices> =
+			extension?.libp2p
+				? { ...extension.libp2p, datastore }
+				: {
+						...libp2pDefaults(),
+						datastore,
+						services: {
+							...libp2pDefaults().services,
+							fetch: fetch(),
+						},
+					};
 
-		let config: Config;
+		let config: Addresses;
 		if (configExists) {
 			console.log("reading config...");
-			config = await readFile(`${CONFIG_DIR}/config.json`, "utf8").then(
+			config = await readFile(`${CONFIG_DIR}/addresses.json`, "utf8").then(
 				(string) => JSON.parse(string),
 			);
-			console.log(`read config from ${CONFIG_DIR}/config.json.`);
+			console.log(`read config from ${CONFIG_DIR}/addresses.json.`);
 		} else {
 			config = {
 				addresses: {
-					listen: defaultLibp2pOptions.addresses?.listen ?? [],
+					listen: libp2p.addresses?.listen ?? [],
 				},
 			};
 			console.log(`writing config...`);
-      await mkdir(CONFIG_DIR, { recursive: true })
+			await mkdir(CONFIG_DIR, { recursive: true });
 			await writeFile(
-				`${CONFIG_DIR}/config.json`,
+				`${CONFIG_DIR}/addresses.json`,
 				JSON.stringify(config, null, 2),
 				"utf8",
 			);
-			console.log(`wrote config to ${CONFIG_DIR}/config.json.`);
+			console.log(`wrote config to ${CONFIG_DIR}/addresses.json.`);
 		}
 
-		const datastore = new LevelDatastore(`${CONFIG_DIR}/datastore`);
-		const blockstore = new LevelBlockstore(`${CONFIG_DIR}/blockstore`);
-		const libp2p: Libp2pOptions<DefaultLibp2pServices & ZzzyncServices> = {
-			...defaultLibp2pOptions,
-			...config,
-			datastore,
-			services: {
-				...defaultLibp2pOptions.services,
-				fetch: fetch(),
+		const helia = await createZzzyncServer(
+			{
+				blockstore,
+				datastore,
+				libp2p,
+				start: false,
 			},
-		};
-
-		const helia = await createHelia<
-			Libp2p<DefaultLibp2pServices & ZzzyncServices>
-		>({ blockstore, datastore, libp2p, start: false });
+			extension?.handlerOptions,
+		);
 		cleanup = async () => {
 			console.log("stopping helia...");
 			await helia.stop();
 			console.log("helia stopped.");
 		};
-		registerHandlers(helia);
+
+		if (extension?.beforeStart) {
+			await extension.beforeStart(helia);
+		}
 
 		console.log("starting helia...");
 		await helia.start();
