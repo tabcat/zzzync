@@ -1,7 +1,6 @@
 import { type CarComponents, car } from "@helia/car";
 import type { Fetch } from "@libp2p/fetch";
 import type { Libp2p, PeerId, PublicKey } from "@libp2p/interface";
-import { peerIdFromMultihash } from "@libp2p/peer-id";
 import type { Blockstore } from "interface-blockstore";
 import {
 	type AbortOptions,
@@ -15,12 +14,13 @@ import {
 } from "ipns";
 import type { CID } from "multiformats/cid";
 import { ZZZYNC_PROTOCOL_ID } from "./constants.js";
+import type { Libp2pKey } from "./interface.js";
 import { fetchBlock } from "./libp2p-fetch/block.js";
-import { type IpnsKey, zzzync } from "./stream.js";
+import { zzzync } from "./stream.js";
 import { parseRecordValue } from "./utils.js";
 
 export interface IpnsRecordFetcher {
-	get(ipnsKey: IpnsKey, options: AbortOptions): Promise<IPNSRecord>;
+	get(libp2pKey: Libp2pKey, options: AbortOptions): Promise<IPNSRecord>;
 }
 
 export interface IpnsRecordFetcherComponents {
@@ -38,19 +38,18 @@ export const createIpnsRecordFetcher = (
 	const { fetch } = components.libp2p.services.fetch;
 
 	async function get(
-		ipnsKey: IpnsKey,
+		libp2pKey: Libp2pKey,
 		options: AbortOptions = {},
 	): Promise<IPNSRecord> {
-		const cid = peerIdFromMultihash(ipnsKey).toCID();
 		const marshalledRecord = await fetch(
 			peerId,
-			multihashToIPNSRoutingKey(ipnsKey),
+			multihashToIPNSRoutingKey(libp2pKey.multihash),
 			options,
 		);
 
 		if (marshalledRecord == null) {
 			throw new NotFoundError(
-				`Did not find record for ${cid} on peer ${peerId}`,
+				`Did not find record for ${libp2pKey} on peer ${peerId}`,
 			);
 		}
 
@@ -127,14 +126,7 @@ export const createZzzyncUploader = (
 		);
 
 		const cid = parseRecordValue(record.value);
-		await zzzync(
-			stream,
-			exporter,
-			publicKey.toMultihash(),
-			record,
-			cid,
-			options,
-		);
+		await zzzync(stream, exporter, publicKey.toCID(), record, cid, options);
 	}
 
 	return { upload };

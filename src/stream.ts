@@ -5,6 +5,7 @@ import { type Block, CarBlockIterator } from "@ipld/car/iterator";
 // import * as DagPB from "@ipld/dag-pb";
 import type { AbortOptions, Stream, StreamHandler } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
+import { peerIdFromMultihash } from "@libp2p/peer-id";
 import {
 	type ByteStream,
 	byteStream,
@@ -398,8 +399,18 @@ export const createHandler =
 				throw e;
 			}
 
+			const peerId = peerIdFromMultihash(ipnsMultihash);
+
+			if (peerId.type === "url") {
+				const error = new Error("url peer id not supported");
+				log.error(error.message);
+				throw error;
+			}
+
+			const libp2pKey = peerId.toCID();
+
 			log.trace("pinning", value);
-			await pin(pins, ipnsMultihash, value);
+			await pin(pins, libp2pKey, value);
 			log("pinned", value);
 
 			log.trace("closing stream");
@@ -418,7 +429,7 @@ export const createHandler =
 
 			if (localRecordValue != null) {
 				log("unpinning old record value", localRecordValue);
-				await unpin(pins, ipnsMultihash, localRecordValue);
+				await unpin(pins, libp2pKey, localRecordValue);
 			}
 		} catch (e) {
 			log.error("failed while processing stream - %e", e);

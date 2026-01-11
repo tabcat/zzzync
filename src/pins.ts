@@ -1,13 +1,13 @@
 import type { Pins } from "@helia/interface";
 import drain from "it-drain";
 import type { CID } from "multiformats/cid";
-import type { IpnsKey } from "./stream.js";
+import type { Libp2pKey } from "./interface.js";
 
 // these need concurrency control over Pins per CID
 // check if Pins already does this
 export async function pin(
 	pins: Pins,
-	pinner: IpnsKey,
+	pinner: Libp2pKey,
 	root: CID,
 ): Promise<void> {
 	const now = Date.now();
@@ -26,7 +26,7 @@ export async function pin(
 
 export async function unpin(
 	pins: Pins,
-	pinner: IpnsKey,
+	pinner: Libp2pKey,
 	prevRoot: CID,
 ): Promise<void> {
 	const { metadata } = await pins.get(prevRoot);
