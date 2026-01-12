@@ -12,11 +12,7 @@ import type { Keychain } from "@libp2p/keychain";
 import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
 import type { Datastore } from "interface-datastore";
-import { IPFS_PREFIX, IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "./constants.js";
-import {
-	type BlockLookupComponents,
-	createBlockLookup,
-} from "./libp2p-fetch/block.js";
+import { IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "./constants.js";
 import {
 	createIpnsRecordLookup,
 	type IpnsRecordLookupComponents,
@@ -31,7 +27,6 @@ export interface ZzzyncServices extends ServiceMap {
 export interface ZzzyncServerComponents
 	extends CarComponents,
 		IPNSComponents,
-		BlockLookupComponents,
 		IpnsRecordLookupComponents {
 	datastore: Datastore;
 	blockstore: Blockstore;
@@ -50,15 +45,10 @@ export const registerHandlers = (
 	options: RegisterHandlersOptions = {},
 ): { unregisterHandlers: () => void } => {
 	const ipnsRecordLookup = createIpnsRecordLookup(components);
-	const blockstoreLookup = createBlockLookup(components);
 
 	components.libp2p.services.fetch.registerLookupFunction(
 		IPNS_PREFIX,
 		ipnsRecordLookup,
-	);
-	components.libp2p.services.fetch.registerLookupFunction(
-		IPFS_PREFIX,
-		blockstoreLookup,
 	);
 	components.libp2p.handle(
 		ZZZYNC_PROTOCOL_ID,
@@ -70,10 +60,6 @@ export const registerHandlers = (
 		components.libp2p.services.fetch.unregisterLookupFunction(
 			IPNS_PREFIX,
 			ipnsRecordLookup,
-		);
-		components.libp2p.services.fetch.unregisterLookupFunction(
-			IPFS_PREFIX,
-			blockstoreLookup,
 		);
 		components.libp2p.unhandle(ZZZYNC_PROTOCOL_ID);
 	};
