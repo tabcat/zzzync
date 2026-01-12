@@ -2,20 +2,14 @@ import { type CarComponents, car } from "@helia/car";
 import type { Fetch } from "@libp2p/fetch";
 import type { Libp2p, PeerId, PublicKey } from "@libp2p/interface";
 import type { Blockstore } from "interface-blockstore";
-import {
-	type AbortOptions,
-	type AwaitGenerator,
-	NotFoundError,
-} from "interface-store";
+import { type AbortOptions, NotFoundError } from "interface-store";
 import {
 	type IPNSRecord,
 	multihashToIPNSRoutingKey,
 	unmarshalIPNSRecord,
 } from "ipns";
-import type { CID } from "multiformats/cid";
 import { ZZZYNC_PROTOCOL_ID } from "./constants.js";
 import type { Libp2pKey } from "./interface.js";
-import { fetchBlock } from "./libp2p-fetch/block.js";
 import { zzzync } from "./stream.js";
 import { parseRecordValue } from "./utils.js";
 
@@ -69,30 +63,6 @@ export interface BlockFetcherComponents {
 	};
 }
 
-export const createBlockFetcher = (
-	components: BlockFetcherComponents,
-	peerId: PeerId,
-): Blockfetcher => {
-	const { fetch } = components.libp2p.services.fetch;
-
-	async function* get(
-		cid: CID,
-		options: AbortOptions = {},
-	): AwaitGenerator<Uint8Array> {
-		const bytes = await fetchBlock(fetch, peerId, cid, options);
-
-		if (bytes === undefined) {
-			throw new NotFoundError(
-				`Did not find content for ${cid} on peer ${peerId}`,
-			);
-		}
-
-		yield bytes;
-	}
-
-	return { get };
-};
-
 export interface ZzzyncUploaderComponents extends CarComponents {
 	libp2p: {
 		dialProtocol: Libp2p["dialProtocol"];
@@ -133,7 +103,6 @@ export const createZzzyncUploader = (
 };
 
 export interface ZzzyncClient {
-	blocks: Blockfetcher;
 	records: IpnsRecordFetcher;
 	uploader: ZzzyncUploader;
 }
@@ -147,7 +116,6 @@ export const createClient = (
 	peerId: PeerId,
 ): ZzzyncClient => {
 	return {
-		blocks: createBlockFetcher(components, peerId),
 		records: createIpnsRecordFetcher(components, peerId),
 		uploader: createZzzyncUploader(components, peerId),
 	};
