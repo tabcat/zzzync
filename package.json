@@ -14,10 +14,6 @@
       "types": "./dist/src/stream.d.ts",
       "import": "./dist/src/stream.js"
     },
-    "./client": {
-      "types": "./dist/src/client.d.ts",
-      "import": "./dist/src/client.js"
-    },
     "./server": {
       "types": "./dist/src/server.d.ts",
       "import": "./dist/src/server.js"
