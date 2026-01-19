@@ -7,7 +7,7 @@
     "./dist/src"
   ],
   "bin": {
-    "zzzync": "./dist/src/cli.js"
+    "zzzync": "./dist/src/cli/index.js"
   },
   "exports": {
     "./stream": {
