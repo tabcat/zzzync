@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Helia } from "@helia/interface";
 import type { Libp2p } from "@libp2p/interface";
@@ -18,6 +19,8 @@ import {
 import { HANDLER_NAMESPACE } from "../stream.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
@@ -53,7 +56,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const datastore = new LevelDatastore(join(CONFIG_DIR, "datastore"));
 	const blockstore = new LevelBlockstore(join(CONFIG_DIR, "blockstore"));
 
-	const DEFAULT_CONFIG_PATH = "./default-config.js";
+	const DEFAULT_CONFIG_PATH = join(__dirname, "default-config.js");
 	const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "daemon-config.js");
 	const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
 		? CUSTOM_CONFIG_PATH

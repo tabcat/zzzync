@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ZZZYNC } from "../constants.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const command = ZZZYNC;
 export interface SubCommand {
@@ -26,11 +30,11 @@ const help: SubCommand = {
 let subcommand: SubCommand | null = null;
 switch (cmd) {
 	case "daemon": {
-		subcommand = (await import("./daemon.js")) as SubCommand;
+		subcommand = (await import(join(__dirname, "daemon.js"))) as SubCommand;
 		break;
 	}
 	case "push": {
-		subcommand = (await import("./push.js")) as SubCommand;
+		subcommand = (await import(join(__dirname, "push.js"))) as SubCommand;
 		break;
 	}
 	case "help": {
