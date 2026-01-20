@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { Helia } from "@helia/interface";
 import type { Libp2p } from "@libp2p/interface";
-import { logger } from "@libp2p/logger";
+import { enable, logger } from "@libp2p/logger";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
 import type { DefaultLibp2pServices } from "helia";
@@ -15,10 +15,14 @@ import {
 	type RegisterHandlersOptions,
 	type ZzzyncServices,
 } from "../server.js";
+import { HANDLER_NAMESPACE } from "../stream.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
 
-const log = logger(`${ZZZYNC}:daemon`);
+const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
+const log = logger(DAEMON_NAMESPACE);
+enable(DAEMON_NAMESPACE);
+enable(HANDLER_NAMESPACE);
 
 interface Config {
 	beforeStart?: (helia: Helia<Libp2p<ZzzyncServices>>) => Promise<void>;

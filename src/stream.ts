@@ -31,12 +31,14 @@ import {
 	CODEC_IDENTITY,
 	// CODEC_RAW,
 	CODEC_SHA2_256,
+	ZZZYNC,
 } from "./constants.js";
 import type { IpnsMultihash, Libp2pKey } from "./interface.js";
 import { pin, unpin } from "./pins.js";
 import { parseRecordValue } from "./utils.js";
 
-const l = logger("zzzync");
+export const PUSH_NAMESPACE = `${ZZZYNC}:push`
+export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`
 
 export async function writeVarint(
 	bs: ByteStream<Stream>,
@@ -91,7 +93,7 @@ export async function zzzync(
 	cid: CID,
 	options: AbortOptions = {},
 ): Promise<void> {
-	const log = l.newScope(`push:${stream.id}`);
+	const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
 
 	log("starting zzzync");
 
@@ -291,7 +293,7 @@ export const createHandler =
 		options: CreateHandlerOptions = {},
 	): StreamHandler =>
 	async (stream: Stream): Promise<void> => {
-		const log = l.newScope(`handle:${stream.id}`);
+		const log = logger(`${HANDLER_NAMESPACE}:${stream.id}`);
 
 		try {
 			log("new stream");
