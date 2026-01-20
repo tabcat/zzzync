@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
-import type { AbortOptions } from "@libp2p/interface";
 import { ZZZYNC } from "../constants.js";
 
 export const command = ZZZYNC;
 export interface SubCommand {
-	run: (args: string[], options?: AbortOptions) => unknown;
+	run: (args: string[]) => unknown;
 	cleanup?: () => unknown;
 }
 
@@ -44,7 +43,6 @@ if (subcommand == null) {
 	throw new Error(`Unrecognized command: ${cmd}`);
 }
 
-const controller = new AbortController();
 let stopping: Promise<void> | false = false;
 function stop() {
 	if (!stopping)
@@ -61,19 +59,17 @@ function stop() {
 }
 process.once("SIGINT", async () => {
 	process.exitCode = 130;
-	controller.abort("SIGINT");
 	await stop();
 	process.exit();
 });
 process.once("SIGTERM", async () => {
 	process.exitCode = 143;
-	controller.abort("SIGTERM");
 	await stop();
 	process.exit();
 });
 
 try {
-	await subcommand.run(rest, { signal: controller.signal });
+	await subcommand.run(rest);
 } catch (e) {
 	console.error(e);
 } finally {
