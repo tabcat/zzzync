@@ -33,6 +33,7 @@ interface Config {
 	handlerOptions?: RegisterHandlersOptions;
 }
 
+// reassigned later inside of run
 export let cleanup: SubCommand["cleanup"] = () => {};
 
 export const run: SubCommand["run"] = async (args: string[]) => {
