@@ -3,20 +3,15 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import type { Helia } from "@helia/interface";
-import type { Libp2p } from "@libp2p/interface";
 import { enable, logger } from "@libp2p/logger";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
 import type { DefaultLibp2pServices } from "helia";
 import type { Libp2pOptions } from "libp2p";
 import { ZZZYNC } from "../constants.js";
-import {
-	createZzzyncServer,
-	type RegisterHandlersOptions,
-	type ZzzyncServices,
-} from "../server.js";
+import { createZzzyncServer, type ZzzyncServices } from "../server.js";
 import { HANDLER_NAMESPACE } from "../stream.js";
+import type { DaemonConfig } from "./default-daemon-config.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
 
@@ -26,12 +21,6 @@ const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
 enable(DAEMON_NAMESPACE);
 enable(HANDLER_NAMESPACE);
-
-interface Config {
-	beforeStart?: (helia: Helia<Libp2p<ZzzyncServices>>) => Promise<void>;
-	libp2p?: Libp2pOptions<ZzzyncServices>;
-	handlerOptions?: RegisterHandlersOptions;
-}
 
 // reassigned later inside of run
 export let cleanup: SubCommand["cleanup"] = () => {};
@@ -57,18 +46,18 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const datastore = new LevelDatastore(join(CONFIG_DIR, "datastore"));
 	const blockstore = new LevelBlockstore(join(CONFIG_DIR, "blockstore"));
 
-	const DEFAULT_CONFIG_PATH = join(__dirname, "default-config.js");
+	const DEFAULT_CONFIG_PATH = join(__dirname, "default-daemon-config.js");
 	const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "daemon-config.js");
 	const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
 		? CUSTOM_CONFIG_PATH
 		: DEFAULT_CONFIG_PATH;
-	const config: Config = await import(CONFIG_PATH);
+	const config: DaemonConfig = await import(CONFIG_PATH);
 
 	const libp2p:
 		| Libp2pOptions<ZzzyncServices>
 		| Libp2pOptions<DefaultLibp2pServices & ZzzyncServices> =
-		config.libp2p != null
-			? config.libp2p
+		config.libp2pOptions != null
+			? config.libp2pOptions
 			: (await import(DEFAULT_CONFIG_PATH)).libp2p;
 
 	const helia = await createZzzyncServer(
