@@ -24,7 +24,9 @@ export interface DaemonConfig {
 }
 
 const defaultLibp2p = libp2pDefaults();
-export const libp2pOptions: Libp2pOptions<DefaultLibp2pServices & ZzzyncServices> = {
+export const libp2pOptions: Libp2pOptions<
+	DefaultLibp2pServices & ZzzyncServices
+> = {
 	...defaultLibp2p,
 	services: {
 		...defaultLibp2p.services,

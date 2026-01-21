@@ -7,6 +7,6 @@ export const CODEC_DAG_CBOR = 0x71;
 export const CODEC_LIBP2P_KEY = 0x72;
 export const IPFS_PREFIX = "/ipfs/";
 export const IPNS_PREFIX = "/ipns/";
-export const ZZZYNC = "zzzync"
+export const ZZZYNC = "zzzync";
 export const ZZZYNC_VERSION = "1.0.0";
 export const ZZZYNC_PROTOCOL_ID = `/${ZZZYNC}/${ZZZYNC_VERSION}`;

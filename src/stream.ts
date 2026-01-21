@@ -37,8 +37,8 @@ import type { IpnsMultihash, Libp2pKey } from "./interface.js";
 import { pin, unpin } from "./pins.js";
 import { parseRecordValue } from "./utils.js";
 
-export const PUSH_NAMESPACE = `${ZZZYNC}:push`
-export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`
+export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
+export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
 
 export async function writeVarint(
 	bs: ByteStream<Stream>,
