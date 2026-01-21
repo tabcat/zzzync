@@ -19,8 +19,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
-enable(DAEMON_NAMESPACE);
-enable(HANDLER_NAMESPACE);
+
+let enabled = `${DAEMON_NAMESPACE},${HANDLER_NAMESPACE}`;
+if (process.env.DEBUG != null) {
+	enabled = `${process.env.DEBUG},${enabled}`;
+}
+enable(enabled);
 
 // reassigned later inside of run
 export let cleanup: SubCommand["cleanup"] = () => {};
