@@ -1,3 +1,3 @@
-# @libp2p/fetch lookup handlers and fetch functions
+# @libp2p/fetch lookup handler and fetch functions
 
-Zzzync servers must expose their blockstore and ipns record store over @libp2p/fetch.
+Zzzync servers must expose their ipns record store over @libp2p/fetch.
