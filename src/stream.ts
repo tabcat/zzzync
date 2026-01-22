@@ -429,9 +429,18 @@ export const createHandler =
 				await r.put(routingKey, marshaledRecord);
 			});
 
-			if (localRecordValue != null) {
+			if (localRecordValue != null && !localRecordValue.equals(value)) {
 				log("unpinning old record value", localRecordValue);
-				await unpin(pins, libp2pKey, localRecordValue);
+				try {
+					await unpin(pins, libp2pKey, localRecordValue);
+				} catch (e) {
+					if (e instanceof Error && e.name === 'NotFoundError') {
+						log('tried to unpin cid that was not pinned!')
+						log.error(e)
+					} else {
+						throw e
+					}
+				}
 			}
 		} catch (e) {
 			log.error("failed while processing stream - %e", e);
