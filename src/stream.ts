@@ -373,22 +373,6 @@ export const createHandler =
 			log("received record has value %s", remoteRecord.value);
 			const value = parseRecordValue(remoteRecord.value);
 
-			// if (value.equals(localRecordValue) && await pins.isPinned(value)) {
-			// 	log('record value is already pinned, closing before car stream')
-			// 	await Promise.all(
-			// 		ipns.routers
-			// 			.slice(0, 1)
-			// 			.map((r) =>
-			// 				r.put(
-			// 					multihashToIPNSRoutingKey(ipnsMultihash),
-			// 					marshalIPNSRecord(remoteRecord),
-			// 				),
-			// 			),
-			// 	);
-			// 	await stream.close();
-			// 	return;
-			// }
-
 			bs.unwrap();
 			const { source } = messageStreamToDuplex(stream);
 
