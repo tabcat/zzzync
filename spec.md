@@ -31,6 +31,7 @@ sequenceDiagram
 
   C->>H: IPNS Record
   Note left of C: Marshalled IPNS record<br/>with an IPFS value.
+  Note right of H: Client record version is >=<br/>to Handler record version.
 
   C->>H: CAR File
   Note left of C: CAR File has single root.<br/>Root matches IPNS Record value.
