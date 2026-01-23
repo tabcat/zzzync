@@ -86,7 +86,8 @@ async function writeCarFile(
 	await duplex.sink(
 		exporter.export(cid, {
 			...options,
-			exporter: new UnixFSExporter()
+			exporter: new UnixFSExporter(),
+			offline: true,
 		}),
 	);
 }
