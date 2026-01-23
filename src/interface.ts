@@ -1,8 +1,10 @@
 import type { CID, MultihashDigest } from "multiformats/cid";
 import type {
 	CID_VERSION_1,
+	CODEC_DAG_PB,
 	CODEC_IDENTITY,
 	CODEC_LIBP2P_KEY,
+	CODEC_RAW,
 } from "./constants.js";
 
 /**
@@ -17,4 +19,11 @@ export type Libp2pKey = CID<
 /**
  * MultihashDigest<0x00>
  */
-export type IpnsMultihash = MultihashDigest<typeof CODEC_IDENTITY>
+export type IpnsMultihash = MultihashDigest<typeof CODEC_IDENTITY>;
+
+export type UnixFsCID = CID<
+	unknown,
+	typeof CODEC_DAG_PB | typeof CODEC_RAW,
+	number,
+	1
+>;
