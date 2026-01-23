@@ -1,12 +1,13 @@
 import { CID } from "multiformats/cid";
-import { IPFS_PREFIX } from "./constants.js";
+import { CODEC_DAG_PB, CODEC_RAW, IPFS_PREFIX } from "./constants.js";
+import type { UnixFsCID } from "./interface.js";
 
-export function parseRecordValue(value: string): CID {
-	if (!value.startsWith(IPFS_PREFIX)) {
-		throw new TypeError("value is missing /ipfs/ prefix");
-	}
-
-	const cid = CID.parse(value.substring(IPFS_PREFIX.length));
-
-	return cid;
+export function parsedRecordValue(value: string): UnixFsCID | null {
+	try {
+		const cid = CID.parse(value.substring(IPFS_PREFIX.length));
+		if (cid.code === CODEC_DAG_PB || cid.code === CODEC_RAW) {
+			return cid as UnixFsCID;
+		}
+	} catch {}
+	return null;
 }
