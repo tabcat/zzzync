@@ -408,8 +408,7 @@ export const createHandler =
 				log.error(error.message);
 				throw error;
 			}
-
-			if (peerId.type === 'RSA') {
+			if (peerId.type === "RSA") {
 				const error = new Error("rsa peer id not supported");
 				log.error(error.message);
 				throw error;
@@ -440,11 +439,11 @@ export const createHandler =
 				try {
 					await unpin(pins, libp2pKey, localRecordValue);
 				} catch (e) {
-					if (e instanceof Error && e.name === 'NotFoundError') {
-						log('tried to unpin cid that was not pinned!')
-						log.error(e)
+					if (e instanceof Error && e.name === "NotFoundError") {
+						log("tried to unpin cid that was not pinned!");
+						log.error(e);
 					} else {
-						throw e
+						throw e;
 					}
 				}
 			}
