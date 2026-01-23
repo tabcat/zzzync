@@ -193,6 +193,8 @@ export async function readIpnsMultihash(
 	if (code === CODEC_IDENTITY) {
 		const [, _digest] = await readVarintPrefixed(bs, () => {});
 		digest = _digest;
+	} else {
+		throw new Error('Expected identity multihash.')
 	}
 
 	return Digest.create(code, digest.subarray());
@@ -419,6 +421,12 @@ export const createHandler =
 
 			if (peerId.type === "url") {
 				const error = new Error("url peer id not supported");
+				log.error(error.message);
+				throw error;
+			}
+
+			if (peerId.type === 'RSA') {
+				const error = new Error("rsa peer id not supported");
 				log.error(error.message);
 				throw error;
 			}
