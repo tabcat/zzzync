@@ -21,7 +21,7 @@ sequenceDiagram
   C->>H: Open stream
 
   C->>H: IPNS Key
-  Note left of C: IPNS Key is a Libp2p Key CID
+  Note left of C: IPNS Key is an Identity Multihash
 
   alt Key allowed?
     H->>H: Optional authorization check
@@ -42,6 +42,10 @@ sequenceDiagram
   Note right of H: Handler closes stream after<br/>IPNS/IPFS content is persisted.
   H-->>C: Close stream
 ```
+
+### Notes
+
+- Only supports IPNS Keys using Identity multihashes (multicodec: 0x00).
 
 <!-- ## Zzzync Push Bitswap
 
