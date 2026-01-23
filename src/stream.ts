@@ -27,8 +27,9 @@ import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import {
-	type CODEC_DAG_PB,
+	CODEC_DAG_PB,
 	CODEC_IDENTITY,
+	CODEC_RAW,
 	// CODEC_RAW,
 	CODEC_SHA2_256,
 	ZZZYNC,
@@ -230,7 +231,7 @@ interface ReadCarFileOptions {
 
 export async function* readCarFile(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
-	expectedRoot: CID<unknown, typeof CODEC_DAG_PB, number, 1>,
+	expectedRoot: CID<unknown, typeof CODEC_DAG_PB | typeof CODEC_RAW, number, 1>,
 	// options: ReadCarFileOptions = {},
 ): AsyncGenerator<Block> {
 	// const maxLength = options.maxLength ?? Infinity;
@@ -391,9 +392,22 @@ export const createHandler =
 
 			try {
 				log.trace("importing car stream");
+
+				if (value.code !== CODEC_DAG_PB && value.code !== CODEC_RAW) {
+					throw new Error("unsupported codec");
+				}
 				// the write side should be closed after import completes
 				await importer.import({
-					blocks: () => readCarFile(source, value),
+					blocks: () =>
+						readCarFile(
+							source,
+							value as CID<
+								unknown,
+								typeof CODEC_DAG_PB | typeof CODEC_RAW,
+								number,
+								1
+							>,
+						),
 				});
 				log("imported car stream");
 			} catch (e) {
