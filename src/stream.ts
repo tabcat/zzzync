@@ -313,6 +313,14 @@ export const createHandler =
 			}
 			log(`reading ipns key`, ipnsMultihash);
 
+			const peerId = peerIdFromMultihash(ipnsMultihash);
+
+			if (peerId.type === "RSA" || peerId.type === "url") {
+				const error = new Error(`peer id type "${peerId.type}" not supported`);
+				log.error(error.message);
+				throw error;
+			}
+
 			if (options.allow && !(await options.allow(ipnsMultihash))) {
 				const error = new Error("ipns key not allowed");
 				log.error(error.message);
@@ -401,18 +409,6 @@ export const createHandler =
 				throw e;
 			}
 
-			const peerId = peerIdFromMultihash(ipnsMultihash);
-
-			if (peerId.type === "url") {
-				const error = new Error("url peer id not supported");
-				log.error(error.message);
-				throw error;
-			}
-			if (peerId.type === "RSA") {
-				const error = new Error("rsa peer id not supported");
-				log.error(error.message);
-				throw error;
-			}
 
 			const libp2pKey = peerId.toCID();
 
