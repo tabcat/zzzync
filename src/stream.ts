@@ -1,4 +1,4 @@
-import { type Car, depthFirstWalker, UnixFSExporter } from "@helia/car";
+import { type Car, UnixFSExporter } from "@helia/car";
 import type { Pins } from "@helia/interface";
 import { type IPNS, ipnsSelector } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
@@ -31,17 +31,11 @@ import * as Digest from "multiformats/hashes/digest";
 import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
-import {
-	CODEC_DAG_PB,
-	CODEC_IDENTITY,
-	CODEC_RAW,
-	// CODEC_RAW,
-	CODEC_SHA2_256,
-	ZZZYNC,
-} from "./constants.js";
+import { equals } from "uint8arrays";
+import { CODEC_IDENTITY, CODEC_SHA2_256, ZZZYNC } from "./constants.js";
 import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import { parsedRecordValue } from "./utils.js";
+import { getHasher, parsedRecordValue } from "./utils.js";
 
 export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
@@ -236,7 +230,7 @@ interface ReadCarFileOptions {
 
 export async function* readCarFile(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
-	expectedRoot: CID<unknown, typeof CODEC_DAG_PB | typeof CODEC_RAW, number, 1>,
+	expectedRoot: UnixFsCID,
 	// options: ReadCarFileOptions = {},
 ): AsyncGenerator<Block> {
 	// const maxLength = options.maxLength ?? Infinity;
@@ -246,6 +240,18 @@ export async function* readCarFile(
 
 	if (root == null || !root.equals(expectedRoot)) {
 		throw new Error("ERR_UNEXPECTED_ROOT");
+	}
+
+	const hasher = getHasher(root.code);
+
+	for await (const block of car) {
+		const hash = await hasher.digest(block.bytes);
+
+		if (!equals(block.cid.multihash.bytes, hash.bytes)) {
+			throw new Error("CID hash does not match bytes");
+		}
+
+		yield block;
 	}
 
 	yield* car;
@@ -341,7 +347,7 @@ export const createHandler =
 
 			if (value == null) {
 				stream.close();
-				throw new Error("Failed to parse value");
+				throw new Error("Failed to parse value. Unsupported codec or hash.");
 			}
 
 			let localRecord: IPNSRecord | undefined;
@@ -389,12 +395,9 @@ export const createHandler =
 
 			try {
 				log("importing car stream");
-				if (value.code !== CODEC_DAG_PB && value.code !== CODEC_RAW) {
-					throw new Error("unsupported codec");
-				}
 				// the write side should be closed after import completes
 				await importer.import({
-					blocks: () => readCarFile(source, value as UnixFsCID),
+					blocks: () => readCarFile(source, value),
 				});
 				log("finished importing car stream");
 			} catch (e) {

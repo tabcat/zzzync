@@ -6,6 +6,7 @@ import type {
 	CODEC_LIBP2P_KEY,
 	CODEC_RAW,
 } from "./constants.js";
+import type { SupportedHasherCodes } from "./utils.js";
 
 /**
  * CID<0x1, 0x72, 0x00>
@@ -24,6 +25,6 @@ export type IpnsMultihash = MultihashDigest<typeof CODEC_IDENTITY>;
 export type UnixFsCID = CID<
 	unknown,
 	typeof CODEC_DAG_PB | typeof CODEC_RAW,
-	number,
+	SupportedHasherCodes,
 	1
 >;
