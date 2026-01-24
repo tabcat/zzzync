@@ -225,15 +225,15 @@ async function* normalizeUint8Array(
 }
 
 interface ReadCarFileOptions {
-	maxLength?: number;
+	maxByteLength?: number;
 }
 
 export async function* readCarFile(
 	source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
 	expectedRoot: UnixFsCID,
-	// options: ReadCarFileOptions = {},
+	options: ReadCarFileOptions = {},
 ): AsyncGenerator<Block> {
-	// const maxLength = options.maxLength ?? Infinity;
+	const maxByteLength = options.maxByteLength ?? Infinity;
 	const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
 
 	const [root] = await car.getRoots();
@@ -244,8 +244,15 @@ export async function* readCarFile(
 
 	const hasher = getHasher(root.code);
 
+	let byteLength = 0
 	for await (const block of car) {
 		const hash = await hasher.digest(block.bytes);
+
+		byteLength += block.bytes.byteLength
+
+		if (byteLength > maxByteLength) {
+			throw new Error('CAR file exceeded max byte length')
+		}
 
 		if (!equals(block.cid.multihash.bytes, hash.bytes)) {
 			throw new Error("CID hash does not match bytes");
@@ -397,7 +404,7 @@ export const createHandler =
 				log("importing car stream");
 				// the write side should be closed after import completes
 				await importer.import({
-					blocks: () => readCarFile(source, value),
+					blocks: () => readCarFile(source, value, options),
 				});
 				log("finished importing car stream");
 			} catch (e) {
