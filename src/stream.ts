@@ -429,7 +429,7 @@ export const createHandler =
 			if (localRecordValue != null) {
 				try {
 					await unpin(pins, libp2pKey, localRecordValue);
-					log("unpinned %s for pinner %s", value, libp2pKey);
+					log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
 				} catch (e) {
 					if (e instanceof Error && e.name === "NotFoundError") {
 						log("tried to unpin cid that was not pinned!");
