@@ -23,7 +23,7 @@ import { command } from "./index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const PUSH_NAMESPACE = `${ZZZYNC}:push`;
+const PUSH_NAMESPACE = `${ZZZYNC}:push*`;
 const log = logger(PUSH_NAMESPACE);
 
 let enabled = `${PUSH_NAMESPACE}`;
@@ -120,7 +120,6 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	log("dialed protocol");
 
 	const importer = unixfs(helia);
-
 
   const path = resolve(values.upload)
   log('resolved path is', path)
