@@ -14,6 +14,7 @@ import { peerIdFromMultihash } from "@libp2p/peer-id";
 import {
 	type ByteStream,
 	byteStream,
+	type Filter,
 	messageStreamToDuplex,
 } from "@libp2p/utils";
 import {
@@ -25,17 +26,22 @@ import {
 import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
 import type { CID } from "multiformats";
+import { create } from "multiformats/block";
 // import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 // import { sha256 } from "multiformats/hashes/sha2";
 import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
-import { equals } from "uint8arrays";
-import { CODEC_IDENTITY, CODEC_SHA2_256, ZZZYNC } from "./constants.js";
+import {
+	CODEC_DAG_PB,
+	CODEC_IDENTITY,
+	CODEC_SHA2_256,
+	ZZZYNC,
+} from "./constants.js";
 import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import { getHasher, parsedRecordValue } from "./utils.js";
+import { getCodec, getHasher, parsedRecordValue } from "./utils.js";
 
 export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
@@ -77,9 +83,15 @@ async function writeCarFile(
 	cid: CID,
 	options: AbortOptions = {},
 ): Promise<void> {
+	const references = new Set<string>();
+	const blockFilter: Filter = {
+		add: (bytes) => references.add(bytes.toString()),
+		has: (bytes) => references.has(bytes.toString()),
+	};
 	await duplex.sink(
 		exporter.export(cid, {
 			...options,
+			blockFilter, // dedupe
 			exporter: new UnixFSExporter(),
 			offline: true,
 		}),
@@ -242,58 +254,36 @@ export async function* readCarFile(
 		throw new Error("ERR_UNEXPECTED_ROOT");
 	}
 
-	const hasher = getHasher(root.code);
-
-	let byteLength = 0
-	for await (const block of car) {
-		const hash = await hasher.digest(block.bytes);
-
-		byteLength += block.bytes.byteLength
+	const references = new Set<string>([root.toString()]);
+	let byteLength = 0;
+	for await (const { cid, bytes } of car) {
+		byteLength += bytes.byteLength;
 
 		if (byteLength > maxByteLength) {
-			throw new Error('CAR file exceeded max byte length')
+			throw new Error("CAR file exceeded max byte length");
 		}
 
-		if (!equals(block.cid.multihash.bytes, hash.bytes)) {
-			throw new Error("CID hash does not match bytes");
+		const cidstring = cid.toString();
+		if (!references.has(cidstring)) {
+			throw new Error("CID has not been referenced yet");
+		}
+		references.delete(cidstring);
+
+		// getCodec will return raw codec if no codec found
+		const codec = getCodec(cid.code);
+		const hasher = getHasher(cid.multihash.code);
+		const block = await create({ bytes, cid, codec, hasher });
+
+		if (codec.code === CODEC_DAG_PB) {
+			for (const [_, link] of block.links()) {
+				references.add(link.toString());
+			}
 		}
 
 		yield block;
 	}
 
 	yield* car;
-
-	// TODO: only support DFS Car streams with duplicates.
-	// let length = 0;
-	// const references = new Set<string>(root.toString());
-	// for await (const { cid, bytes } of car) {
-	// 	length += bytes.length;
-	// 	if (length >= maxLength) {
-	// 		throw new Error("ERR_MAX_CAR_SIZE_EXCEEDED");
-	// 	}
-
-	// 	if (!references.has(cid.toString())) {
-	// 		throw new Error("ERR_UNREFERENCED_BLOCK");
-	// 	}
-
-	// 	if (cid.code === CODEC_RAW) {
-	// 		yield { bytes, cid };
-	// 		continue;
-	// 	}
-
-	// 	if (cid.code !== CODEC_DAG_PB) {
-	// 		throw new Error("ERR_UNSUPPORTED_CODEC");
-	// 	}
-
-	// 	// couldn't find where data was checked against cid in car decoder or importer
-	// 	// otherwise this could be a createUnsafe call
-	// 	const block = await create({ bytes, cid, codec: DagPB, hasher: sha256 });
-	// 	for (const [_, link] of block.links()) {
-	// 		references.add(link.toString());
-	// 	}
-
-	// 	yield block;
-	// }
 }
 
 export type AllowFn = (
