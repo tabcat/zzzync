@@ -17,6 +17,7 @@ import {
 	type Filter,
 	messageStreamToDuplex,
 } from "@libp2p/utils";
+import { anySignal } from "any-signal";
 import {
 	type IPNSRecord,
 	marshalIPNSRecord,
@@ -108,12 +109,16 @@ export async function zzzync(
 ): Promise<void> {
 	const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
 
+	const controller = new AbortController();
+	stream.addEventListener("close", () => controller.abort(), { once: true });
+	const signal = anySignal([controller.signal, options.signal]);
+
 	log("starting zzzync");
 
 	const bs = byteStream(stream);
 
 	try {
-		await writeIpnsMultihash(bs, libp2pKey.multihash);
+		await raceSignal(writeIpnsMultihash(bs, libp2pKey.multihash), signal);
 		log("wrote ipns key");
 	} catch (e) {
 		log.error("failed while writing ipns key");
@@ -121,7 +126,7 @@ export async function zzzync(
 	}
 
 	try {
-		await writeIpnsRecord(bs, record);
+		await raceSignal(writeIpnsRecord(bs, record), signal);
 		log("wrote ipns record");
 	} catch (e) {
 		log.error("failed while writing ipns record");
@@ -132,7 +137,8 @@ export async function zzzync(
 	const duplex = messageStreamToDuplex(stream);
 
 	try {
-		await writeCarFile(duplex, exporter, cid, options);
+		await raceSignal(writeCarFile(duplex, exporter, cid, options), signal);
+
 		log("wrote car file");
 	} catch (e) {
 		log.error("failed while writing car file");
@@ -144,7 +150,7 @@ export async function zzzync(
 		new Promise((resolve) =>
 			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
 		),
-		options.signal,
+		signal,
 	);
 }
 
