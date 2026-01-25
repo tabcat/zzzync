@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
 
-let enabled = `${DAEMON_NAMESPACE},${HANDLER_NAMESPACE}`;
+let enabled = `${DAEMON_NAMESPACE}*,${HANDLER_NAMESPACE}*`;
 if (process.env.DEBUG != null) {
 	enabled = `${process.env.DEBUG},${enabled}`;
 }
@@ -33,7 +33,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const { values } = parseArgs({
 		args,
 		options: {
-			dir: {
+			config: {
 				default: `./.${command}`,
 				type: "string",
 			},
@@ -41,14 +41,14 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 		strict: true,
 	});
 
-	if (!values.dir.endsWith(`/.${command}`) && values.dir !== `.${command}`) {
-		throw new Error(`--dir directory must be named ".${command}"`);
+	if (!values.config.endsWith(`/.${command}`) && values.config !== `.${command}`) {
+		throw new Error(`--config directory must be named ".${command}"`);
 	}
-	const CONFIG_DIR = resolve(values.dir);
+	const CONFIG_DIR = resolve(values.config);
 	await mkdir(CONFIG_DIR, { recursive: true });
 
-	const datastore = new LevelDatastore(join(CONFIG_DIR, "datastore"));
-	const blockstore = new LevelBlockstore(join(CONFIG_DIR, "blockstore"));
+	const datastore = new LevelDatastore(join(CONFIG_DIR, "daemon/datastore"));
+	const blockstore = new LevelBlockstore(join(CONFIG_DIR, "daemon/blockstore"));
 
 	const DEFAULT_CONFIG_PATH = join(__dirname, "default-daemon-config.js");
 	const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "daemon-config.js");
