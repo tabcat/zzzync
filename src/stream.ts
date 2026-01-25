@@ -424,7 +424,7 @@ export const createHandler =
 			log("closed stream");
 
 			const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
-			if (localRecordValue != null) {
+			if (localRecordValue != null && !localRecordValue.equals(value)) {
 				try {
 					await unpin(pins, libp2pKey, localRecordValue);
 					log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
@@ -436,6 +436,8 @@ export const createHandler =
 						throw e;
 					}
 				}
+			} else {
+				log("value unchanged, skipping unpin")
 			}
 		} catch (e) {
 			log.error("failed while processing stream - %e", e);
