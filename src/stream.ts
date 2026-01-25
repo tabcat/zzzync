@@ -288,8 +288,6 @@ export async function* readCarFile(
 
 		yield block;
 	}
-
-	yield* car;
 }
 
 export type AllowFn = (
