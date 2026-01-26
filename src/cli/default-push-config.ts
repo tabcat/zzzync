@@ -16,4 +16,4 @@ export interface PushConfig {
 	libp2pOptions?: Libp2pOptions<DefaultLibp2pServices>;
 }
 
-export const libp2pOptions: PushConfig['libp2pOptions'] = libp2pDefaults();
+export const libp2pOptions: PushConfig["libp2pOptions"] = libp2pDefaults();

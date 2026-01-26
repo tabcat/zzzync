@@ -41,7 +41,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 		strict: true,
 	});
 
-	if (!values.config.endsWith(`/.${command}`) && values.config !== `.${command}`) {
+	if (
+		!values.config.endsWith(`/.${command}`) &&
+		values.config !== `.${command}`
+	) {
 		throw new Error(`--config directory must be named ".${command}"`);
 	}
 	const CONFIG_DIR = resolve(values.config);

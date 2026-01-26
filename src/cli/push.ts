@@ -121,20 +121,17 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
 	const importer = unixfs(helia);
 
-  const path = resolve(values.upload)
-  log('resolved path is', path)
+	const path = resolve(values.upload);
+	log("resolved path is", path);
 	const entry = await stat(path);
-  log('path is for directory')
+	log("path is for directory");
 
 	let root: CID | null = null;
 	if (entry.isDirectory()) {
-		for await (const imported of importer.addAll(
-			globSource(path, "**/*"),
-			{
-				wrapWithDirectory: true,
-			},
-		)) {
-      log.trace(imported)
+		for await (const imported of importer.addAll(globSource(path, "**/*"), {
+			wrapWithDirectory: true,
+		})) {
+			log.trace(imported);
 			root = imported.cid;
 		}
 
@@ -153,7 +150,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const published = await names.publish(values.keyname, root, {
 		offline: true,
 	});
-  log('created new ipns record')
+	log("created new ipns record");
 
 	const peerId = peerIdFromPublicKey(published.publicKey);
 
@@ -165,5 +162,5 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	await zzzync(stream, exporter, peerId.toCID(), published.record, root);
 	log("woah we just zzzynced!");
 
-  await helia.stop();
+	await helia.stop();
 };

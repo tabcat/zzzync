@@ -157,7 +157,7 @@ export async function zzzync(
 	try {
 		await raceSignal(routine(), signal);
 	} finally {
-		signal.clear()
+		signal.clear();
 	}
 }
 
@@ -444,7 +444,7 @@ export const createHandler =
 					}
 				}
 			} else {
-				log("value unchanged, skipping unpin")
+				log("value unchanged, skipping unpin");
 			}
 		} catch (e) {
 			log.error("failed while processing stream - %e", e);
