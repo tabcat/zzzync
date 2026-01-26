@@ -110,48 +110,55 @@ export async function zzzync(
 	const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
 
 	const controller = new AbortController();
-	stream.addEventListener("close", () => controller.abort(), { once: true });
+	stream.addEventListener("close", (e) => controller.abort(e.error), {
+		once: true,
+	});
 	const signal = anySignal([controller.signal, options.signal]);
 
-	log("starting zzzync");
+	const routine = async () => {
+		log("starting zzzync");
 
-	const bs = byteStream(stream);
+		const bs = byteStream(stream);
 
-	try {
-		await raceSignal(writeIpnsMultihash(bs, libp2pKey.multihash), signal);
-		log("wrote ipns key");
-	} catch (e) {
-		log.error("failed while writing ipns key");
-		throw e;
-	}
+		try {
+			await writeIpnsMultihash(bs, libp2pKey.multihash);
+			log("wrote ipns key");
+		} catch (e) {
+			log.error("failed while writing ipns key");
+			throw e;
+		}
 
-	try {
-		await raceSignal(writeIpnsRecord(bs, record), signal);
-		log("wrote ipns record");
-	} catch (e) {
-		log.error("failed while writing ipns record");
-		throw e;
-	}
+		try {
+			await writeIpnsRecord(bs, record);
+			log("wrote ipns record");
+		} catch (e) {
+			log.error("failed while writing ipns record");
+			throw e;
+		}
 
-	bs.unwrap();
-	const duplex = messageStreamToDuplex(stream);
+		bs.unwrap();
+		const duplex = messageStreamToDuplex(stream);
 
-	try {
-		await raceSignal(writeCarFile(duplex, exporter, cid, options), signal);
+		try {
+			await writeCarFile(duplex, exporter, cid, options);
 
-		log("wrote car file");
-	} catch (e) {
-		log.error("failed while writing car file");
-		throw e;
-	}
+			log("wrote car file");
+		} catch (e) {
+			log.error("failed while writing car file");
+			throw e;
+		}
 
-	log("waiting for remote to close write");
-	await raceSignal(
-		new Promise((resolve) =>
+		log("waiting for remote to close write");
+		await new Promise((resolve) =>
 			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
-		),
-		signal,
-	);
+		);
+	};
+
+	try {
+		await raceSignal(routine(), signal);
+	} finally {
+		signal.clear()
+	}
 }
 
 async function readByte(bs: ByteStream<Stream>): Promise<number> {
