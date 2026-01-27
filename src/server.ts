@@ -17,7 +17,7 @@ import {
 	createIpnsRecordLookup,
 	type IpnsRecordLookupComponents,
 } from "./libp2p-fetch/ipns.js";
-import { type CreateHandlerOptions, createHandler } from "./stream.js";
+import { type CreateHandlerOptions, createZzzyncHandler } from "./stream.js";
 
 export interface ZzzyncServices extends ServiceMap {
 	fetch: Fetch;
@@ -52,7 +52,7 @@ export const registerHandlers = (
 	);
 	components.libp2p.handle(
 		ZZZYNC_PROTOCOL_ID,
-		createHandler(ipns(components), car(components), components.pins, options),
+		createZzzyncHandler(ipns(components), car(components), components.pins, options),
 		options,
 	);
 

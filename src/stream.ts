@@ -324,7 +324,7 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
 	allow?: AllowFn;
 }
 
-export const createHandler =
+export const createZzzyncHandler =
 	(
 		ipns: IPNS,
 		importer: Pick<Car, "import">,
