@@ -31,7 +31,6 @@ import { create } from "multiformats/block";
 // import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 // import { sha256 } from "multiformats/hashes/sha2";
-import { raceSignal } from "race-signal";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import {
@@ -50,29 +49,36 @@ export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
 export async function writeVarint(
 	bs: ByteStream<Stream>,
 	n: number,
+	options: AbortOptions,
 ): Promise<void> {
-	return bs.write(varint.encode(n));
+	return bs.write(varint.encode(n), options);
 }
 
 export async function writeVarintPrefixed(
 	bs: ByteStream<Stream>,
 	bytes: Uint8Array,
+	options: AbortOptions = {},
 ): Promise<void> {
-	return bs.write(new Uint8ArrayList(varint.encode(bytes.length), bytes));
+	return bs.write(
+		new Uint8ArrayList(varint.encode(bytes.length), bytes),
+		options,
+	);
 }
 
 export async function writeIpnsMultihash(
 	bs: ByteStream<Stream>,
 	ipnsMultihash: IpnsMultihash,
+	options: AbortOptions = {},
 ): Promise<void> {
-	return bs.write(ipnsMultihash.bytes);
+	return bs.write(ipnsMultihash.bytes, options);
 }
 
 async function writeIpnsRecord(
 	bs: ByteStream<Stream>,
 	record: IPNSRecord,
+	options: AbortOptions = {},
 ): Promise<void> {
-	return writeVarintPrefixed(bs, marshalIPNSRecord(record));
+	return writeVarintPrefixed(bs, marshalIPNSRecord(record), options);
 }
 
 async function writeCarFile(
@@ -95,6 +101,7 @@ async function writeCarFile(
 			blockFilter, // dedupe
 			exporter: new UnixFSExporter(),
 			offline: true,
+			signal: options.signal,
 		}),
 	);
 }
@@ -115,13 +122,13 @@ export async function zzzync(
 	});
 	const signal = anySignal([controller.signal, options.signal]);
 
-	const routine = async () => {
+	try {
 		log("starting zzzync");
 
 		const bs = byteStream(stream);
 
 		try {
-			await writeIpnsMultihash(bs, libp2pKey.multihash);
+			await writeIpnsMultihash(bs, libp2pKey.multihash, { signal });
 			log("wrote ipns key");
 		} catch (e) {
 			log.error("failed while writing ipns key");
@@ -129,7 +136,7 @@ export async function zzzync(
 		}
 
 		try {
-			await writeIpnsRecord(bs, record);
+			await writeIpnsRecord(bs, record, { signal });
 			log("wrote ipns record");
 		} catch (e) {
 			log.error("failed while writing ipns record");
@@ -140,7 +147,7 @@ export async function zzzync(
 		const duplex = messageStreamToDuplex(stream);
 
 		try {
-			await writeCarFile(duplex, exporter, cid, options);
+			await writeCarFile(duplex, exporter, cid, { ...options, signal });
 
 			log("wrote car file");
 		} catch (e) {
@@ -150,12 +157,11 @@ export async function zzzync(
 
 		log("waiting for remote to close write");
 		await new Promise((resolve) =>
-			stream.addEventListener("remoteCloseWrite", resolve, { once: true }),
+			stream.addEventListener("remoteCloseWrite", resolve, {
+				once: true,
+				signal,
+			}),
 		);
-	};
-
-	try {
-		await raceSignal(routine(), signal);
 	} finally {
 		signal.clear();
 	}
