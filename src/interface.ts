@@ -12,9 +12,10 @@ import type { SupportedHasherCodes } from "./utils.js";
  * CID<0x1, 0x72, 0x00>
  */
 export type Libp2pKey = CID<
-	typeof CID_VERSION_1,
+	Uint8Array,
 	typeof CODEC_LIBP2P_KEY,
-	typeof CODEC_IDENTITY
+	typeof CODEC_IDENTITY,
+	typeof CID_VERSION_1
 >;
 
 /**
