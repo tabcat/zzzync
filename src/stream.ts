@@ -73,7 +73,7 @@ export async function writeIpnsMultihash(
 	return bs.write(ipnsMultihash.bytes, options);
 }
 
-async function writeIpnsRecord(
+export async function writeIpnsRecord(
 	bs: ByteStream<Stream>,
 	record: IPNSRecord,
 	options: AbortOptions = {},
@@ -81,7 +81,7 @@ async function writeIpnsRecord(
 	return writeVarintPrefixed(bs, marshalIPNSRecord(record), options);
 }
 
-async function writeCarFile(
+export async function writeCarFile(
 	duplex: Pick<
 		Duplex<AsyncGenerator<Uint8ArrayList | Uint8Array<ArrayBufferLike>>>,
 		"sink"
