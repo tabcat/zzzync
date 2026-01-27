@@ -38,9 +38,6 @@ importers:
       '@libp2p/logger':
         specifier: ^6.2.2
         version: 6.2.2
-      '@libp2p/peer-id':
-        specifier: ^6.0.4
-        version: 6.0.4
       '@libp2p/utils':
         specifier: ^7.0.9
         version: 7.0.10
@@ -53,12 +50,12 @@ importers:
       blockstore-level:
         specifier: ^3.0.2
         version: 3.0.2
+      datastore-core:
+        specifier: ^11.0.2
+        version: 11.0.2
       datastore-level:
         specifier: ^12.0.2
         version: 12.0.2
-      helia:
-        specifier: ^6.0.14
-        version: 6.0.16(react-native@0.83.1(@babel/core@7.28.6)(react@19.2.3))
       interface-blockstore:
         specifier: ^6.0.1
         version: 6.0.1
@@ -74,9 +71,6 @@ importers:
       it-drain:
         specifier: ^3.0.10
         version: 3.0.10
-      it-glob:
-        specifier: ^3.0.4
-        version: 3.0.4
       it-stream-types:
         specifier: ^2.0.2
         version: 2.0.2
@@ -86,12 +80,6 @@ importers:
       multiformats:
         specifier: ^13.4.1
         version: 13.4.2
-      p-defer:
-        specifier: ^4.0.1
-        version: 4.0.1
-      race-signal:
-        specifier: ^2.0.0
-        version: 2.0.0
       uint8-varint:
         specifier: ^2.0.4
         version: 2.0.4
@@ -105,15 +93,18 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.8
         version: 2.3.11
+      '@libp2p/peer-id':
+        specifier: ^6.0.4
+        version: 6.0.4
       '@types/node':
         specifier: ^25.0.3
         version: 25.0.9
+      helia:
+        specifier: ^6.0.14
+        version: 6.0.16(react-native@0.83.1(@babel/core@7.28.6)(react@19.2.3))
       husky:
         specifier: ^9.1.7
         version: 9.1.7
-      it-all:
-        specifier: ^3.0.9
-        version: 3.0.9
       lint-staged:
         specifier: ^15.5.2
         version: 15.5.2
