@@ -167,19 +167,25 @@ export async function zzzync(
 	}
 }
 
-async function readByte(bs: ByteStream<Stream>): Promise<number> {
-	const [byte] = await bs.read({ bytes: 1 });
+async function readByte(
+	bs: ByteStream<Stream>,
+	options: AbortOptions = {},
+): Promise<number> {
+	const [byte] = await bs.read({ bytes: 1, signal: options.signal });
 
 	// biome-ignore lint/style/noNonNullAssertion: bs.read would throw if it couldn't return a byte
 	return byte![0]!; // byte stream will return 1 byte or throw
 }
 
-export async function readVarint(bs: ByteStream<Stream>): Promise<number> {
+export async function readVarint(
+	bs: ByteStream<Stream>,
+	options: AbortOptions = {},
+): Promise<number> {
 	let byte = await readByte(bs);
 	const varintBytes: number[] = [byte];
 
 	while (byte & 0x80) {
-		byte = await readByte(bs);
+		byte = await readByte(bs, options);
 		varintBytes.push(byte);
 
 		// max varint size is 10 bytes
@@ -198,8 +204,9 @@ export type VarintGuard<T extends number = number> = (
 export async function readVarintPrefixed<T extends number>(
 	bs: ByteStream<Stream>,
 	varintGuard: VarintGuard<T>,
+	options: AbortOptions = {},
 ): Promise<[T, Uint8ArrayList]> {
-	const n = await readVarint(bs);
+	const n = await readVarint(bs, options);
 
 	varintGuard(n);
 
@@ -213,13 +220,15 @@ const validateIpnsCode: VarintGuard<
 		throw new Error("UNSUPPORTED_IPNS_KEY");
 	}
 };
+
 export async function readIpnsMultihash(
 	bs: ByteStream<Stream>,
+	options: AbortOptions = {},
 ): Promise<IpnsMultihash> {
-	let [code, digest] = await readVarintPrefixed(bs, validateIpnsCode);
+	let [code, digest] = await readVarintPrefixed(bs, validateIpnsCode, options);
 
 	if (code === CODEC_IDENTITY) {
-		const [, _digest] = await readVarintPrefixed(bs, () => {});
+		const [, _digest] = await readVarintPrefixed(bs, () => {}, options);
 		digest = _digest;
 	} else {
 		throw new Error("Expected identity multihash.");
@@ -231,9 +240,12 @@ export async function readIpnsMultihash(
 export async function readIpnsRecord(
 	bs: ByteStream<Stream>,
 	ipnsMultihash: IpnsMultihash,
+	options: AbortOptions = {},
 ): Promise<IPNSRecord> {
-	const recordLength = await readVarint(bs);
-	const marshalledRecord = (await bs.read({ bytes: recordLength })).subarray();
+	const recordLength = await readVarint(bs, options);
+	const marshalledRecord = (
+		await bs.read({ bytes: recordLength, signal: options.signal })
+	).subarray();
 
 	await ipnsValidator(
 		multihashToIPNSRoutingKey(ipnsMultihash),
@@ -305,6 +317,7 @@ export async function* readCarFile(
 
 export type AllowFn = (
 	ipnsMultihash: IpnsMultihash,
+	options?: AbortOptions,
 ) => Promise<boolean> | boolean;
 
 export interface CreateHandlerOptions extends ReadCarFileOptions {
@@ -321,6 +334,11 @@ export const createHandler =
 	async (stream: Stream, connection: Connection): Promise<void> => {
 		const log = logger(`${HANDLER_NAMESPACE}:${stream.id}`);
 
+		const controller = new AbortController();
+		const signal = controller.signal;
+		const abort = () => controller.abort();
+		stream.addEventListener("close", abort);
+
 		try {
 			log("new stream from %s", connection.remotePeer);
 
@@ -328,7 +346,7 @@ export const createHandler =
 
 			let ipnsMultihash: IpnsMultihash;
 			try {
-				ipnsMultihash = await readIpnsMultihash(bs);
+				ipnsMultihash = await readIpnsMultihash(bs, { signal });
 			} catch (e) {
 				log.error("failed while reading ipns key from stream");
 				throw e;
@@ -343,7 +361,7 @@ export const createHandler =
 				throw error;
 			}
 
-			if (options.allow && !(await options.allow(ipnsMultihash))) {
+			if (options.allow && !(await options.allow(ipnsMultihash, { signal }))) {
 				const error = new Error("ipns key not allowed");
 				log.error(error.message);
 				throw error;
@@ -351,7 +369,7 @@ export const createHandler =
 
 			let remoteRecord: IPNSRecord;
 			try {
-				remoteRecord = await readIpnsRecord(bs, ipnsMultihash);
+				remoteRecord = await readIpnsRecord(bs, ipnsMultihash, { signal });
 			} catch (e) {
 				log.error("failed while reading ipns record from stream");
 				throw e;
@@ -366,7 +384,10 @@ export const createHandler =
 
 			let localRecord: IPNSRecord | undefined;
 			try {
-				const resolved = await ipns.resolve(ipnsMultihash, { offline: true });
+				const resolved = await ipns.resolve(ipnsMultihash, {
+					offline: true,
+					signal,
+				});
 				localRecord = resolved.record;
 				log(
 					"found local record for %s with value %s",
@@ -410,9 +431,12 @@ export const createHandler =
 			try {
 				log("importing car stream");
 				// the write side should be closed after import completes
-				await importer.import({
-					blocks: () => readCarFile(source, value, options),
-				});
+				await importer.import(
+					{
+						blocks: () => readCarFile(source, value, options),
+					},
+					{ signal },
+				);
 				log("finished importing car stream");
 			} catch (e) {
 				log.error("failed while reading car stream");
@@ -420,7 +444,7 @@ export const createHandler =
 			}
 
 			const libp2pKey = peerId.toCID();
-			await pin(pins, libp2pKey, value);
+			await pin(pins, libp2pKey, value, { signal });
 			log("pinned %s for pinner %s", value, libp2pKey);
 
 			// then republish record
@@ -433,13 +457,13 @@ export const createHandler =
 			});
 			log("republishing records to routers");
 
-			await stream.close();
+			await stream.close({ signal });
 			log("closed stream");
 
 			const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
 			if (localRecordValue != null && !localRecordValue.equals(value)) {
 				try {
-					await unpin(pins, libp2pKey, localRecordValue);
+					await unpin(pins, libp2pKey, localRecordValue, { signal });
 					log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
 				} catch (e) {
 					if (e instanceof Error && e.name === "NotFoundError") {
@@ -459,5 +483,7 @@ export const createHandler =
 			} else {
 				stream.abort(new Error(String(e)));
 			}
+		} finally {
+			stream.removeEventListener("close", abort);
 		}
 	};
