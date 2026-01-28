@@ -96,7 +96,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 		libp2p,
 		start: false,
 	});
+	const controller = new AbortController();
+	const signal = controller.signal;
 	cleanup = async () => {
+		controller.abort();
 		log("stopping helia...");
 		await helia.stop();
 		log("helia stopped.");
@@ -116,6 +119,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const stream = await helia.libp2p.dialProtocol(
 		multiaddrs,
 		ZZZYNC_PROTOCOL_ID,
+		{ signal },
 	);
 	log("dialed protocol");
 
@@ -129,6 +133,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	let root: CID | null = null;
 	if (entry.isDirectory()) {
 		for await (const imported of importer.addAll(globSource(path, "**/*"), {
+			signal,
 			wrapWithDirectory: true,
 		})) {
 			log.trace(imported);
@@ -139,7 +144,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 			throw new Error("Did not find any files or folders to import.");
 		}
 	} else if (entry.isFile()) {
-		root = await importer.addByteStream(createReadStream(path));
+		root = await importer.addByteStream(createReadStream(path), { signal });
 	} else {
 		throw new Error("Given path is not a file or directory.");
 	}
@@ -149,6 +154,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	const names = ipns(helia);
 	const published = await names.publish(values.keyname, root, {
 		offline: true,
+		signal,
 	});
 	log("created new ipns record");
 
@@ -159,7 +165,9 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 	}
 
 	log("attempting to zzzync!");
-	await zzzync(stream, exporter, peerId.toCID(), published.record, root);
+	await zzzync(stream, exporter, peerId.toCID(), published.record, root, {
+		signal,
+	});
 	log("woah we just zzzynced!");
 
 	await helia.stop();
