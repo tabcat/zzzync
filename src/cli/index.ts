@@ -72,6 +72,9 @@ const help: SubCommand = {
 		await stop();
 		process.exit();
 	});
+	process.on('unhandledRejection', (reason) => {
+		console.error(reason)
+	})
 
 	try {
 		await subcommand.run(rest);
