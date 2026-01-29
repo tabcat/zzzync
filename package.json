@@ -44,7 +44,8 @@
     "test": "vitest --config vitest.config.ts --run",
     "test:watch": "vitest --config vitest.config.ts",
     "api-docs": "typedoc src",
-    "ci": "pnpm build && pnpm lint && pnpm test"
+    "ci": "pnpm build && pnpm lint && pnpm test",
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.ts": "biome check --write"
