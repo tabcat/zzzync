@@ -445,7 +445,7 @@ export const createZzzyncHandler =
 
 			const libp2pKey = peerId.toCID();
 			await pin(pins, libp2pKey, value, { signal });
-			log("pinned %s for pinner %s", value, libp2pKey);
+			log("pinned %s for pinner %s", value, peerId);
 
 			// then republish record
 			// ipns.republish(ipnsMultihash, { record: remoteRecord, force: true }),
@@ -464,7 +464,7 @@ export const createZzzyncHandler =
 			if (localRecordValue != null && !localRecordValue.equals(value)) {
 				try {
 					await unpin(pins, libp2pKey, localRecordValue, { signal });
-					log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
+					log("unpinned %s for pinner %s", localRecordValue, peerId);
 				} catch (e) {
 					if (e instanceof Error && e.name === "NotFoundError") {
 						log("tried to unpin cid that was not pinned!");
