@@ -6,7 +6,9 @@ import { type Block, CarBlockIterator } from "@ipld/car/iterator";
 import type {
 	AbortOptions,
 	Connection,
+	EventHandler,
 	Stream,
+	StreamCloseEvent,
 	StreamHandler,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
@@ -336,7 +338,11 @@ export const createZzzyncHandler =
 
 		const controller = new AbortController();
 		const signal = controller.signal;
-		const abort = () => controller.abort();
+		const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
+			if (event.error != null) {
+				controller.abort();
+			}
+		};
 		stream.addEventListener("close", abort);
 
 		try {
