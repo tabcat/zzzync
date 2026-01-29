@@ -10,17 +10,21 @@
     "zzzync": "./dist/src/cli/index.js"
   },
   "exports": {
-    "./stream": {
-      "types": "./dist/src/stream.d.ts",
-      "import": "./dist/src/stream.js"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
     },
     "./server": {
       "types": "./dist/src/server.d.ts",
       "import": "./dist/src/server.js"
     },
-    "./constants": {
-      "types": "./dist/src/constants.d.ts",
-      "import": "./dist/src/constants.js"
+    "./interface": {
+      "types": "./dist/src/interface.d.ts",
+      "import": "./dist/src/interface.js"
+    },
+    "./libp2p-fetch/ipns": {
+      "types": "./dist/src/libp2p-fetch/ipns.d.ts",
+      "import": "./dist/src/libp2p-fetch/ipns.js"
     }
   },
   "keywords": [
