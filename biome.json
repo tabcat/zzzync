@@ -10,6 +10,7 @@
 		"includes": ["src/**/*.ts", "test/**/*.ts"],
 		"lineWidth": 80,
 		"indentWidth": 2,
+		"indentStyle": "space",
 		"formatWithErrors": true
 	},
 	"linter": {
