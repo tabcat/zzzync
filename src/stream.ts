@@ -2,7 +2,6 @@ import { type Car, UnixFSExporter } from "@helia/car";
 import type { Pins } from "@helia/interface";
 import { type IPNS, ipnsSelector } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
-// import * as DagPB from "@ipld/dag-pb";
 import type {
 	AbortOptions,
 	Connection,
@@ -30,9 +29,7 @@ import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
 import type { CID } from "multiformats";
 import { create } from "multiformats/block";
-// import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
-// import { sha256 } from "multiformats/hashes/sha2";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import {
