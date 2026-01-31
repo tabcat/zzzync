@@ -1,6 +1,5 @@
 import { type Car, UnixFSExporter } from "@helia/car";
 import type { Pins } from "@helia/interface";
-import { type IPNS, ipnsSelector } from "@helia/ipns";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
 import type {
 	AbortOptions,
@@ -18,6 +17,13 @@ import {
 	type Filter,
 	messageStreamToDuplex,
 } from "@libp2p/utils";
+import {
+	type DatastoreProgressEvents,
+	type IPNS,
+	type IPNSRoutingProgressEvents,
+	ipnsSelector,
+	type RepublishProgressEvents,
+} from "@tabcat/helia-ipns";
 import { anySignal } from "any-signal";
 import {
 	type IPNSRecord,
@@ -30,8 +36,10 @@ import type { Duplex } from "it-stream-types";
 import type { CID } from "multiformats";
 import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
+import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
+import { equals } from "uint8arrays";
 import {
 	CODEC_DAG_PB,
 	CODEC_IDENTITY,
@@ -412,11 +420,16 @@ export const createZzzyncHandler =
 			}
 
 			// check that localRecord is not better than remoteRecord
+			let localRecordEqual = false;
 			if (localRecord) {
-				const records: IPNSRecord[] = [remoteRecord, localRecord];
+				const records: [IPNSRecord, IPNSRecord] = [remoteRecord, localRecord];
+				const marshaledRecords = records.map(marshalIPNSRecord) as [
+					Uint8Array,
+					Uint8Array,
+				];
 				const selected = ipnsSelector(
 					multihashToIPNSRoutingKey(ipnsMultihash),
-					records.map(marshalIPNSRecord),
+					marshaledRecords,
 				);
 
 				if (selected !== 0) {
@@ -425,6 +438,10 @@ export const createZzzyncHandler =
 					);
 					log.error(error);
 					throw error;
+				}
+
+				if (equals(...marshaledRecords)) {
+					localRecordEqual = true;
 				}
 			}
 
@@ -450,15 +467,29 @@ export const createZzzyncHandler =
 			await pin(pins, libp2pKey, value, { signal });
 			log("pinned %s for pinner %s", value, peerId);
 
-			// then republish record
-			// ipns.republish(ipnsMultihash, { record: remoteRecord, force: true }),
-			const routingKey = multihashToIPNSRoutingKey(ipnsMultihash);
-			const marshaledRecord = marshalIPNSRecord(remoteRecord);
-			ipns.routers.map(async (r) => {
-				// only republishes one time, waiting for ipns.republish feature
-				r.put(routingKey, marshaledRecord);
-			});
 			log("republishing records to routers");
+			const deferred = defer();
+			const onProgress = (
+				event:
+					| RepublishProgressEvents
+					| IPNSRoutingProgressEvents
+					| DatastoreProgressEvents,
+			): void => {
+				if (event.type === "ipns:routing:datastore:put") {
+					deferred.resolve();
+				}
+
+				if (event.type === "ipns:routing:datastore:error") {
+					deferred.reject();
+				}
+			};
+			ipns.republish(ipnsMultihash, { onProgress });
+			if (!localRecordEqual) {
+				await deferred.promise;
+				log("ipns record updated locally");
+			} else {
+				log("ipns record already existed locally");
+			}
 
 			await stream.close({ signal });
 			log("closed stream");
