@@ -76,7 +76,7 @@
     "@libp2p/logger": "^6.2.2",
     "@libp2p/utils": "^7.0.9",
     "@multiformats/multiaddr": "^13.0.1",
-    "@tabcat/helia-ipns": "^9.2.2",
+    "@tabcat/helia-ipns": "9.2.3",
     "any-signal": "^4.2.0",
     "blockstore-level": "^3.0.2",
     "datastore-core": "^11.0.2",
@@ -89,6 +89,7 @@
     "it-stream-types": "^2.0.2",
     "libp2p": "^3.1.2",
     "multiformats": "^13.4.1",
+    "p-defer": "^4.0.1",
     "uint8-varint": "^2.0.4",
     "uint8arraylist": "^2.4.8",
     "uint8arrays": "^5.1.0"
