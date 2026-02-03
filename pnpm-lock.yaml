@@ -45,8 +45,8 @@ importers:
         specifier: ^13.0.1
         version: 13.0.1
       '@tabcat/helia-ipns':
-        specifier: 9.2.3
-        version: 9.2.3
+        specifier: 10.0.1
+        version: 10.0.1
       any-signal:
         specifier: ^4.2.0
         version: 4.2.0
@@ -1035,8 +1035,8 @@ packages:
   '@sinonjs/samsam@8.0.3':
     resolution: {integrity: sha512-hw6HbX+GyVZzmaYNh82Ecj1vdGZrqVIn/keDTg63IgAwiQPO+xCz99uG6Woqgb4tM0mUiFENKZ4cqd7IX94AXQ==}
 
-  '@tabcat/helia-ipns@9.2.3':
-    resolution: {integrity: sha512-A0DD/we+0J6GFNnTm2ETjBLceCHf5Dy0eDIT6AVRK7TknaGGk+sP5pQd3+wZM9oOO5AAiPNOCfq/OtN6+VatsA==}
+  '@tabcat/helia-ipns@10.0.1':
+    resolution: {integrity: sha512-3moIEjnA8OEJQ+CZliSx2kQDDyvYoVY8THJw0P0/2mKi9NpUwGdAeJja4Wq1cIQB+/9nWK0XQCFvqM7AHYaU2Q==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -4607,7 +4607,7 @@ snapshots:
       '@sinonjs/commons': 3.0.1
       type-detect: 4.1.0
 
-  '@tabcat/helia-ipns@9.2.3':
+  '@tabcat/helia-ipns@10.0.1':
     dependencies:
       '@helia/interface': 6.0.2
       '@libp2p/crypto': 5.1.13
