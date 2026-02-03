@@ -155,6 +155,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   const published = await names.publish(values.keyname, root, {
     offline: true,
     signal,
+    upkeep: "none",
   });
   log("created new ipns record");
 
