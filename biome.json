@@ -1,35 +1,26 @@
 {
-	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-	"json": {
-		"assist": {
-			"enabled": false
-		}
-	},
-	"formatter": {
-		"enabled": true,
-		"includes": ["src/**/*.ts", "test/**/*.ts"],
-		"lineWidth": 80,
-		"indentWidth": 2,
-		"indentStyle": "space",
-		"formatWithErrors": true
-	},
-	"linter": {
-		"enabled": true,
-		"includes": ["src/**/*.ts", "test/**/*.ts"],
-		"rules": {
-			"recommended": true
-		}
-	},
-	"assist": {
-		"enabled": true,
-		"includes": ["src/**/*.ts", "test/**/*.ts"],
-		"actions": {
-			"source": {
-				"organizeImports": "on",
-				"useSortedAttributes": "on",
-				"useSortedKeys": "on",
-				"useSortedProperties": "on"
-			}
-		}
-	}
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "formatter": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": false
+  },
+  "json": {
+    "assist": {
+      "enabled": false
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "includes": ["src/**/*.ts", "test/**/*.ts"],
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedAttributes": "on",
+        "useSortedKeys": "on",
+        "useSortedProperties": "on"
+      }
+    }
+  }
 }
