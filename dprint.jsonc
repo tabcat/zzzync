@@ -1,7 +1,6 @@
 {
 	"typescript": {
 		"lineWidth": 80,
-		"indentWidth": 2,
 		"semiColons": "always",
 	},
 	"markdown": {},
