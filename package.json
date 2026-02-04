@@ -51,7 +51,6 @@
     "*/**": "pnpm run format"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.8",
     "@libp2p/peer-id": "^6.0.4",
     "@types/node": "^25.0.3",
     "dprint": "^0.51.1",
