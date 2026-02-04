@@ -1,4 +1,4 @@
-import { type CarComponents, car } from "@helia/car";
+import { car, type CarComponents } from "@helia/car";
 import type { Helia, Pins, Routing } from "@helia/interface";
 import type { Fetch } from "@libp2p/fetch";
 import type {
@@ -8,7 +8,7 @@ import type {
   StreamHandlerOptions,
 } from "@libp2p/interface";
 import type { Keychain } from "@libp2p/keychain";
-import { type IPNSComponents, ipns } from "@tabcat/helia-ipns";
+import { ipns, type IPNSComponents } from "@tabcat/helia-ipns";
 import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
 import type { Datastore } from "interface-datastore";
