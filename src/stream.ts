@@ -11,7 +11,12 @@ import type {
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { peerIdFromMultihash } from "@libp2p/peer-id";
-import { type ByteStream, byteStream, type Filter, messageStreamToDuplex } from "@libp2p/utils";
+import {
+  type ByteStream,
+  byteStream,
+  type Filter,
+  messageStreamToDuplex,
+} from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
   type IPNS,
@@ -21,7 +26,12 @@ import {
   type RepublishProgressEvents,
 } from "@tabcat/helia-ipns";
 import { anySignal } from "any-signal";
-import { type IPNSRecord, marshalIPNSRecord, multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
+import {
+  type IPNSRecord,
+  marshalIPNSRecord,
+  multihashToIPNSRoutingKey,
+  unmarshalIPNSRecord,
+} from "ipns";
 import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
 import type { CID } from "multiformats";
@@ -31,10 +41,20 @@ import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
-import { CODEC_DAG_PB, CODEC_IDENTITY, CODEC_SHA2_256, ZZZYNC } from "./constants.js";
+import {
+  CODEC_DAG_PB,
+  CODEC_IDENTITY,
+  CODEC_SHA2_256,
+  ZZZYNC,
+} from "./constants.js";
 import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import { getCodec, getHasher, parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
+import {
+  getCodec,
+  getHasher,
+  parsedRecordValue,
+  publicKeyAsIpnsMultihash,
+} from "./utils.js";
 
 export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
