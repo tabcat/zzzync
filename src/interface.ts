@@ -1,11 +1,5 @@
 import type { CID, MultihashDigest } from "multiformats/cid";
-import type {
-  CID_VERSION_1,
-  CODEC_DAG_PB,
-  CODEC_IDENTITY,
-  CODEC_LIBP2P_KEY,
-  CODEC_RAW,
-} from "./constants.js";
+import type { CID_VERSION_1, CODEC_DAG_PB, CODEC_IDENTITY, CODEC_LIBP2P_KEY, CODEC_RAW } from "./constants.js";
 import type { SupportedHasherCodes } from "./utils.js";
 
 /**

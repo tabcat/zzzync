@@ -11,12 +11,7 @@ import type {
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { peerIdFromMultihash } from "@libp2p/peer-id";
-import {
-  type ByteStream,
-  byteStream,
-  type Filter,
-  messageStreamToDuplex,
-} from "@libp2p/utils";
+import { type ByteStream, byteStream, type Filter, messageStreamToDuplex } from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
   type IPNS,
@@ -26,12 +21,7 @@ import {
   type RepublishProgressEvents,
 } from "@tabcat/helia-ipns";
 import { anySignal } from "any-signal";
-import {
-  type IPNSRecord,
-  marshalIPNSRecord,
-  multihashToIPNSRoutingKey,
-  unmarshalIPNSRecord,
-} from "ipns";
+import { type IPNSRecord, marshalIPNSRecord, multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
 import { ipnsValidator } from "ipns/validator";
 import type { Duplex } from "it-stream-types";
 import type { CID } from "multiformats";
@@ -41,20 +31,10 @@ import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
-import {
-  CODEC_DAG_PB,
-  CODEC_IDENTITY,
-  CODEC_SHA2_256,
-  ZZZYNC,
-} from "./constants.js";
+import { CODEC_DAG_PB, CODEC_IDENTITY, CODEC_SHA2_256, ZZZYNC } from "./constants.js";
 import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import {
-  getCodec,
-  getHasher,
-  parsedRecordValue,
-  publicKeyAsIpnsMultihash,
-} from "./utils.js";
+import { getCodec, getHasher, parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
 
 export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
@@ -185,7 +165,7 @@ export async function zzzync(
       stream.addEventListener("remoteCloseWrite", resolve, {
         once: true,
         signal,
-      }),
+      })
     );
   } finally {
     signal.clear();
@@ -349,193 +329,192 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
   allow?: AllowFn;
 }
 
-export const createZzzyncHandler =
-  (
-    ipns: IPNS,
-    importer: Pick<Car, "import">,
-    pins: Pins,
-    options: CreateHandlerOptions = {},
-  ): StreamHandler =>
-  async (stream: Stream, connection: Connection): Promise<void> => {
-    const log = logger(`${HANDLER_NAMESPACE}:${stream.id}`);
+export const createZzzyncHandler = (
+  ipns: IPNS,
+  importer: Pick<Car, "import">,
+  pins: Pins,
+  options: CreateHandlerOptions = {},
+): StreamHandler =>
+async (stream: Stream, connection: Connection): Promise<void> => {
+  const log = logger(`${HANDLER_NAMESPACE}:${stream.id}`);
 
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
-      if (event.error != null) {
-        controller.abort();
+  const controller = new AbortController();
+  const signal = controller.signal;
+  const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
+    if (event.error != null) {
+      controller.abort();
+    }
+  };
+  stream.addEventListener("close", abort);
+
+  try {
+    log("new stream from %s", connection.remotePeer);
+
+    const bs = byteStream(stream);
+
+    let ipnsMultihash: IpnsMultihash;
+    try {
+      ipnsMultihash = await readIpnsMultihash(bs, { signal });
+    } catch (e) {
+      log.error("failed while reading ipns key from stream");
+      throw e;
+    }
+    log(`read ipns key %s`, ipnsMultihash);
+
+    const peerId = peerIdFromMultihash(ipnsMultihash);
+
+    if (peerId.type === "RSA" || peerId.type === "url") {
+      const error = new Error(`peer id type "${peerId.type}" not supported`);
+      log.error(error.message);
+      throw error;
+    }
+
+    if (options.allow && !(await options.allow(ipnsMultihash, { signal }))) {
+      const error = new Error("ipns key not allowed");
+      log.error(error.message);
+      throw error;
+    }
+
+    let remoteRecord: IPNSRecord;
+    try {
+      remoteRecord = await readIpnsRecord(bs, ipnsMultihash, { signal });
+    } catch (e) {
+      log.error("failed while reading ipns record from stream");
+      throw e;
+    }
+    log("read ipns record with value %s", remoteRecord.value);
+    const value = parsedRecordValue(remoteRecord.value);
+
+    if (value == null) {
+      stream.close();
+      throw new Error("Failed to parse value. Unsupported codec or hash.");
+    }
+
+    let localRecord: IPNSRecord | undefined;
+    try {
+      const resolved = await ipns.resolve(ipnsMultihash, {
+        offline: true,
+        signal,
+      });
+      localRecord = resolved.record;
+      log(
+        "found local record for %s with value %s",
+        ipnsMultihash,
+        localRecord.value,
+      );
+    } catch (e) {
+      if (
+        e instanceof Error
+        && (e.name === "RecordNotFoundError"
+          || e.name === "RecordsFaileValidationError")
+      ) {
+        localRecord = undefined;
+        log("no local record found for %s", ipnsMultihash);
+      } else {
+        log.error("failed while resolving local record");
+        throw e;
       }
-    };
-    stream.addEventListener("close", abort);
+    }
+
+    // check that localRecord is not better than remoteRecord
+    let localRecordEqual = false;
+    if (localRecord) {
+      const records: [IPNSRecord, IPNSRecord] = [remoteRecord, localRecord];
+      const marshaledRecords = records.map(marshalIPNSRecord) as [
+        Uint8Array,
+        Uint8Array,
+      ];
+      const selected = ipnsSelector(
+        multihashToIPNSRoutingKey(ipnsMultihash),
+        marshaledRecords,
+      );
+
+      if (selected !== 0) {
+        const error = new Error(
+          "Record received from remote was worse than local record.",
+        );
+        log.error(error);
+        throw error;
+      }
+
+      if (equals(...marshaledRecords)) {
+        localRecordEqual = true;
+      }
+    }
+
+    bs.unwrap();
+    const { source } = messageStreamToDuplex(stream);
 
     try {
-      log("new stream from %s", connection.remotePeer);
+      log("importing car stream");
+      // the write side should be closed after import completes
+      await importer.import(
+        {
+          blocks: () => readCarFile(source, value, options),
+        },
+        { signal },
+      );
+      log("finished importing car stream");
+    } catch (e) {
+      log.error("failed while reading car stream");
+      throw e;
+    }
 
-      const bs = byteStream(stream);
+    const libp2pKey = peerId.toCID();
+    await pin(pins, libp2pKey, value, { signal });
+    log("pinned %s for pinner %s", value, peerId);
 
-      let ipnsMultihash: IpnsMultihash;
+    log("republishing records to routers");
+    const deferred = defer();
+    const onProgress = (
+      event:
+        | RepublishProgressEvents
+        | IPNSRoutingProgressEvents
+        | DatastoreProgressEvents,
+    ): void => {
+      if (event.type === "ipns:routing:datastore:put") {
+        deferred.resolve();
+      }
+
+      if (event.type === "ipns:routing:datastore:error") {
+        deferred.reject();
+      }
+    };
+    ipns.republish(ipnsMultihash, { onProgress });
+    if (!localRecordEqual) {
+      await deferred.promise;
+      log("ipns record updated locally");
+    } else {
+      log("ipns record already existed locally");
+    }
+
+    await stream.close({ signal });
+    log("closed stream");
+
+    const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
+    if (localRecordValue != null && !localRecordValue.equals(value)) {
       try {
-        ipnsMultihash = await readIpnsMultihash(bs, { signal });
+        await unpin(pins, libp2pKey, localRecordValue, { signal });
+        log("unpinned %s for pinner %s", localRecordValue, peerId);
       } catch (e) {
-        log.error("failed while reading ipns key from stream");
-        throw e;
-      }
-      log(`read ipns key %s`, ipnsMultihash);
-
-      const peerId = peerIdFromMultihash(ipnsMultihash);
-
-      if (peerId.type === "RSA" || peerId.type === "url") {
-        const error = new Error(`peer id type "${peerId.type}" not supported`);
-        log.error(error.message);
-        throw error;
-      }
-
-      if (options.allow && !(await options.allow(ipnsMultihash, { signal }))) {
-        const error = new Error("ipns key not allowed");
-        log.error(error.message);
-        throw error;
-      }
-
-      let remoteRecord: IPNSRecord;
-      try {
-        remoteRecord = await readIpnsRecord(bs, ipnsMultihash, { signal });
-      } catch (e) {
-        log.error("failed while reading ipns record from stream");
-        throw e;
-      }
-      log("read ipns record with value %s", remoteRecord.value);
-      const value = parsedRecordValue(remoteRecord.value);
-
-      if (value == null) {
-        stream.close();
-        throw new Error("Failed to parse value. Unsupported codec or hash.");
-      }
-
-      let localRecord: IPNSRecord | undefined;
-      try {
-        const resolved = await ipns.resolve(ipnsMultihash, {
-          offline: true,
-          signal,
-        });
-        localRecord = resolved.record;
-        log(
-          "found local record for %s with value %s",
-          ipnsMultihash,
-          localRecord.value,
-        );
-      } catch (e) {
-        if (
-          e instanceof Error &&
-          (e.name === "RecordNotFoundError" ||
-            e.name === "RecordsFaileValidationError")
-        ) {
-          localRecord = undefined;
-          log("no local record found for %s", ipnsMultihash);
+        if (e instanceof Error && e.name === "NotFoundError") {
+          log("tried to unpin cid that was not pinned!");
+          log.error(e);
         } else {
-          log.error("failed while resolving local record");
           throw e;
         }
       }
-
-      // check that localRecord is not better than remoteRecord
-      let localRecordEqual = false;
-      if (localRecord) {
-        const records: [IPNSRecord, IPNSRecord] = [remoteRecord, localRecord];
-        const marshaledRecords = records.map(marshalIPNSRecord) as [
-          Uint8Array,
-          Uint8Array,
-        ];
-        const selected = ipnsSelector(
-          multihashToIPNSRoutingKey(ipnsMultihash),
-          marshaledRecords,
-        );
-
-        if (selected !== 0) {
-          const error = new Error(
-            "Record received from remote was worse than local record.",
-          );
-          log.error(error);
-          throw error;
-        }
-
-        if (equals(...marshaledRecords)) {
-          localRecordEqual = true;
-        }
-      }
-
-      bs.unwrap();
-      const { source } = messageStreamToDuplex(stream);
-
-      try {
-        log("importing car stream");
-        // the write side should be closed after import completes
-        await importer.import(
-          {
-            blocks: () => readCarFile(source, value, options),
-          },
-          { signal },
-        );
-        log("finished importing car stream");
-      } catch (e) {
-        log.error("failed while reading car stream");
-        throw e;
-      }
-
-      const libp2pKey = peerId.toCID();
-      await pin(pins, libp2pKey, value, { signal });
-      log("pinned %s for pinner %s", value, peerId);
-
-      log("republishing records to routers");
-      const deferred = defer();
-      const onProgress = (
-        event:
-          | RepublishProgressEvents
-          | IPNSRoutingProgressEvents
-          | DatastoreProgressEvents,
-      ): void => {
-        if (event.type === "ipns:routing:datastore:put") {
-          deferred.resolve();
-        }
-
-        if (event.type === "ipns:routing:datastore:error") {
-          deferred.reject();
-        }
-      };
-      ipns.republish(ipnsMultihash, { onProgress });
-      if (!localRecordEqual) {
-        await deferred.promise;
-        log("ipns record updated locally");
-      } else {
-        log("ipns record already existed locally");
-      }
-
-      await stream.close({ signal });
-      log("closed stream");
-
-      const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
-      if (localRecordValue != null && !localRecordValue.equals(value)) {
-        try {
-          await unpin(pins, libp2pKey, localRecordValue, { signal });
-          log("unpinned %s for pinner %s", localRecordValue, peerId);
-        } catch (e) {
-          if (e instanceof Error && e.name === "NotFoundError") {
-            log("tried to unpin cid that was not pinned!");
-            log.error(e);
-          } else {
-            throw e;
-          }
-        }
-      } else {
-        log("value unchanged, skipping unpin");
-      }
-    } catch (e) {
-      log.error("failed while processing stream - %e", e);
-      if (e instanceof Error) {
-        stream.abort(e);
-      } else {
-        stream.abort(new Error(String(e)));
-      }
-    } finally {
-      stream.removeEventListener("close", abort);
+    } else {
+      log("value unchanged, skipping unpin");
     }
-  };
+  } catch (e) {
+    log.error("failed while processing stream - %e", e);
+    if (e instanceof Error) {
+      stream.abort(e);
+    } else {
+      stream.abort(new Error(String(e)));
+    }
+  } finally {
+    stream.removeEventListener("close", abort);
+  }
+};

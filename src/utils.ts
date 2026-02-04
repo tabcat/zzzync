@@ -4,12 +4,7 @@ import type { BlockCodec, MultihashHasher } from "multiformats";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
-import {
-  CODEC_DAG_PB,
-  CODEC_RAW,
-  type CODEC_SHA2_256,
-  IPFS_PREFIX,
-} from "./constants.js";
+import { CODEC_DAG_PB, CODEC_RAW, type CODEC_SHA2_256, IPFS_PREFIX } from "./constants.js";
 import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 
 export function parsedRecordValue(value: string): UnixFsCID | null {

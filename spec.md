@@ -62,5 +62,3 @@ Both send Multihash then IPNS Record first.
 
 There needs to be a flag for whether to refresh the IPNS Record
 The IPNS Record is always pushed and is used for reading the authenticated IPFS Root and for Authorization. -->
-
-
