@@ -166,9 +166,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   }
 
   log("attempting to zzzync!");
-  await zzzync(stream, exporter, peerId.toCID(), published.record, root, {
-    signal,
-  });
+  await zzzync(stream, exporter, published, { signal });
   log("woah we just zzzynced!");
 
   await helia.stop();

@@ -1,4 +1,5 @@
 import * as dagPb from "@ipld/dag-pb";
+import type { PublicKey } from "@libp2p/interface";
 import type { BlockCodec, MultihashHasher } from "multiformats";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
@@ -9,7 +10,7 @@ import {
   type CODEC_SHA2_256,
   IPFS_PREFIX,
 } from "./constants.js";
-import type { UnixFsCID } from "./interface.js";
+import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 
 export function parsedRecordValue(value: string): UnixFsCID | null {
   try {
@@ -42,4 +43,14 @@ export function getHasher(code: number): MultihashHasher {
     default:
       throw new Error("Unsupported hash code.");
   }
+}
+
+export function publicKeyAsIpnsMultihash(
+  publicKey: PublicKey,
+): IpnsMultihash | null {
+  if (publicKey.type === "Ed25519" || publicKey.type === "secp256k1") {
+    return publicKey.toMultihash();
+  }
+
+  return null;
 }

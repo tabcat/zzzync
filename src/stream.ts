@@ -20,6 +20,7 @@ import {
 import {
   type DatastoreProgressEvents,
   type IPNS,
+  type IPNSPublishResult,
   type IPNSRoutingProgressEvents,
   ipnsSelector,
   type RepublishProgressEvents,
@@ -46,9 +47,14 @@ import {
   CODEC_SHA2_256,
   ZZZYNC,
 } from "./constants.js";
-import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
+import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import { getCodec, getHasher, parsedRecordValue } from "./utils.js";
+import {
+  getCodec,
+  getHasher,
+  parsedRecordValue,
+  publicKeyAsIpnsMultihash,
+} from "./utils.js";
 
 export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
@@ -116,9 +122,7 @@ export async function writeCarFile(
 export async function zzzync(
   stream: Stream,
   exporter: Pick<Car, "export">,
-  libp2pKey: Libp2pKey,
-  record: IPNSRecord,
-  cid: CID,
+  result: IPNSPublishResult,
   options: AbortOptions = {},
 ): Promise<void> {
   const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
@@ -134,8 +138,16 @@ export async function zzzync(
 
     const bs = byteStream(stream);
 
+    const { record, publicKey } = result;
+
+    const ipnsMultihash = publicKeyAsIpnsMultihash(publicKey);
+
+    if (ipnsMultihash == null) {
+      throw new Error("unsupported public key");
+    }
+
     try {
-      await writeIpnsMultihash(bs, libp2pKey.multihash, { signal });
+      await writeIpnsMultihash(bs, ipnsMultihash, { signal });
       log("wrote ipns key");
     } catch (e) {
       log.error("failed while writing ipns key");
@@ -152,6 +164,12 @@ export async function zzzync(
 
     bs.unwrap();
     const duplex = messageStreamToDuplex(stream);
+
+    const cid = parsedRecordValue(record.value);
+
+    if (cid == null) {
+      throw new Error("Unable to parse record value");
+    }
 
     try {
       await writeCarFile(duplex, exporter, cid, { ...options, signal });
