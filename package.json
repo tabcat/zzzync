@@ -48,7 +48,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.ts": "biome check --write"
+    "*/**": "pnpm run format"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
