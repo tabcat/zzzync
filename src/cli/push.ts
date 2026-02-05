@@ -55,19 +55,31 @@ enable(enabled);
 export let cleanup: SubCommand["cleanup"] = () => {};
 
 export const run: SubCommand["run"] = async (args: string[]) => {
-  const { values } = parseArgs({
+  const { values, positionals } = parseArgs({
     args,
     options: {
       config: {
         default: `./.${command}`,
         type: "string",
       },
-      upload: {
-        type: "string",
-      },
     },
     strict: true,
   });
+
+  let upload: string | null = null;
+  try {
+    for (const partial of positionals) {
+      upload = resolve(partial);
+      break;
+    }
+  } catch (e) {
+    console.error("error while parsing file paths");
+    throw e;
+  }
+
+  if (upload == null) {
+    throw new Error("no files specified to push.");
+  }
 
   if (process.env.PUBLISHER_KEY == null) {
     throw new Error(
@@ -101,10 +113,6 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       "failed to parse MULTIADDRS. Use zzzync daemon --multiaddrs to print them.",
     );
     throw e;
-  }
-
-  if (values.upload == null) {
-    throw new Error("no upload path provided");
   }
 
   if (
@@ -163,15 +171,14 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
   const importer = unixfs(helia);
 
-  const path = resolve(values.upload);
-  log("resolved path is", path);
-  const entry = await stat(path);
+  log("resolved path is", upload);
+  const entry = await stat(upload);
   log("path is for directory");
 
   let root: CID | null = null;
   if (entry.isDirectory()) {
     for await (
-      const imported of importer.addAll(globSource(path, "**/*"), {
+      const imported of importer.addAll(globSource(upload, "**/*"), {
         signal,
         wrapWithDirectory: true,
       })
@@ -184,7 +191,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       throw new Error("Did not find any files or folders to import.");
     }
   } else if (entry.isFile()) {
-    root = await importer.addByteStream(createReadStream(path), { signal });
+    root = await importer.addByteStream(createReadStream(upload), { signal });
   } else {
     throw new Error("Given path is not a file or directory.");
   }
