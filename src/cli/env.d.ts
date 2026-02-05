@@ -1,9 +1,9 @@
 export {};
 
 declare global {
-	namespace NodeJS {
-		interface ProcessEnv {
-			DEBUG?: string;
-		}
-	}
+  namespace NodeJS {
+    interface ProcessEnv {
+      DEBUG?: string;
+    }
+  }
 }
