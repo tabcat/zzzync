@@ -5,8 +5,8 @@
 	},
 	"markdown": {},
 	"includes": [
-		"src/**.ts",
-		"test/**.ts",
+		"src/**/*.ts",
+		"test/**/*.ts",
 		"readme.md",
 		"spec.md"
 	],
