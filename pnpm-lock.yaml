@@ -26,6 +26,9 @@ importers:
       '@ipld/dag-pb':
         specifier: ^4.1.5
         version: 4.1.5
+      '@libp2p/crypto':
+        specifier: ^5.1.13
+        version: 5.1.13
       '@libp2p/fetch':
         specifier: ^4.0.9
         version: 4.0.10
