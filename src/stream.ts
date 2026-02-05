@@ -128,9 +128,12 @@ export async function zzzync(
   const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
 
   const controller = new AbortController();
-  stream.addEventListener("close", (e) => controller.abort(e.error), {
-    once: true,
-  });
+  const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
+    if (event.error != null) {
+      controller.abort();
+    }
+  };
+  stream.addEventListener("close", abort);
   const signal = anySignal([controller.signal, options.signal]);
 
   try {
@@ -500,7 +503,7 @@ async (stream: Stream, connection: Connection): Promise<void> => {
         deferred.reject();
       }
     };
-    ipns.republish(ipnsMultihash, { onProgress });
+    ipns.republish(ipnsMultihash, { onProgress, record: remoteRecord });
     if (!localRecordEqual) {
       await deferred.promise;
       log("ipns record updated locally");
