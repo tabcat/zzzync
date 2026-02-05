@@ -1,4 +1,5 @@
 import { enable, logger } from "@libp2p/logger";
+import { Multiaddr } from "@multiformats/multiaddr";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
 import type { DefaultLibp2pServices } from "helia";
@@ -88,9 +89,13 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   log("helia started.");
 
   log(helia.libp2p.peerId);
+  const multiaddrs: Multiaddr[] = [];
   for (const addr of helia.libp2p.getMultiaddrs()) {
+    multiaddrs.push(addr);
     log(addr);
   }
 
   log("ready to zzzync!");
+
+  console.log(`MULTIADDRS=${multiaddrs.join(",")}`);
 };
