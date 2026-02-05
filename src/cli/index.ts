@@ -38,6 +38,10 @@ const help: SubCommand = {
       subcommand = (await import(join(__dirname, "push.js"))) as SubCommand;
       break;
     }
+    case "generate": {
+      subcommand = (await import(join(__dirname, "generate.js"))) as SubCommand;
+      break;
+    }
     case "help": {
       subcommand = help;
       break;
