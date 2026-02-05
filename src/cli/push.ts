@@ -64,6 +64,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       },
     },
     strict: true,
+    allowPositionals: true,
   });
 
   let upload: string | null = null;
