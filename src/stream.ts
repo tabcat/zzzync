@@ -503,9 +503,12 @@ async (stream: Stream, connection: Connection): Promise<void> => {
         deferred.reject();
       }
     };
-    ipns.republish(ipnsMultihash, { onProgress, record: remoteRecord });
+    const republishing = ipns.republish(ipnsMultihash, {
+      onProgress,
+      record: remoteRecord,
+    });
     if (!localRecordEqual) {
-      await deferred.promise;
+      await Promise.race([republishing, deferred.promise]);
       log("ipns record updated locally");
     } else {
       log("ipns record already existed locally");
