@@ -496,20 +496,22 @@ async (stream: Stream, connection: Connection): Promise<void> => {
         | DatastoreProgressEvents,
     ): void => {
       if (event.type === "ipns:routing:datastore:put") {
+        log("ipns record updated locally");
         deferred.resolve();
       }
 
       if (event.type === "ipns:routing:datastore:error") {
+        log("failed to update record locally");
         deferred.reject();
       }
     };
     const republishing = ipns.republish(ipnsMultihash, {
       onProgress,
       record: remoteRecord,
+      force: true,
     });
     if (!localRecordEqual) {
       await Promise.race([republishing, deferred.promise]);
-      log("ipns record updated locally");
     } else {
       log("ipns record already existed locally");
     }
