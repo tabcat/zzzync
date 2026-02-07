@@ -28,8 +28,5 @@ export const libp2pOptions: Libp2pOptions<
   DefaultLibp2pServices & ZzzyncServices
 > = {
   ...defaultLibp2p,
-  services: {
-    ...defaultLibp2p.services,
-    fetch: fetch(),
-  },
+  services: { ...defaultLibp2p.services, fetch: fetch() },
 };

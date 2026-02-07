@@ -33,18 +33,12 @@ export let cleanup: SubCommand["cleanup"] = () => {};
 export const run: SubCommand["run"] = async (args: string[]) => {
   const { values } = parseArgs({
     args,
-    options: {
-      config: {
-        default: `./.${command}`,
-        type: "string",
-      },
-    },
+    options: { config: { default: `./.${command}`, type: "string" } },
     strict: true,
   });
 
   if (
-    !values.config.endsWith(`/.${command}`)
-    && values.config !== `.${command}`
+    !values.config.endsWith(`/.${command}`) && values.config !== `.${command}`
   ) {
     throw new Error(`--config directory must be named ".${command}"`);
   }
@@ -68,15 +62,12 @@ export const run: SubCommand["run"] = async (args: string[]) => {
         ? config.libp2pOptions
         : (await import(DEFAULT_CONFIG_PATH)).libp2p;
 
-  const helia = await createZzzyncServer(
-    {
-      blockstore,
-      datastore,
-      libp2p,
-      start: false,
-    },
-    config.handlerOptions,
-  );
+  const helia = await createZzzyncServer({
+    blockstore,
+    datastore,
+    libp2p,
+    start: false,
+  }, config.handlerOptions);
   cleanup = async () => {
     log("stopping helia...");
     await helia.stop();

@@ -57,12 +57,7 @@ export let cleanup: SubCommand["cleanup"] = () => {};
 export const run: SubCommand["run"] = async (args: string[]) => {
   const { values, positionals } = parseArgs({
     args,
-    options: {
-      config: {
-        default: `./.${command}`,
-        type: "string",
-      },
-    },
+    options: { config: { default: `./.${command}`, type: "string" } },
     strict: true,
     allowPositionals: true,
   });
@@ -117,8 +112,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   }
 
   if (
-    !values.config.endsWith(`/.${command}`)
-    && values.config !== `.${command}`
+    !values.config.endsWith(`/.${command}`) && values.config !== `.${command}`
   ) {
     throw new Error(`--dir directory must be named ".${command}"`);
   }

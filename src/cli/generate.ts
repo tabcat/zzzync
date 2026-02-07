@@ -6,12 +6,7 @@ import { SubCommand } from "./index.js";
 export const run: SubCommand["run"] = async (args: string[]) => {
   const { values } = parseArgs({
     args,
-    options: {
-      type: {
-        type: "string",
-        default: "Ed25519",
-      },
-    },
+    options: { type: { type: "string", default: "Ed25519" } },
     strict: true,
   });
 
