@@ -1,20 +1,23 @@
 {
-	"typescript": {
-		"lineWidth": 80,
-		"semiColons": "always",
-		"preferSingleLine": true,
-		"memberExpression.linePerExpression": true,
-		"binaryExpression.linePerExpression": true
-	},
-	"markdown": {},
-	"includes": [
-		"src/**/*.ts",
-		"test/**/*.ts",
-		"readme.md",
-		"spec.md"
-	],
-	"plugins": [
-		"https://plugins.dprint.dev/typescript-0.95.15.wasm",
-		"https://plugins.dprint.dev/markdown-0.20.0.wasm",
-	]
+  "typescript": {
+    "lineWidth": 80,
+    "semiColons": "always",
+    "preferSingleLine": true,
+    "memberExpression.linePerExpression": true,
+    "binaryExpression.linePerExpression": true,
+  },
+  "json": {},
+  "markdown": {},
+  "includes": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "readme.md",
+    "spec.md",
+    "dprint.jsonc",
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.95.15.wasm",
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/json-0.21.1.wasm",
+  ],
 }
