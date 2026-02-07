@@ -1,2 +1,3 @@
+export { zzzync } from "./dialer.js";
+export { createZzzyncHandler } from "./handler.js";
 export * from "./interface.js";
-export { createZzzyncHandler, zzzync } from "./stream.js";
