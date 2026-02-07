@@ -2,6 +2,9 @@
 	"typescript": {
 		"lineWidth": 80,
 		"semiColons": "always",
+		"preferSingleLine": true,
+		"memberExpression.linePerExpression": true,
+		"binaryExpression.linePerExpression": true
 	},
 	"markdown": {},
 	"includes": [
