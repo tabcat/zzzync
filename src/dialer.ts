@@ -2,6 +2,7 @@ import { Car, UnixFSExporter } from "@helia/car";
 import {
   AbortOptions,
   EventHandler,
+  PeerId,
   Stream,
   StreamCloseEvent,
 } from "@libp2p/interface";
@@ -19,6 +20,7 @@ import type { Duplex } from "it-stream-types";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
+import { Sign, signChallenge } from "./challenge.js";
 import { ZZZYNC } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
 import { parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
@@ -50,6 +52,22 @@ export async function writeIpnsMultihash(
   options: AbortOptions = {},
 ): Promise<void> {
   return bs.write(ipnsMultihash.bytes, options);
+}
+
+export async function readNonce(
+  bs: ByteStream<Stream>,
+  options: AbortOptions = {},
+): Promise<Uint8Array> {
+  return (await bs.read({ bytes: 32, signal: options.signal })).subarray();
+}
+
+export async function writeChallengeResponse(
+  bs: ByteStream<Stream>,
+  dialerNonce: Uint8Array,
+  sig: Uint8Array,
+  options: AbortOptions = {},
+): Promise<void> {
+  await bs.write(new Uint8ArrayList(dialerNonce, sig), options);
 }
 
 export async function writeIpnsRecord(
@@ -85,8 +103,10 @@ export async function writeCarFile(
 
 export async function zzzync(
   stream: Stream,
+  handlerPeerId: PeerId,
   exporter: Pick<Car, "export">,
   result: IPNSPublishResult,
+  sign: Sign,
   options: AbortOptions = {},
 ): Promise<void> {
   const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
@@ -118,6 +138,30 @@ export async function zzzync(
       log("wrote ipns key");
     } catch (e) {
       log.error("failed while writing ipns key");
+      throw e;
+    }
+
+    let handlerNonce: Uint8Array;
+    try {
+      handlerNonce = await readNonce(bs, { signal });
+      log("read handler nonce");
+    } catch (e) {
+      log.error("failed while reading challenge nonce");
+      throw e;
+    }
+
+    try {
+      const [sig, dialerNonce] = await signChallenge(
+        handlerPeerId,
+        ipnsMultihash,
+        handlerNonce,
+        sign,
+        options,
+      );
+      await writeChallengeResponse(bs, sig, dialerNonce, { signal });
+      log("wrote response to challenge");
+    } catch (e) {
+      log.error("failed while writing challenge response");
       throw e;
     }
 

@@ -2,7 +2,7 @@ import "dotenv/config";
 import { car } from "@helia/car";
 import { globSource, unixfs } from "@helia/unixfs";
 import { privateKeyFromProtobuf } from "@libp2p/crypto/keys";
-import type { Libp2p, PrivateKey } from "@libp2p/interface";
+import type { Libp2p } from "@libp2p/interface";
 import { enable, logger } from "@libp2p/logger";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { type Multiaddr, multiaddr } from "@multiformats/multiaddr";
@@ -18,8 +18,9 @@ import { mkdir, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { createSign, SupportedPrivateKeys } from "../challenge.js";
 import { ZZZYNC, ZZZYNC_PROTOCOL_ID } from "../constants.js";
-import { zzzync } from "../stream.js";
+import { zzzync } from "../dialer.js";
 import type { PushConfig } from "./default-push-config.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
@@ -83,11 +84,15 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     );
   }
 
-  let publisherKey: PrivateKey;
+  let publisherKey: SupportedPrivateKeys;
   try {
-    publisherKey = privateKeyFromProtobuf(
-      base36.decode(process.env.PUBLISHER_KEY),
-    );
+    const sk = privateKeyFromProtobuf(base36.decode(process.env.PUBLISHER_KEY));
+
+    if (sk.type !== "Ed25519" && sk.type !== "secp256k1") {
+      throw new Error("Unsupported key type");
+    }
+
+    publisherKey = sk;
   } catch (e) {
     console.error(
       "failed to parse PUBLISHER_KEY. Use zzzync generate to create one.",
@@ -156,14 +161,6 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   await helia.start();
   log("helia started.");
 
-  log("dialing multiaddrs");
-  const stream = await helia.libp2p.dialProtocol(
-    multiaddrs,
-    ZZZYNC_PROTOCOL_ID,
-    { signal },
-  );
-  log("dialed protocol");
-
   const importer = unixfs(helia);
 
   log("resolved path is", upload);
@@ -202,8 +199,24 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   });
   log("created new ipns record");
 
+  log("dialing multiaddrs");
+  const connection = await helia.libp2p.dial(multiaddrs, { signal });
+  const handlerPeerId = connection.remotePeer;
+  log("dial complete");
+
+  log("opening zzzync stream");
+  const stream = await connection.newStream(ZZZYNC_PROTOCOL_ID, { signal });
+  log("opened zzzync stream");
+
   log("attempting to zzzync!");
-  await zzzync(stream, exporter, published, { signal });
+  await zzzync(
+    stream,
+    handlerPeerId,
+    exporter,
+    published,
+    createSign(publisherKey),
+    { signal },
+  );
   log("woah we just zzzynced!");
 
   await helia.stop();

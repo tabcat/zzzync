@@ -1,16 +1,17 @@
 import { type Car } from "@helia/car";
 import type { Pins } from "@helia/interface";
 import { type Block, CarBlockIterator } from "@ipld/car/iterator";
+import { publicKeyFromMultihash } from "@libp2p/crypto/keys";
 import type {
   AbortOptions,
   Connection,
   EventHandler,
+  PeerId,
   Stream,
   StreamCloseEvent,
   StreamHandler,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
-import { peerIdFromMultihash } from "@libp2p/peer-id";
 import {
   type ByteStream,
   byteStream,
@@ -36,6 +37,8 @@ import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
+import { generateNonce, verifyResponse } from "./challenge.js";
+import { createVerify } from "./challenge.js";
 import {
   CODEC_DAG_PB,
   CODEC_IDENTITY,
@@ -116,6 +119,26 @@ export async function readIpnsMultihash(
   }
 
   return Digest.create(code, digest.subarray());
+}
+
+export async function writeChallengeNonce(
+  bs: ByteStream<Stream>,
+  handlerNonce: Uint8Array,
+  options: AbortOptions = {},
+): Promise<void> {
+  await bs.write(handlerNonce, options);
+}
+
+export async function readChallengeResponse(
+  bs: ByteStream<Stream>,
+  options: AbortOptions = {},
+): Promise<[Uint8Array, Uint8Array]> {
+  const dialerNonceAndSig = await bs.read({
+    bytes: 32 + 64,
+    signal: options.signal,
+  });
+
+  return [dialerNonceAndSig.subarray(0, 32), dialerNonceAndSig.subarray(32)];
 }
 
 export async function readIpnsRecord(
@@ -206,6 +229,7 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
 
 export const createZzzyncHandler =
   (
+    handlerPeerId: PeerId,
     ipns: IPNS,
     importer: Pick<Car, "import">,
     pins: Pins,
@@ -228,32 +252,67 @@ export const createZzzyncHandler =
 
       const bs = byteStream(stream);
 
-      let ipnsMultihash: IpnsMultihash;
+      let dialerIpns: IpnsMultihash;
       try {
-        ipnsMultihash = await readIpnsMultihash(bs, { signal });
+        dialerIpns = await readIpnsMultihash(bs, { signal });
       } catch (e) {
         log.error("failed while reading ipns key from stream");
         throw e;
       }
-      log(`read ipns key %s`, ipnsMultihash);
+      log(`read ipns key %s`, dialerIpns);
 
-      const peerId = peerIdFromMultihash(ipnsMultihash);
+      const dialerIpnsPublicKey = publicKeyFromMultihash(dialerIpns);
 
-      if (peerId.type === "RSA" || peerId.type === "url") {
-        const error = new Error(`peer id type "${peerId.type}" not supported`);
+      if (
+        dialerIpnsPublicKey.type !== "Ed25519"
+        && dialerIpnsPublicKey.type !== "secp256k1"
+      ) {
+        const error = new Error("Unsupported Ipns key type");
         log.error(error.message);
         throw error;
       }
 
-      if (options.allow && !(await options.allow(ipnsMultihash, { signal }))) {
+      if (options.allow && !(await options.allow(dialerIpns, { signal }))) {
         const error = new Error("ipns key not allowed");
+        log.error(error.message);
+        throw error;
+      }
+
+      let handlerNonce: Uint8Array;
+      try {
+        handlerNonce = generateNonce();
+        await writeChallengeNonce(bs, handlerNonce, { signal });
+      } catch (e) {
+        log.error("failed while writing challenge nonce");
+        throw e;
+      }
+
+      let valid: boolean;
+      try {
+        const [dialerNonce, sig] = await readChallengeResponse(bs, { signal });
+        valid = await verifyResponse(
+          handlerPeerId,
+          dialerIpns,
+          handlerNonce,
+          dialerNonce,
+          sig,
+          createVerify(dialerIpnsPublicKey),
+          { signal },
+        );
+      } catch (e) {
+        log.error("failed while validating challenge response");
+        throw e;
+      }
+
+      if (!valid) {
+        const error = new Error("Dialer challenge response invalid");
         log.error(error.message);
         throw error;
       }
 
       let remoteRecord: IPNSRecord;
       try {
-        remoteRecord = await readIpnsRecord(bs, ipnsMultihash, { signal });
+        remoteRecord = await readIpnsRecord(bs, dialerIpns, { signal });
       } catch (e) {
         log.error("failed while reading ipns record from stream");
         throw e;
@@ -268,14 +327,14 @@ export const createZzzyncHandler =
 
       let localRecord: IPNSRecord | undefined;
       try {
-        const resolved = await ipns.resolve(ipnsMultihash, {
+        const resolved = await ipns.resolve(dialerIpns, {
           offline: true,
           signal,
         });
         localRecord = resolved.record;
         log(
           "found local record for %s with value %s",
-          ipnsMultihash,
+          dialerIpns,
           localRecord.value,
         );
       } catch (e) {
@@ -284,7 +343,7 @@ export const createZzzyncHandler =
                 .name === "RecordsFaileValidationError")
         ) {
           localRecord = undefined;
-          log("no local record found for %s", ipnsMultihash);
+          log("no local record found for %s", dialerIpns);
         } else {
           log.error("failed while resolving local record");
           throw e;
@@ -300,7 +359,7 @@ export const createZzzyncHandler =
           Uint8Array,
         ];
         const selected = ipnsSelector(
-          multihashToIPNSRoutingKey(ipnsMultihash),
+          multihashToIPNSRoutingKey(dialerIpns),
           marshaledRecords,
         );
 
@@ -332,9 +391,9 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      const libp2pKey = peerId.toCID();
+      const libp2pKey = dialerIpnsPublicKey.toCID();
       await pin(pins, libp2pKey, value, { signal });
-      log("pinned %s for pinner %s", value, peerId);
+      log("pinned %s for pinner %s", value, libp2pKey);
 
       log("republishing records to routers");
       const deferred = defer();
@@ -354,7 +413,7 @@ export const createZzzyncHandler =
           deferred.reject();
         }
       };
-      const republishing = ipns.republish(ipnsMultihash, {
+      const republishing = ipns.republish(dialerIpns, {
         onProgress,
         record: remoteRecord,
         force: true,
@@ -372,7 +431,7 @@ export const createZzzyncHandler =
       if (localRecordValue != null && !localRecordValue.equals(value)) {
         try {
           await unpin(pins, libp2pKey, localRecordValue, { signal });
-          log("unpinned %s for pinner %s", localRecordValue, peerId);
+          log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
         } catch (e) {
           if (e instanceof Error && e.name === "NotFoundError") {
             log("tried to unpin cid that was not pinned!");
