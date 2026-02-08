@@ -3,7 +3,6 @@ import {
   AbortOptions,
   Ed25519PrivateKey,
   PeerId,
-  PrivateKey,
   Secp256k1PrivateKey,
 } from "@libp2p/interface";
 import { secp256k1 as secp } from "@noble/curves/secp256k1.js";
@@ -12,14 +11,14 @@ import { concat } from "uint8arrays";
 import { ZZZYNC_PROTOCOL_ID } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
 
-export type SupportedPrivateKeys = Ed25519PrivateKey | Secp256k1PrivateKey;
+export type SupportedPrivateKey = Ed25519PrivateKey | Secp256k1PrivateKey;
 
-export type Sign = PrivateKey["sign"];
+export type Sign = SupportedPrivateKey["sign"];
 
 export const generateNonce = () => randomBytes(32);
 
 export const createSign =
-  (sk: SupportedPrivateKeys): Sign =>
+  (sk: SupportedPrivateKey): Sign =>
   async (
     data: Uint8Array | Uint8ArrayList,
     options: AbortOptions = {},

@@ -18,7 +18,7 @@ import { mkdir, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { createSign, SupportedPrivateKeys } from "../challenge.js";
+import { createSign, SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC, ZZZYNC_PROTOCOL_ID } from "../constants.js";
 import { zzzync } from "../dialer.js";
 import type { PushConfig } from "./default-push-config.js";
@@ -84,7 +84,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     );
   }
 
-  let publisherKey: SupportedPrivateKeys;
+  let publisherKey: SupportedPrivateKey;
   try {
     const sk = privateKeyFromProtobuf(base36.decode(process.env.PUBLISHER_KEY));
 
