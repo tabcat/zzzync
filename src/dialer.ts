@@ -20,7 +20,7 @@ import type { Duplex } from "it-stream-types";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
-import { Sign, signChallenge } from "./challenge.js";
+import { buildChallenge, generateNonce, Sign } from "./challenge.js";
 import { ZZZYNC } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
 import { parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
@@ -127,14 +127,14 @@ export async function zzzync(
 
     const { record, publicKey } = result;
 
-    const ipnsMultihash = publicKeyAsIpnsMultihash(publicKey);
+    const dialerIpns = publicKeyAsIpnsMultihash(publicKey);
 
-    if (ipnsMultihash == null) {
+    if (dialerIpns == null) {
       throw new Error("unsupported public key");
     }
 
     try {
-      await writeIpnsMultihash(bs, ipnsMultihash, { signal });
+      await writeIpnsMultihash(bs, dialerIpns, { signal });
       log("wrote ipns key");
     } catch (e) {
       log.error("failed while writing ipns key");
@@ -151,14 +151,15 @@ export async function zzzync(
     }
 
     try {
-      const [sig, dialerNonce] = await signChallenge(
+      const dialerNonce = generateNonce();
+      const challenge = buildChallenge(
         handlerPeerId,
-        ipnsMultihash,
+        dialerIpns,
         handlerNonce,
-        sign,
-        options,
+        dialerNonce,
       );
-      await writeChallengeResponse(bs, sig, dialerNonce, { signal });
+      const sig = await sign(challenge, { signal }); // raw sig 64 byte length
+      await writeChallengeResponse(bs, dialerNonce, sig, { signal });
       log("wrote response to challenge");
     } catch (e) {
       log.error("failed while writing challenge response");

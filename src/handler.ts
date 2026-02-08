@@ -37,8 +37,7 @@ import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
-import { generateNonce, verifyResponse } from "./challenge.js";
-import { createVerify } from "./challenge.js";
+import { buildChallenge, generateNonce } from "./challenge.js";
 import {
   CODEC_DAG_PB,
   CODEC_IDENTITY,
@@ -290,15 +289,13 @@ export const createZzzyncHandler =
       let valid: boolean;
       try {
         const [dialerNonce, sig] = await readChallengeResponse(bs, { signal });
-        valid = await verifyResponse(
+        const challenge = buildChallenge(
           handlerPeerId,
           dialerIpns,
           handlerNonce,
           dialerNonce,
-          sig,
-          createVerify(dialerIpnsPublicKey),
-          { signal },
         );
+        valid = await dialerIpnsPublicKey.verify(challenge, sig, { signal });
       } catch (e) {
         log.error("failed while validating challenge response");
         throw e;
