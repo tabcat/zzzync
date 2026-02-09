@@ -413,7 +413,7 @@ export const createZzzyncHandler =
       const republishing = ipns.republish(dialerIpns, {
         onProgress,
         record: remoteRecord,
-        force: true,
+        skipResolution: true,
       });
       if (!localRecordEqual) {
         await Promise.race([republishing, deferred.promise]);
