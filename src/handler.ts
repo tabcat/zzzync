@@ -400,7 +400,7 @@ export const createZzzyncHandler =
           | IPNSRoutingProgressEvents
           | DatastoreProgressEvents,
       ): void => {
-        if (event.type === "ipns:routing:datastore:put") {
+        if (event.type === "ipns:routing:datastore:complete") {
           log("ipns record updated locally");
           deferred.resolve();
         }
