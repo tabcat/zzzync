@@ -19,7 +19,7 @@ if (cmd == null || cmd === "h" || cmd === "-h") {
 }
 
 const HELP_MESSAGE = `
-Use 'zzzync daemon' or 'zzzync push'
+Use 'zzzync daemon' or 'zzzync upload'
 `;
 
 const help: SubCommand = {
@@ -34,8 +34,8 @@ const help: SubCommand = {
       subcommand = (await import(join(__dirname, "daemon.js"))) as SubCommand;
       break;
     }
-    case "push": {
-      subcommand = (await import(join(__dirname, "push.js"))) as SubCommand;
+    case "upload": {
+      subcommand = (await import(join(__dirname, "upload.js"))) as SubCommand;
       break;
     }
     case "generate": {

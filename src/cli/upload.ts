@@ -19,9 +19,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { createSign, SupportedPrivateKey } from "../challenge.js";
-import { ZZZYNC, ZZZYNC_PROTOCOL_ID } from "../constants.js";
-import { zzzync } from "../dialer.js";
-import type { PushConfig } from "./default-push-config.js";
+import { ZZZYNC_PROTOCOL_ID } from "../constants.js";
+import { UPLOAD_NAMESPACE, zzzync } from "../dialer.js";
+import type { UploadConfig } from "./default-upload-config.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
 
@@ -43,10 +43,9 @@ declare global {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const PUSH_NAMESPACE = `${ZZZYNC}:push`;
-const log = logger(PUSH_NAMESPACE);
+const log = logger(UPLOAD_NAMESPACE);
 
-let enabled = `${PUSH_NAMESPACE}, ${PUSH_NAMESPACE}:*`;
+let enabled = `${UPLOAD_NAMESPACE}, ${UPLOAD_NAMESPACE}:*`;
 if (process.env.DEBUG != null) {
   enabled = `${process.env.DEBUG},${enabled}`;
 }
@@ -76,7 +75,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   }
 
   if (upload == null) {
-    throw new Error("no files specified to push.");
+    throw new Error("no files specified to upload.");
   }
 
   if (process.env.PUBLISHER_KEY == null) {
@@ -126,14 +125,14 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   await mkdir(CONFIG_DIR, { recursive: true });
 
   const datastore = new MemoryDatastore();
-  const blockstore = new LevelBlockstore(join(CONFIG_DIR, "push/blockstore"));
+  const blockstore = new LevelBlockstore(join(CONFIG_DIR, "upload/blockstore"));
 
-  const DEFAULT_CONFIG_PATH = join(__dirname, "default-push-config.js");
-  const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "push-config.js");
+  const DEFAULT_CONFIG_PATH = join(__dirname, "default-upload-config.js");
+  const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "upload-config.js");
   const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
     ? CUSTOM_CONFIG_PATH
     : DEFAULT_CONFIG_PATH;
-  const config: PushConfig = await import(CONFIG_PATH);
+  const config: UploadConfig = await import(CONFIG_PATH);
 
   const peerId = peerIdFromPrivateKey(publisherKey);
 

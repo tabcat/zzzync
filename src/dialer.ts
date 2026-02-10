@@ -25,7 +25,7 @@ import { ZZZYNC } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
 import { parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
 
-export const PUSH_NAMESPACE = `${ZZZYNC}:push`;
+export const UPLOAD_NAMESPACE = `${ZZZYNC}:upload`;
 
 export async function writeVarint(
   bs: ByteStream<Stream>,
@@ -109,7 +109,7 @@ export async function zzzync(
   sign: Sign,
   options: AbortOptions = {},
 ): Promise<void> {
-  const log = logger(`${PUSH_NAMESPACE}:${stream.id}`);
+  const log = logger(`${UPLOAD_NAMESPACE}:${stream.id}`);
 
   const controller = new AbortController();
   const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
