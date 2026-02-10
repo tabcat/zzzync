@@ -353,9 +353,12 @@ export const createZzzyncHandler =
         }
       }
 
+      const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
+      const valueChanged = value.equals(localRecordValue);
+
       // check that localRecord is not better than remoteRecord
       let localRecordEqual = false;
-      if (localRecord) {
+      if (!valueChanged && localRecord != null) {
         const records: [IPNSRecord, IPNSRecord] = [remoteRecord, localRecord];
         const marshaledRecords = records.map(marshalIPNSRecord) as [
           Uint8Array,
@@ -394,8 +397,12 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      await pin(pins, dialerLibp2pKey, value, { signal });
-      log("pinned %c for pinner %c", value, dialerLibp2pKey);
+      if (valueChanged) {
+        await pin(pins, dialerLibp2pKey, value, { signal });
+        log("pinned %c for pinner %c", value, dialerLibp2pKey);
+      } else {
+        log("value did not change. skipping pin");
+      }
 
       log("republishing records to routers");
       const deferred = defer();
@@ -429,8 +436,7 @@ export const createZzzyncHandler =
       await stream.close({ signal });
       log("closed stream");
 
-      const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
-      if (localRecordValue != null && !localRecordValue.equals(value)) {
+      if (valueChanged && localRecordValue != null) {
         try {
           await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
           log("unpinned %c for pinner %c", localRecordValue, dialerLibp2pKey);
