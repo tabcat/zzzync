@@ -226,6 +226,8 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
   allow?: AllowFn;
 }
 
+const _log = logger(HANDLER_NAMESPACE);
+
 export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
@@ -235,7 +237,7 @@ export const createZzzyncHandler =
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
-    const log = logger(`${HANDLER_NAMESPACE}:${stream.id}`);
+    const log = _log.newScope(stream.id);
 
     const controller = new AbortController();
     const signal = controller.signal;
@@ -258,24 +260,26 @@ export const createZzzyncHandler =
         log.error("failed while reading ipns key from stream");
         throw e;
       }
-      log(`read ipns key %s`, dialerIpns);
+      log(`read ipns multihash %t`, dialerIpns.bytes);
 
-      const dialerIpnsPublicKey = publicKeyFromMultihash(dialerIpns);
+      const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
 
       if (
-        dialerIpnsPublicKey.type !== "Ed25519"
-        && dialerIpnsPublicKey.type !== "secp256k1"
+        dialerPublicKey.type !== "Ed25519"
+        && dialerPublicKey.type !== "secp256k1"
       ) {
         const error = new Error("Unsupported Ipns key type");
         log.error(error.message);
         throw error;
       }
+      const dialerLibp2pKey = dialerPublicKey.toCID();
 
       if (options.allow && !(await options.allow(dialerIpns, { signal }))) {
         const error = new Error("ipns key not allowed");
         log.error(error.message);
         throw error;
       }
+      log("ipns key %c is allowed", dialerLibp2pKey);
 
       let handlerNonce: Uint8Array;
       try {
@@ -295,7 +299,7 @@ export const createZzzyncHandler =
           handlerNonce,
           dialerNonce,
         );
-        valid = await dialerIpnsPublicKey.verify(challenge, sig, { signal });
+        valid = await dialerPublicKey.verify(challenge, sig, { signal });
       } catch (e) {
         log.error("failed while validating challenge response");
         throw e;
@@ -305,6 +309,8 @@ export const createZzzyncHandler =
         const error = new Error("Dialer challenge response invalid");
         log.error(error.message);
         throw error;
+      } else {
+        log("dialer completed challenge");
       }
 
       let remoteRecord: IPNSRecord;
@@ -330,8 +336,8 @@ export const createZzzyncHandler =
         });
         localRecord = resolved.record;
         log(
-          "found local record for %s with value %s",
-          dialerIpns,
+          "found local record for %c with value %s",
+          dialerLibp2pKey,
           localRecord.value,
         );
       } catch (e) {
@@ -340,7 +346,7 @@ export const createZzzyncHandler =
                 .name === "RecordsFaileValidationError")
         ) {
           localRecord = undefined;
-          log("no local record found for %s", dialerIpns);
+          log("no local record found for %c", dialerLibp2pKey);
         } else {
           log.error("failed while resolving local record");
           throw e;
@@ -388,9 +394,8 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      const libp2pKey = dialerIpnsPublicKey.toCID();
-      await pin(pins, libp2pKey, value, { signal });
-      log("pinned %s for pinner %s", value, libp2pKey);
+      await pin(pins, dialerLibp2pKey, value, { signal });
+      log("pinned %c for pinner %c", value, dialerLibp2pKey);
 
       log("republishing records to routers");
       const deferred = defer();
@@ -427,8 +432,8 @@ export const createZzzyncHandler =
       const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
       if (localRecordValue != null && !localRecordValue.equals(value)) {
         try {
-          await unpin(pins, libp2pKey, localRecordValue, { signal });
-          log("unpinned %s for pinner %s", localRecordValue, libp2pKey);
+          await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
+          log("unpinned %c for pinner %c", localRecordValue, dialerLibp2pKey);
         } catch (e) {
           if (e instanceof Error && e.name === "NotFoundError") {
             log("tried to unpin cid that was not pinned!");
