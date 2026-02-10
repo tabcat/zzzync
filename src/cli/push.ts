@@ -43,10 +43,10 @@ declare global {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const PUSH_NAMESPACE = `${ZZZYNC}:push*`;
+const PUSH_NAMESPACE = `${ZZZYNC}:push`;
 const log = logger(PUSH_NAMESPACE);
 
-let enabled = `${PUSH_NAMESPACE}`;
+let enabled = `${PUSH_NAMESPACE}, ${PUSH_NAMESPACE}:*`;
 if (process.env.DEBUG != null) {
   enabled = `${process.env.DEBUG},${enabled}`;
 }
@@ -65,6 +65,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
   let upload: string | null = null;
   try {
+    // just support single path uploads for now
     for (const partial of positionals) {
       upload = resolve(partial);
       break;
@@ -136,6 +137,8 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
   const peerId = peerIdFromPrivateKey(publisherKey);
 
+  log("peerId is %s", peerId);
+
   const libp2p: Libp2pOptions<DefaultLibp2pServices> =
     config.libp2pOptions != null
       ? config.libp2pOptions
@@ -163,12 +166,12 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
   const importer = unixfs(helia);
 
-  log("resolved path is", upload);
+  log("resolved path is %s", upload);
   const entry = await stat(upload);
-  log("path is for directory");
 
   let root: CID | null = null;
   if (entry.isDirectory()) {
+    log("path is to directory");
     for await (
       const imported of importer.addAll(globSource(upload, "**/*"), {
         signal,
@@ -183,9 +186,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       throw new Error("Did not find any files or folders to import.");
     }
   } else if (entry.isFile()) {
+    log("path is to file");
     root = await importer.addByteStream(createReadStream(upload), { signal });
   } else {
-    throw new Error("Given path is not a file or directory.");
+    throw new Error("upload path is not a file or directory.");
   }
 
   const names = ipns(helia);
