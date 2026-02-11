@@ -1,6 +1,7 @@
 import type { IPNSRecord } from "@helia/ipns";
 import type { Fetch, LookupFunction } from "@libp2p/fetch";
 import type { AbortOptions, PeerId } from "@libp2p/interface";
+import { ipnsValidator } from "@tabcat/helia-ipns";
 import { type Datastore, Key } from "interface-datastore";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
 import { toString as uint8ArrayToString } from "uint8arrays";
@@ -12,13 +13,15 @@ export async function fetchIpnsRecord(
   ipnsMultihash: IpnsMultihash,
   options: AbortOptions = {},
 ): Promise<IPNSRecord | undefined> {
-  const marshalledRecord = await fetch(
-    peerId,
-    multihashToIPNSRoutingKey(ipnsMultihash),
-    options,
-  );
+  const routingKey = multihashToIPNSRoutingKey(ipnsMultihash);
+  const marshalledRecord = await fetch(peerId, routingKey, options);
 
-  return marshalledRecord && unmarshalIPNSRecord(marshalledRecord);
+  if (!marshalledRecord) {
+    return undefined;
+  }
+  await ipnsValidator(routingKey, marshalledRecord);
+
+  return unmarshalIPNSRecord(marshalledRecord);
 }
 
 // @helia/ipns localStore record key
