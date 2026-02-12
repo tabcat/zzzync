@@ -1,6 +1,7 @@
 import type { IPNSRecord } from "@helia/ipns";
 import type { Fetch, LookupFunction } from "@libp2p/fetch";
 import type { AbortOptions, PeerId } from "@libp2p/interface";
+import { Record } from "@libp2p/kad-dht";
 import { ipnsValidator } from "@tabcat/helia-ipns";
 import { type Datastore, Key } from "interface-datastore";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
@@ -39,7 +40,10 @@ export const createIpnsRecordLookup =
   async (routingKey) => {
     const { datastore } = components;
     try {
-      return datastore.get(dhtRoutingKey(routingKey));
+      const data = await datastore.get(dhtRoutingKey(routingKey));
+      const record = Record.deserialize(data);
+
+      return record.value;
     } catch (e) {
       if (e instanceof Error && e.name === "NotFoundError") {
         return undefined;
