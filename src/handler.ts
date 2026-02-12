@@ -397,11 +397,7 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      if (valueChanged) {
-        await pin(pins, dialerLibp2pKey, value, { signal });
-      } else {
-        log("value did not change. skipping pin");
-      }
+      await pin(pins, dialerLibp2pKey, value, { signal });
 
       log("republishing records to routers");
       const deferred = defer();
