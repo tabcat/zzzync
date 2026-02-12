@@ -1,22 +1,15 @@
+import "dotenv/config";
 import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
-import { LevelBlockstore } from "blockstore-level";
-import { LevelDatastore } from "datastore-level";
-import type { DefaultLibp2pServices } from "helia";
 import type { Libp2pOptions } from "libp2p";
-import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { ZZZYNC } from "../constants.js";
 import { HANDLER_NAMESPACE } from "../handler.js";
 import { createZzzyncServer, type ZzzyncServices } from "../server.js";
-import type { DaemonConfig } from "./default-daemon-config.js";
+import type { DaemonConfig } from "./daemon-config.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { parseMultiaddrs, parsePrivateKey, setupConfig } from "./utils.js";
 
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
@@ -42,25 +35,27 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   ) {
     throw new Error(`--config directory must be named ".${command}"`);
   }
-  const CONFIG_DIR = resolve(values.config);
-  await mkdir(CONFIG_DIR, { recursive: true });
-
-  const datastore = new LevelDatastore(join(CONFIG_DIR, "daemon/datastore"));
-  const blockstore = new LevelBlockstore(join(CONFIG_DIR, "daemon/blockstore"));
-
-  const DEFAULT_CONFIG_PATH = join(__dirname, "default-daemon-config.js");
-  const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, "daemon-config.js");
-  const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
-    ? CUSTOM_CONFIG_PATH
-    : DEFAULT_CONFIG_PATH;
+  const { CONFIG_PATH, datastore, blockstore } = await setupConfig(
+    values.config,
+    "daemon",
+  );
   const config: DaemonConfig = await import(CONFIG_PATH);
 
-  const libp2p:
-    | Libp2pOptions<ZzzyncServices>
-    | Libp2pOptions<DefaultLibp2pServices & ZzzyncServices> =
-      config.libp2pOptions != null
-        ? config.libp2pOptions
-        : (await import(DEFAULT_CONFIG_PATH)).libp2p;
+  const libp2p: Libp2pOptions<ZzzyncServices> = config.libp2pOptions;
+
+  const envMultiaddrs = parseMultiaddrs();
+  if (envMultiaddrs.length) {
+    log("found environment multiaddrs");
+    libp2p.addresses = {
+      ...libp2p.addresses,
+      listen: envMultiaddrs.map(String),
+    };
+  }
+  const privateKey = parsePrivateKey("daemon");
+  if (privateKey != null) {
+    log("found environment daemon peer id");
+    libp2p.privateKey = privateKey;
+  }
 
   const helia = await createZzzyncServer({
     blockstore,
