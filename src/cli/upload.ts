@@ -157,7 +157,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       skipResolution: true,
     });
   } else {
-    log("fetch did not find record");
+    log("fetch did not find record on zzzync handler");
   }
 
   const published = await names.publish(keyName, root, {
