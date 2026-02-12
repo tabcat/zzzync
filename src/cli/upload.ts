@@ -20,7 +20,7 @@ import { command } from "./index.js";
 import type { UploadConfig } from "./upload-config.js";
 import { parseMultiaddrs, parsePrivateKey, setupConfig } from "./utils.js";
 
-const keyName = "zzzync/upload";
+const keyName = "upload";
 
 // enable logging
 const log = logger(UPLOAD_NAMESPACE);
@@ -70,7 +70,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   }
   const { CONFIG_PATH, datastore, blockstore } = await setupConfig(
     values.config,
-    "daemon",
+    "upload",
   );
   const config: UploadConfig<ZzzyncServices> = await import(CONFIG_PATH);
 
