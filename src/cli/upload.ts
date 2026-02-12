@@ -174,7 +174,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   const stream = await connection.newStream(ZZZYNC_PROTOCOL_ID, { signal });
   log("opened zzzync stream");
 
-  log("attempting to zzzync!");
+  log("attempting to zzzync...");
   await zzzync(
     stream,
     handlerPeerId,
