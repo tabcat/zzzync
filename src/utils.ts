@@ -1,6 +1,7 @@
 import * as dagPb from "@ipld/dag-pb";
 import type { PublicKey } from "@libp2p/interface";
 import type { BlockCodec, MultihashHasher } from "multiformats";
+import { base36 } from "multiformats/bases/base36";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
@@ -53,4 +54,8 @@ export function publicKeyAsIpnsMultihash(
   }
 
   return null;
+}
+
+export function contenthash(publicKey: PublicKey) {
+  return `/ipns/${publicKey.toCID().toString(base36)}`;
 }

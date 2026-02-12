@@ -2,10 +2,11 @@ import { generateKeyPair, privateKeyToProtobuf } from "@libp2p/crypto/keys";
 import { base36 } from "multiformats/bases/base36";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
+import { contenthash } from "../utils.js";
 import { SubCommand } from "./index.js";
 
 const contenthashMessage = (privateKey: SupportedPrivateKey) => `
-/ipns/${privateKey.publicKey.toCID().toString(base36)}
+${contenthash(privateKey.publicKey)}
 
 This is the contenthash for the IPNS publishing key
 Use it to set the contenthash field for an ENS domain

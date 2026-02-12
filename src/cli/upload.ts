@@ -15,6 +15,7 @@ import { ZZZYNC_PROTOCOL_ID } from "../constants.js";
 import { UPLOAD_NAMESPACE, zzzync } from "../dialer.js";
 import { fetchIpnsRecord } from "../libp2p-fetch/ipns.js";
 import { ZzzyncServices } from "../server.js";
+import { contenthash } from "../utils.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
 import type { UploadConfig } from "./upload-config.js";
@@ -98,6 +99,8 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     await libp2p.services.keychain.removeKey(keyName);
   } catch {}
   await libp2p.services.keychain.importKey(keyName, publisherKey);
+  log("imported private key");
+  log("starting upload to contenthash %s", contenthash(publisherKey.publicKey));
 
   await config?.beforeStart?.(helia);
   log("starting helia...");
