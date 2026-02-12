@@ -437,8 +437,8 @@ export const createZzzyncHandler =
 
       if (valueChanged && localRecordValue != null) {
         try {
-          await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
-          log("unpinned %c for pinner %c", localRecordValue, dialerLibp2pKey);
+          await pins.isPinned(localRecordValue)
+            && await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
         } catch (e) {
           if (e instanceof Error && e.name === "NotFoundError") {
             log("tried to unpin cid that was not pinned!");

@@ -22,6 +22,7 @@ export async function pin(
     await drain(
       pins.add(cid, { ...options, metadata: { [pinner.toString()]: now } }),
     );
+    log("pinned %c", cid, pinner);
   } catch (e) {
     if (e instanceof Error && e.name === "AlreadyPinnedError") {
       const { metadata } = await pins.get(cid, options);
@@ -71,5 +72,6 @@ export async function unpin(
     await pins.setMetadata(cid, metadata, options);
   } else {
     await drain(pins.rm(cid, options));
+    log("unpinned %c", cid, pinner);
   }
 }
