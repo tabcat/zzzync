@@ -7,10 +7,15 @@ import { LevelDatastore } from "datastore-level";
 import { Blockstore } from "interface-blockstore";
 import { Datastore } from "interface-datastore";
 import { base36 } from "multiformats/bases/base36";
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC } from "../constants.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const log = logger(`${ZZZYNC}/cli/utils`);
 
@@ -91,7 +96,11 @@ export const setupConfig = async (
     join(CONFIG_DIR, `${space}/blockstore`),
   );
 
-  const CONFIG_PATH = join(__dirname, `${space}-config.js`);
+  const DEFAULT_CONFIG_PATH = join(__dirname, "daemon-config.js");
+  const CUSTOM_CONFIG_PATH = join(CONFIG_DIR, `${space}/config.js`);
+  const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
+    ? CUSTOM_CONFIG_PATH
+    : DEFAULT_CONFIG_PATH;
 
   return { CONFIG_PATH, datastore, blockstore };
 };
