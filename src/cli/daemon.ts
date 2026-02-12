@@ -3,6 +3,7 @@ import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
 import type { Libp2pOptions } from "libp2p";
 import { parseArgs } from "node:util";
+import { SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC } from "../constants.js";
 import { HANDLER_NAMESPACE } from "../handler.js";
 import { createZzzyncServer, type ZzzyncServices } from "../server.js";
@@ -51,7 +52,11 @@ export const run: SubCommand["run"] = async (args: string[]) => {
       listen: envMultiaddrs.map(String),
     };
   }
-  const privateKey = parsePrivateKey("daemon");
+
+  let privateKey: SupportedPrivateKey | null = null;
+  try {
+    privateKey = parsePrivateKey("daemon");
+  } catch {}
   if (privateKey != null) {
     log("found environment daemon peer id");
     libp2p.privateKey = privateKey;
