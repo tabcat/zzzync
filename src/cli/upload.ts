@@ -10,7 +10,6 @@ import { ipns } from "@tabcat/helia-ipns";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
 import { createHelia, type DefaultLibp2pServices } from "helia";
-import type { Libp2pOptions } from "libp2p";
 import { base36 } from "multiformats/bases/base36";
 import type { CID } from "multiformats/cid";
 import { createReadStream, existsSync } from "node:fs";
@@ -135,11 +134,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     : DEFAULT_CONFIG_PATH;
   const config: UploadConfig = await import(CONFIG_PATH);
 
-  const libp2pOptions: Libp2pOptions<
-    DefaultLibp2pServices & { fetch: Fetch; }
-  > = config.libp2pOptions != null
-    ? config.libp2pOptions
-    : (await import(DEFAULT_CONFIG_PATH)).libp2p;
+  const libp2pOptions: UploadConfig["libp2pOptions"] =
+    config.libp2pOptions != null
+      ? config.libp2pOptions
+      : (await import(DEFAULT_CONFIG_PATH)).libp2p;
 
   const helia = await createHelia<
     Libp2p<DefaultLibp2pServices & { fetch: Fetch; }>
