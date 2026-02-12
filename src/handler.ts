@@ -354,7 +354,7 @@ export const createZzzyncHandler =
       }
 
       const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
-      const valueChanged = value.equals(localRecordValue);
+      const valueChanged = !value.equals(localRecordValue);
 
       // check that localRecord is not better than remoteRecord
       let localRecordEqual = false;
