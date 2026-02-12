@@ -399,7 +399,6 @@ export const createZzzyncHandler =
 
       if (valueChanged) {
         await pin(pins, dialerLibp2pKey, value, { signal });
-        log("pinned %c for pinner %c", value, dialerLibp2pKey);
       } else {
         log("value did not change. skipping pin");
       }
