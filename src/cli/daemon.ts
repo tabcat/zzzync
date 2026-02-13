@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
+import { WebRTC } from "@multiformats/multiaddr-matcher";
 import type { Libp2pOptions } from "libp2p";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
@@ -50,7 +51,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     log("found environment multiaddrs");
     libp2p.addresses = {
       ...libp2p.addresses,
-      listen: envMultiaddrs.map(String),
+      listen: [...envMultiaddrs.map(String), "/p2p-circuit", "/webrtc"],
     };
   }
 
@@ -69,11 +70,19 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     libp2p,
     start: false,
   }, config.handlerOptions);
+  helia.libp2p.addEventListener("self:peer:update", () => {
+    helia.libp2p.getMultiaddrs().filter(ma => WebRTC.matches(ma)).forEach(m =>
+      console.log(String(m))
+    );
+  });
+
   cleanup = async () => {
+    helia.libp2p.removeEventListener("self:peer:update");
     log("stopping helia...");
     await helia.stop();
     log("helia stopped.");
   };
+
   await config?.beforeStart?.(helia);
 
   log("starting helia...");
