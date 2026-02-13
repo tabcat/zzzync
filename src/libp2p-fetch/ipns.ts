@@ -1,7 +1,7 @@
-import type { IPNSRecord } from "@helia/ipns";
 import type { Fetch, LookupFunction } from "@libp2p/fetch";
 import type { AbortOptions, PeerId } from "@libp2p/interface";
 import { Record } from "@libp2p/kad-dht";
+import type { IPNSRecord } from "@tabcat/helia-ipns";
 import { ipnsValidator } from "@tabcat/helia-ipns";
 import { type Datastore, Key } from "interface-datastore";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";

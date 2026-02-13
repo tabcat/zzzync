@@ -12,11 +12,8 @@ importers:
         specifier: ^5.3.0
         version: 5.3.5
       '@helia/interface':
-        specifier: ^6.0.2
-        version: 6.0.2
-      '@helia/ipns':
-        specifier: ^9.1.3
-        version: 9.1.6
+        specifier: ^6.1.1
+        version: 6.1.1
       '@helia/unixfs':
         specifier: ^7.0.1
         version: 7.0.1
@@ -561,14 +558,8 @@ packages:
   '@helia/delegated-routing-v1-http-api-client@6.0.1':
     resolution: {integrity: sha512-Y1nGpUQrdN80XSDDAfe7azJFKKD0MxM0mQqfbefNEcrYMM344rHNQJ7xgiSqsH20vMIaKv+NnQqT/MEg2aWv6g==}
 
-  '@helia/interface@6.0.2':
-    resolution: {integrity: sha512-/eBLfqjls6epuYTiBz6zvehizHpTXa7D8UK2+lR9cTj7yQAINiy+nYZQUbOCGb2zsK90h4mZbuOrEHusi763JA==}
-
   '@helia/interface@6.1.1':
     resolution: {integrity: sha512-vcLr6lMB2sE3iweBMr2ZXmugOPw1U2kLppwit7raQ84L1wM/q4ERBQfouaeAA0dntliopXk1luPU8I9glE6PIA==}
-
-  '@helia/ipns@9.1.6':
-    resolution: {integrity: sha512-3VW3/vbv/lj7fM7qV0+VBwlE6HTD70iSQ/aJW6zoYEIeSDzs0fIAkW+CqY0i2LkjbhmSDBGnmZ+ifEXcUu32GA==}
 
   '@helia/routers@5.0.0':
     resolution: {integrity: sha512-hN84jlHmle07pn8JVArOBoCJ2IC2i1zMzTNYGG9yglAI4OswvDXnYtY4pMh6AT2ItE6z5vCpoy+amEW7rVeBJQ==}
@@ -3551,7 +3542,7 @@ snapshots:
 
   '@helia/bitswap@3.0.14':
     dependencies:
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@helia/utils': 2.3.4
       '@libp2p/interface': 3.1.0
       '@libp2p/logger': 6.2.2
@@ -3579,7 +3570,7 @@ snapshots:
   '@helia/block-brokers@5.0.14':
     dependencies:
       '@helia/bitswap': 3.0.14
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@helia/utils': 2.3.4
       '@libp2p/interface': 3.1.0
       '@libp2p/utils': 7.0.10
@@ -3594,7 +3585,7 @@ snapshots:
 
   '@helia/car@5.3.5':
     dependencies:
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@helia/utils': 2.3.4
       '@ipld/car': 5.4.2
       '@ipld/dag-pb': 4.1.5
@@ -3627,17 +3618,6 @@ snapshots:
       p-queue: 9.1.0
       uint8arrays: 5.1.0
 
-  '@helia/interface@6.0.2':
-    dependencies:
-      '@libp2p/interface': 3.1.0
-      '@multiformats/dns': 1.0.13
-      '@multiformats/multiaddr': 13.0.1
-      interface-blockstore: 6.0.1
-      interface-datastore: 9.0.2
-      interface-store: 7.0.1
-      multiformats: 13.4.2
-      progress-events: 1.0.1
-
   '@helia/interface@6.1.1':
     dependencies:
       '@libp2p/interface': 3.1.0
@@ -3649,27 +3629,10 @@ snapshots:
       multiformats: 13.4.2
       progress-events: 1.0.1
 
-  '@helia/ipns@9.1.6':
-    dependencies:
-      '@helia/interface': 6.0.2
-      '@libp2p/crypto': 5.1.13
-      '@libp2p/interface': 3.1.0
-      '@libp2p/kad-dht': 16.1.3
-      '@libp2p/keychain': 6.0.10
-      '@libp2p/logger': 6.2.2
-      '@libp2p/utils': 7.0.10
-      interface-datastore: 9.0.2
-      ipns: 10.1.3
-      multiformats: 13.4.2
-      progress-events: 1.0.1
-      protons-runtime: 5.6.0
-      uint8arraylist: 2.4.8
-      uint8arrays: 5.1.0
-
   '@helia/routers@5.0.0':
     dependencies:
       '@helia/delegated-routing-v1-http-api-client': 6.0.1
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@libp2p/interface': 3.1.0
       '@libp2p/peer-id': 6.0.4
       '@multiformats/uri-to-multiaddr': 10.0.0
@@ -3681,7 +3644,7 @@ snapshots:
 
   '@helia/unixfs@7.0.1':
     dependencies:
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@ipld/dag-pb': 4.1.5
       '@libp2p/interface': 3.1.0
       '@libp2p/logger': 6.2.2
@@ -3708,7 +3671,7 @@ snapshots:
 
   '@helia/utils@2.3.4':
     dependencies:
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@ipld/dag-cbor': 9.2.5
       '@ipld/dag-json': 10.2.6
       '@ipld/dag-pb': 4.1.5
@@ -5486,7 +5449,7 @@ snapshots:
       '@chainsafe/libp2p-yamux': 8.0.1
       '@helia/block-brokers': 5.0.14
       '@helia/delegated-routing-v1-http-api-client': 6.0.1
-      '@helia/interface': 6.0.2
+      '@helia/interface': 6.1.1
       '@helia/routers': 5.0.0
       '@helia/utils': 2.3.4
       '@ipshipyard/libp2p-auto-tls': 2.0.1
