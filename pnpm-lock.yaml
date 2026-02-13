@@ -57,8 +57,8 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1
       '@tabcat/helia-ipns':
-        specifier: link:/home/tabcat/github.com/tabcat/helia/packages/ipns
-        version: link:../helia/packages/ipns
+        specifier: ^10.0.3
+        version: 10.0.3
       any-signal:
         specifier: ^4.2.0
         version: 4.2.0
@@ -564,6 +564,9 @@ packages:
   '@helia/interface@6.0.2':
     resolution: {integrity: sha512-/eBLfqjls6epuYTiBz6zvehizHpTXa7D8UK2+lR9cTj7yQAINiy+nYZQUbOCGb2zsK90h4mZbuOrEHusi763JA==}
 
+  '@helia/interface@6.1.1':
+    resolution: {integrity: sha512-vcLr6lMB2sE3iweBMr2ZXmugOPw1U2kLppwit7raQ84L1wM/q4ERBQfouaeAA0dntliopXk1luPU8I9glE6PIA==}
+
   '@helia/ipns@9.1.6':
     resolution: {integrity: sha512-3VW3/vbv/lj7fM7qV0+VBwlE6HTD70iSQ/aJW6zoYEIeSDzs0fIAkW+CqY0i2LkjbhmSDBGnmZ+ifEXcUu32GA==}
 
@@ -1051,6 +1054,9 @@ packages:
 
   '@sinonjs/samsam@8.0.3':
     resolution: {integrity: sha512-hw6HbX+GyVZzmaYNh82Ecj1vdGZrqVIn/keDTg63IgAwiQPO+xCz99uG6Woqgb4tM0mUiFENKZ4cqd7IX94AXQ==}
+
+  '@tabcat/helia-ipns@10.0.3':
+    resolution: {integrity: sha512-TCjRz3EgqBoa+ZK7LynRwLOZLsCK1Pq2oV08HhwPeJP8IqYUX0ayTRqlDvisMXK3mDHbqIP0KymsQmPAqPUYkA==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -3632,6 +3638,17 @@ snapshots:
       multiformats: 13.4.2
       progress-events: 1.0.1
 
+  '@helia/interface@6.1.1':
+    dependencies:
+      '@libp2p/interface': 3.1.0
+      '@multiformats/dns': 1.0.13
+      '@multiformats/multiaddr': 13.0.1
+      interface-blockstore: 6.0.1
+      interface-datastore: 9.0.2
+      interface-store: 7.0.1
+      multiformats: 13.4.2
+      progress-events: 1.0.1
+
   '@helia/ipns@9.1.6':
     dependencies:
       '@helia/interface': 6.0.2
@@ -4626,6 +4643,23 @@ snapshots:
     dependencies:
       '@sinonjs/commons': 3.0.1
       type-detect: 4.1.0
+
+  '@tabcat/helia-ipns@10.0.3':
+    dependencies:
+      '@helia/interface': 6.1.1
+      '@libp2p/crypto': 5.1.13
+      '@libp2p/interface': 3.1.0
+      '@libp2p/kad-dht': 16.1.3
+      '@libp2p/keychain': 6.0.10
+      '@libp2p/logger': 6.2.2
+      '@libp2p/utils': 7.0.10
+      interface-datastore: 9.0.2
+      ipns: 10.1.3
+      multiformats: 13.4.2
+      progress-events: 1.0.1
+      protons-runtime: 5.6.0
+      uint8arraylist: 2.4.8
+      uint8arrays: 5.1.0
 
   '@types/babel__core@7.20.5':
     dependencies:
