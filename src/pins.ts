@@ -62,7 +62,6 @@ export async function unpin(
 
   if (metadata[pinner.toString()]) {
     delete metadata[pinner.toString()];
-    log("unpinned %c for pinner %c", cid, pinner);
   } else {
     log("%c is not pinned for pinner %c", cid, pinner);
     return;
@@ -70,8 +69,9 @@ export async function unpin(
 
   if (Object.keys(metadata).length > 0) {
     await pins.setMetadata(cid, metadata, options);
+    log("unpinned %c for pinner %c", cid, pinner);
   } else {
     await drain(pins.rm(cid, options));
-    log("unpinned %c", cid, pinner);
+    log("unpinned %c", cid);
   }
 }
