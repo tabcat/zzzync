@@ -80,8 +80,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   const handlerOptions = config.handlerOptions ?? {};
 
   if (handlerOptions.allow == null) {
-    const { createAllow } = await import(join(__dirname, "default-allow.js"));
-    handlerOptions.allow = createAllow(CONFIG_DIR);
+    const { createDefaultAllow } = await import(
+      join(__dirname, "default-allow.js")
+    );
+    handlerOptions.allow = createDefaultAllow(CONFIG_DIR);
   }
 
   const helia = await createZzzyncServer({
