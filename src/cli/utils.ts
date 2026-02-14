@@ -41,7 +41,7 @@ declare global {
       /**
        * Comma separated publicly routable multiaddr strings (<multiaddr>,<multiaddr>)
        */
-      ANNOUNCE?: string;
+      APPEND_ANNOUNCE?: string;
     }
   }
 }
