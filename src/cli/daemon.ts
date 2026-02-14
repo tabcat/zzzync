@@ -2,7 +2,8 @@ import "dotenv/config";
 import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
 import type { Libp2pOptions } from "libp2p";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC } from "../constants.js";
@@ -16,6 +17,8 @@ import {
   parsePrivateKey,
   setupConfig,
 } from "./utils.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
