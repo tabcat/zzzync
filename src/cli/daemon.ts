@@ -2,6 +2,7 @@ import "dotenv/config";
 import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
 import type { Libp2pOptions } from "libp2p";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC } from "../constants.js";
@@ -42,8 +43,9 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   ) {
     throw new Error(`--config directory must be named ".${command}"`);
   }
+  const CONFIG_DIR = resolve(values.config);
   const { CONFIG_PATH, datastore, blockstore } = await setupConfig(
-    values.config,
+    CONFIG_DIR,
     "daemon",
   );
   const config: DaemonConfig = await import(CONFIG_PATH);
@@ -72,6 +74,13 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   if (privateKey != null) {
     log("found environment daemon peer id");
     libp2p.privateKey = privateKey;
+  }
+
+  const handlerOptions = config.handlerOptions ?? {};
+
+  if (handlerOptions.allow == null) {
+    const { createAllow } = await import(join(__dirname, "default-allow.js"));
+    handlerOptions.allow = createAllow(CONFIG_DIR);
   }
 
   const helia = await createZzzyncServer({

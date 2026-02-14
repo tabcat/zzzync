@@ -69,8 +69,9 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   ) {
     throw new Error(`--config directory must be named ".${command}"`);
   }
+  const CONFIG_DIR = resolve(values.config);
   const { CONFIG_PATH, datastore, blockstore } = await setupConfig(
-    values.config,
+    CONFIG_DIR,
     "upload",
   );
   const config: UploadConfig<ZzzyncServices> = await import(CONFIG_PATH);

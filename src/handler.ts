@@ -37,7 +37,11 @@ import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
-import { buildChallenge, generateNonce } from "./challenge.js";
+import {
+  buildChallenge,
+  generateNonce,
+  SupportedPrivateKey,
+} from "./challenge.js";
 import {
   CODEC_DAG_PB,
   CODEC_IDENTITY,
@@ -218,7 +222,7 @@ export async function* readCarFile(
 }
 
 export type AllowFn = (
-  ipnsMultihash: IpnsMultihash,
+  dialerPublicKey: SupportedPrivateKey["publicKey"],
   options?: AbortOptions,
 ) => Promise<boolean> | boolean;
 
@@ -274,7 +278,9 @@ export const createZzzyncHandler =
       }
       const dialerLibp2pKey = dialerPublicKey.toCID();
 
-      if (options.allow && !(await options.allow(dialerIpns, { signal }))) {
+      if (
+        options.allow && !(await options.allow(dialerPublicKey, { signal }))
+      ) {
         const error = new Error("ipns key not allowed");
         log.error(error.message);
         throw error;

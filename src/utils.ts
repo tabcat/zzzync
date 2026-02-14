@@ -56,6 +56,6 @@ export function publicKeyAsIpnsMultihash(
   return null;
 }
 
-export function contenthash(publicKey: PublicKey) {
+export function contenthash(publicKey: PublicKey): string {
   return `/ipns/${publicKey.toCID().toString(base36)}`;
 }
