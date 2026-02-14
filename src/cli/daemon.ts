@@ -56,8 +56,13 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     libp2p.addresses = {
       ...libp2p.addresses,
       listen: [...envMultiaddrs.map(String), "/p2p-circuit", "/webrtc"],
-      announce: process.env.ANNOUNCE?.split(","),
     };
+  }
+
+  const announce = process.env.ANNOUNCE?.split(",");
+  if (announce?.length) {
+    log("found environment announce addrs");
+    libp2p.addresses = { ...libp2p.addresses, announce };
   }
 
   let privateKey: SupportedPrivateKey | null = null;
