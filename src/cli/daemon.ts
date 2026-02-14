@@ -65,11 +65,6 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     libp2p.addresses = { ...libp2p.addresses, announce: appendAnnounce };
   }
 
-  libp2p.addresses = {
-    ...libp2p.addresses,
-    listen: [...libp2p.addresses?.listen ?? [], "/p2p-circuit", "/webrtc"],
-  };
-
   let privateKey: SupportedPrivateKey | null = null;
   try {
     privateKey = parsePrivateKey("daemon");
