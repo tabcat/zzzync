@@ -1,7 +1,8 @@
 import { privateKeyFromProtobuf } from "@libp2p/crypto/keys";
-import { PrivateKey } from "@libp2p/interface";
+import { Address, Peer, PrivateKey } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { Multiaddr, multiaddr } from "@multiformats/multiaddr";
+import { diff } from "@tabcat/sorted-sets/difference";
 import { LevelBlockstore } from "blockstore-level";
 import { LevelDatastore } from "datastore-level";
 import { Blockstore } from "interface-blockstore";
@@ -103,4 +104,32 @@ export const setupConfig = async (
     : DEFAULT_CONFIG_PATH;
 
   return { CONFIG_PATH, datastore, blockstore };
+};
+
+export const detectUpdate = (peer: Peer, prev?: Peer): boolean => {
+  let changed = false;
+
+  const compareAddresses = (a: Address, b: Address): number => {
+    const maA = a.multiaddr.toString();
+    const maB = a.multiaddr.toString();
+
+    if (maA < maB) return -1;
+    if (maA > maB) return 1;
+
+    if (!a.isCertified && b.isCertified) return 1;
+    if (a.isCertified && !b.isCertified) return -1;
+
+    return 0;
+  };
+
+  if (prev != null) {
+    for (const _ of diff(peer.addresses, prev.addresses, compareAddresses)) {
+      changed = true;
+      break;
+    }
+  } else {
+    changed = true;
+  }
+
+  return changed;
 };

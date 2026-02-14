@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { enable, logger } from "@libp2p/logger";
 import { Multiaddr } from "@multiformats/multiaddr";
-import { WebRTC } from "@multiformats/multiaddr-matcher";
 import type { Libp2pOptions } from "libp2p";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
@@ -12,7 +11,12 @@ import { createZzzyncServer, type ZzzyncServices } from "../server.js";
 import type { DaemonConfig } from "./daemon-config.js";
 import type { SubCommand } from "./index.js";
 import { command } from "./index.js";
-import { parseMultiaddrs, parsePrivateKey, setupConfig } from "./utils.js";
+import {
+  detectUpdate,
+  parseMultiaddrs,
+  parsePrivateKey,
+  setupConfig,
+} from "./utils.js";
 
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
@@ -70,11 +74,14 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     libp2p,
     start: false,
   }, config.handlerOptions);
-  helia.libp2p.addEventListener("self:peer:update", () => {
-    helia.libp2p.getMultiaddrs().filter(ma => WebRTC.matches(ma)).forEach(m =>
-      console.log(String(m))
-    );
-  });
+  helia.libp2p.addEventListener(
+    "self:peer:update",
+    ({ detail: { peer, previous } }) => {
+      if (detectUpdate(peer, previous)) {
+        console.log(`MULTIADDRS=${helia.libp2p.getMultiaddrs().join(",")}`);
+      }
+    },
+  );
 
   cleanup = async () => {
     helia.libp2p.removeEventListener("self:peer:update");
@@ -98,5 +105,5 @@ export const run: SubCommand["run"] = async (args: string[]) => {
 
   log("ready to zzzync!");
 
-  console.log(`MULTIADDRS=${multiaddrs.join(",")}`);
+  // console.log(`MULTIADDRS=${multiaddrs.join(",")}`);
 };
