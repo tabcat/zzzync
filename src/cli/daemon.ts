@@ -56,6 +56,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     libp2p.addresses = {
       ...libp2p.addresses,
       listen: [...envMultiaddrs.map(String), "/p2p-circuit", "/webrtc"],
+      announce: process.env.ANNOUNCE?.split(","),
     };
   }
 
