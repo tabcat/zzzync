@@ -6,8 +6,6 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { SupportedPrivateKey } from "../challenge.js";
 import { ZZZYNC } from "../constants.js";
-import { HANDLER_NAMESPACE } from "../handler.js";
-import { PINS_NAMESPACE } from "../pins.js";
 import { createZzzyncServer, type ZzzyncServices } from "../server.js";
 import type { DaemonConfig } from "./daemon-config.js";
 import type { SubCommand } from "./index.js";
@@ -22,7 +20,7 @@ import {
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
 
-let enabled = `${DAEMON_NAMESPACE}*,${HANDLER_NAMESPACE}*,${PINS_NAMESPACE}`;
+let enabled = `${ZZZYNC}:*`;
 if (process.env.DEBUG != null) {
   enabled = `${process.env.DEBUG},${enabled}`;
 }
