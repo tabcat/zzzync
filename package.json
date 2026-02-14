@@ -80,6 +80,7 @@
     "@multiformats/multiaddr-matcher": "^3.0.1",
     "@noble/curves": "^2.0.1",
     "@tabcat/helia-ipns": "^10.0.3",
+    "@tabcat/sorted-sets": "^4.2.2",
     "any-signal": "^4.2.0",
     "blockstore-level": "^3.0.2",
     "datastore-core": "^11.0.2",

@@ -56,6 +56,9 @@ importers:
       '@tabcat/helia-ipns':
         specifier: ^10.0.3
         version: 10.0.3
+      '@tabcat/sorted-sets':
+        specifier: ^4.2.2
+        version: 4.2.2
       any-signal:
         specifier: ^4.2.0
         version: 4.2.0
@@ -1048,6 +1051,10 @@ packages:
 
   '@tabcat/helia-ipns@10.0.3':
     resolution: {integrity: sha512-TCjRz3EgqBoa+ZK7LynRwLOZLsCK1Pq2oV08HhwPeJP8IqYUX0ayTRqlDvisMXK3mDHbqIP0KymsQmPAqPUYkA==}
+
+  '@tabcat/sorted-sets@4.2.2':
+    resolution: {integrity: sha512-/Ge10b1ATZ566MZI9lo0JwiWi1I4ObMeXezPE9hmFzSjTemN0tdLDRodwOjmU/L8J+bs7U6Eh+BcED0Xg7GneA==}
+    engines: {node: '>=20'}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -4623,6 +4630,8 @@ snapshots:
       protons-runtime: 5.6.0
       uint8arraylist: 2.4.8
       uint8arrays: 5.1.0
+
+  '@tabcat/sorted-sets@4.2.2': {}
 
   '@types/babel__core@7.20.5':
     dependencies:
