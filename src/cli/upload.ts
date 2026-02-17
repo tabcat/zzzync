@@ -74,7 +74,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     CONFIG_DIR,
     "upload",
   );
-  const config: UploadConfig<ZzzyncServices> = await import(CONFIG_PATH);
+  const config: UploadConfig = await import(CONFIG_PATH);
 
   const libp2pOptions = config.libp2pOptions;
 

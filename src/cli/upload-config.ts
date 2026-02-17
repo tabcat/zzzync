@@ -1,9 +1,14 @@
+import { noise } from "@chainsafe/libp2p-noise";
+import { yamux } from "@chainsafe/libp2p-yamux";
+import { tcp } from "@libp2p/tcp";
+
 import { fetch } from "@libp2p/fetch";
-import { type DefaultLibp2pServices, type Helia, libp2pDefaults } from "helia";
+import { keychain } from "@libp2p/keychain";
+import type { Helia } from "helia";
 import type { Libp2p, Libp2pOptions } from "libp2p";
 import { ZzzyncServices } from "../server.js";
 
-export interface UploadConfig<T extends ZzzyncServices> {
+export interface UploadConfig<T extends ZzzyncServices = ZzzyncServices> {
   /**
    * A function to run before helia is started.
    *
@@ -18,10 +23,10 @@ export interface UploadConfig<T extends ZzzyncServices> {
   libp2pOptions: Libp2pOptions<T>;
 }
 
-const libp2p = libp2pDefaults();
-export const libp2pOptions: UploadConfig<
-  DefaultLibp2pServices & ZzzyncServices
->["libp2pOptions"] = {
-  ...libp2p,
-  services: { ...libp2p.services, fetch: fetch() },
+export const libp2pOptions: UploadConfig["libp2pOptions"] = {
+  addresses: { listen: ["/ip4/127.0.0.1/tcp/4100"] },
+  connectionEncrypters: [noise()],
+  streamMuxers: [yamux()],
+  transports: [tcp()],
+  services: { fetch: fetch(), keychain: keychain() },
 };

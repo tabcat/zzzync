@@ -1,7 +1,12 @@
+import { noise } from "@chainsafe/libp2p-noise";
+import { yamux } from "@chainsafe/libp2p-yamux";
+import { tcp } from "@libp2p/tcp";
+
 import { fetch } from "@libp2p/fetch";
-import { type DefaultLibp2pServices, type Helia, libp2pDefaults } from "helia";
+import { keychain } from "@libp2p/keychain";
+import type { Helia } from "helia";
 import type { Libp2p, Libp2pOptions } from "libp2p";
-import type { RegisterHandlersOptions, ZzzyncServices } from "../server.js";
+import { RegisterHandlersOptions, ZzzyncServices } from "../server.js";
 
 export interface DaemonConfig<T extends ZzzyncServices = ZzzyncServices> {
   /**
@@ -20,13 +25,14 @@ export interface DaemonConfig<T extends ZzzyncServices = ZzzyncServices> {
   /**
    * Options for registration of the zzzync and fetch handlers
    */
+
   handlerOptions?: RegisterHandlersOptions;
 }
 
-const defaultLibp2p = libp2pDefaults();
-export const libp2pOptions: DaemonConfig<
-  DefaultLibp2pServices & ZzzyncServices
->["libp2pOptions"] = {
-  ...defaultLibp2p,
-  services: { ...defaultLibp2p.services, fetch: fetch() },
+export const libp2pOptions: DaemonConfig["libp2pOptions"] = {
+  addresses: { listen: ["/ip4/172.16.0.10/tcp/4000"] },
+  connectionEncrypters: [noise()],
+  streamMuxers: [yamux()],
+  transports: [tcp()],
+  services: { fetch: fetch(), keychain: keychain() },
 };
