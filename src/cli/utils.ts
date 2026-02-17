@@ -99,7 +99,7 @@ export const setupConfig = async (
   const datastore = new LevelDatastore(join(dir, `${space}/datastore`));
   const blockstore = new LevelBlockstore(join(dir, `${space}/blockstore`));
 
-  const DEFAULT_CONFIG_PATH = join(__dirname, "daemon-config.js");
+  const DEFAULT_CONFIG_PATH = join(__dirname, `${space}-config.js`);
   const CUSTOM_CONFIG_PATH = join(dir, `${space}/config.js`);
   const CONFIG_PATH = existsSync(CUSTOM_CONFIG_PATH)
     ? CUSTOM_CONFIG_PATH
