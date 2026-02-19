@@ -7,16 +7,10 @@ import {
   StreamCloseEvent,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
-import {
-  ByteStream,
-  byteStream,
-  Filter,
-  messageStreamToDuplex,
-} from "@libp2p/utils";
+import { ByteStream, byteStream, Filter } from "@libp2p/utils";
 import { IPNSPublishResult, IPNSRecord } from "@tabcat/helia-ipns";
 import { anySignal } from "any-signal";
 import { marshalIPNSRecord } from "ipns";
-import type { Duplex } from "it-stream-types";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
@@ -79,10 +73,7 @@ export async function writeIpnsRecord(
 }
 
 export async function writeCarFile(
-  duplex: Pick<
-    Duplex<AsyncGenerator<Uint8ArrayList | Uint8Array<ArrayBufferLike>>>,
-    "sink"
-  >,
+  bs: ByteStream<Stream>,
   exporter: Pick<Car, "export">,
   cid: CID,
   options: AbortOptions = {},
@@ -92,13 +83,17 @@ export async function writeCarFile(
     add: (bytes) => references.add(bytes.toString()),
     has: (bytes) => references.has(bytes.toString()),
   };
-  await duplex.sink(exporter.export(cid, {
-    ...options,
-    blockFilter, // dedupe
-    exporter: new UnixFSExporter(),
-    offline: true,
-    signal: options.signal,
-  }));
+  for await (
+    const data of exporter.export(cid, {
+      ...options,
+      blockFilter, // dedupe
+      exporter: new UnixFSExporter(),
+      offline: true,
+      signal: options.signal,
+    })
+  ) {
+    await bs.write(data);
+  }
 }
 
 export async function zzzync(
@@ -174,9 +169,6 @@ export async function zzzync(
       throw e;
     }
 
-    bs.unwrap();
-    const duplex = messageStreamToDuplex(stream);
-
     const cid = parsedRecordValue(record.value);
 
     if (cid == null) {
@@ -184,8 +176,8 @@ export async function zzzync(
     }
 
     try {
-      await writeCarFile(duplex, exporter, cid, { ...options, signal });
-
+      await writeCarFile(bs, exporter, cid, { ...options, signal });
+      await stream.close();
       log("wrote car file");
     } catch (e) {
       log.error("failed while writing car file");

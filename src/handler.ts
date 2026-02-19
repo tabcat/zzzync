@@ -1,6 +1,6 @@
 import { type Car } from "@helia/car";
 import type { Pins } from "@helia/interface";
-import { type Block, CarBlockIterator } from "@ipld/car/iterator";
+import { CarBlockIterator } from "@ipld/car/iterator";
 import { publicKeyFromMultihash } from "@libp2p/crypto/keys";
 import type {
   AbortOptions,
@@ -12,11 +12,7 @@ import type {
   StreamHandler,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
-import {
-  type ByteStream,
-  byteStream,
-  messageStreamToDuplex,
-} from "@libp2p/utils";
+import { type ByteStream, byteStream } from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
   type IPNS,
@@ -35,7 +31,7 @@ import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 import defer from "p-defer";
 import * as varint from "uint8-varint";
-import { isUint8ArrayList, Uint8ArrayList } from "uint8arraylist";
+import { Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
 import {
   buildChallenge,
@@ -161,64 +157,69 @@ export async function readIpnsRecord(
   return unmarshalIPNSRecord(marshalledRecord);
 }
 
-async function* normalizeUint8Array(
-  source: AsyncIterable<Uint8Array | Uint8ArrayList>,
-): AsyncIterable<Uint8Array> {
-  for await (const bytes of source) {
-    if (isUint8ArrayList(bytes)) {
-      yield* bytes;
-    } else {
-      yield bytes;
-    }
-  }
-}
-
-interface ReadCarFileOptions {
+interface ReadCarFileOptions extends AbortOptions {
   maxByteLength?: number;
 }
 
-export async function* readCarFile(
-  source: AsyncGenerator<Uint8ArrayList | Uint8Array>,
+export async function readCarFile(
+  bs: ByteStream<Stream>,
+  importer: Pick<Car, "import">,
   expectedRoot: UnixFsCID,
   options: ReadCarFileOptions = {},
-): AsyncGenerator<Block> {
-  const maxByteLength = options.maxByteLength ?? Infinity;
-  const car = await CarBlockIterator.fromIterable(normalizeUint8Array(source));
+): Promise<void> {
+  const blocks = async function*() {
+    const maxByteLength = options.maxByteLength ?? Infinity;
+    const car = await CarBlockIterator.fromIterable(
+      (async function*(): AsyncIterable<Uint8Array> {
+        while (true) {
+          const byteList = await bs.read();
 
-  const [root] = await car.getRoots();
+          if (byteList == null) break;
 
-  if (root == null || !root.equals(expectedRoot)) {
-    throw new Error("ERR_UNEXPECTED_ROOT");
-  }
+          yield* byteList;
+        }
+      })(),
+    );
 
-  const references = new Set<string>([root.toString()]);
-  let byteLength = 0;
-  for await (const { cid, bytes } of car) {
-    byteLength += bytes.byteLength;
+    const [root] = await car.getRoots();
 
-    if (byteLength > maxByteLength) {
-      throw new Error("CAR file exceeded max byte length");
+    if (root == null || !root.equals(expectedRoot)) {
+      throw new Error("ERR_UNEXPECTED_ROOT");
     }
 
-    const cidstring = cid.toString();
-    if (!references.has(cidstring)) {
-      throw new Error("CID has not been referenced yet");
-    }
-    references.delete(cidstring);
+    const references = new Set<string>([root.toString()]);
+    let byteLength = 0;
+    for await (const { cid, bytes } of car) {
+      byteLength += bytes.byteLength;
 
-    // getCodec will return raw codec if no codec found
-    const codec = getCodec(cid.code);
-    const hasher = getHasher(cid.multihash.code);
-    const block = await create({ bytes, cid, codec, hasher });
-
-    if (codec.code === CODEC_DAG_PB) {
-      for (const [_, link] of block.links()) {
-        references.add(link.toString());
+      if (byteLength > maxByteLength) {
+        throw new Error("CAR file exceeded max byte length");
       }
-    }
 
-    yield block;
-  }
+      const cidstring = cid.toString();
+      if (!references.has(cidstring)) {
+        throw new Error("CID has not been referenced yet");
+      }
+      references.delete(cidstring);
+
+      // getCodec will return raw codec if no codec found
+      const codec = getCodec(cid.code);
+      const hasher = getHasher(cid.multihash.code);
+      const block = await create({ bytes, cid, codec, hasher });
+
+      if (codec.code === CODEC_DAG_PB) {
+        for (const [_, link] of block.links()) {
+          references.add(link.toString());
+        }
+      }
+
+      console.log("block");
+      yield block;
+    }
+  };
+
+  // the write side should be closed after import completes
+  await importer.import({ blocks }, options);
 }
 
 export type AllowFn = (
@@ -254,6 +255,11 @@ export const createZzzyncHandler =
 
     try {
       log("new stream from %s", connection.remotePeer);
+
+      stream.addEventListener(
+        "remoteCloseWrite",
+        () => console.log("remoteCloseWrite - outside"),
+      );
 
       const bs = byteStream(stream);
 
@@ -388,15 +394,9 @@ export const createZzzyncHandler =
         }
       }
 
-      bs.unwrap();
-      const { source } = messageStreamToDuplex(stream);
-
       try {
         log("importing car stream");
-        // the write side should be closed after import completes
-        await importer.import({
-          blocks: () => readCarFile(source, value, options),
-        }, { signal });
+        await readCarFile(bs, importer, value, options);
         log("finished importing car stream");
       } catch (e) {
         log.error("failed while reading car stream");
