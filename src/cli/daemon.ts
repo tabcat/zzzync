@@ -58,7 +58,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     log("found environment multiaddrs");
     libp2p.addresses = {
       ...libp2p.addresses,
-      listen: [...libp2p.addresses?.listen ?? [], ...envMultiaddrs.map(String)],
+      listen: envMultiaddrs.map(String),
     };
   }
 
