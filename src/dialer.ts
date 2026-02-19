@@ -185,12 +185,14 @@ export async function zzzync(
     }
 
     log("waiting for remote to close write");
-    await new Promise((resolve) =>
+    await new Promise((resolve, reject) => {
+      signal.throwIfAborted();
       stream.addEventListener("remoteCloseWrite", resolve, {
         once: true,
         signal,
-      })
-    );
+      });
+      signal.addEventListener("abort", reject);
+    });
   } finally {
     signal.clear();
   }
