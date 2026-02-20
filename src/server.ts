@@ -1,13 +1,16 @@
 import { car, type CarComponents } from "@helia/car";
 import type { Helia, Pins, Routing } from "@helia/interface";
 import type { Fetch } from "@libp2p/fetch";
+import { Identify, IdentifyPush } from "@libp2p/identify";
 import type {
   ComponentLogger,
   Libp2p,
   ServiceMap,
   StreamHandlerOptions,
 } from "@libp2p/interface";
+import { KadDHT } from "@libp2p/kad-dht";
 import type { Keychain } from "@libp2p/keychain";
+import { Ping } from "@libp2p/ping";
 import { ipns, type IPNSComponents } from "@tabcat/helia-ipns";
 import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
@@ -20,6 +23,10 @@ import {
 } from "./libp2p-fetch/ipns.js";
 
 export interface ZzzyncServices extends ServiceMap {
+  identify: Identify;
+  identifyPush: IdentifyPush;
+  ping: Ping;
+  dht: KadDHT;
   fetch: Fetch;
   keychain: Keychain;
 }
