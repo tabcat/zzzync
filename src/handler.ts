@@ -213,7 +213,6 @@ export async function readCarFile(
         }
       }
 
-      console.log("block");
       yield block;
     }
   };
@@ -255,11 +254,6 @@ export const createZzzyncHandler =
 
     try {
       log("new stream from %s", connection.remotePeer);
-
-      stream.addEventListener(
-        "remoteCloseWrite",
-        () => console.log("remoteCloseWrite - outside"),
-      );
 
       const bs = byteStream(stream);
 
