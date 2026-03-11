@@ -12,6 +12,7 @@ import type {
   StreamHandler,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
+import { peerIdFromCID } from "@libp2p/peer-id";
 import { type ByteStream, byteStream } from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
@@ -47,7 +48,12 @@ import {
 } from "./constants.js";
 import type { IpnsMultihash, UnixFsCID } from "./interface.js";
 import { pin, unpin } from "./pins.js";
-import { getCodec, getHasher, parsedRecordValue } from "./utils.js";
+import {
+  contenthash,
+  getCodec,
+  getHasher,
+  parsedRecordValue,
+} from "./utils.js";
 
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
 
@@ -294,6 +300,7 @@ export const createZzzyncHandler =
         throw error;
       }
       log("ipns key %c is allowed", dialerLibp2pKey);
+      log("contenthash is %s", contenthash(publicKeyFromMultihash(dialerIpns)));
 
       let handlerNonce: Uint8Array;
       try {
