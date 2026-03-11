@@ -8,13 +8,13 @@ import type {
   ServiceMap,
   StreamHandlerOptions,
 } from "@libp2p/interface";
-import { KadDHT } from "@libp2p/kad-dht";
 import type { Keychain } from "@libp2p/keychain";
 import { Ping } from "@libp2p/ping";
 import { ipns, type IPNSComponents } from "@tabcat/helia-ipns";
 import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
 import type { Datastore } from "interface-datastore";
+import { create, type KuboRPCClient } from "kubo-rpc-client";
 import { IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "./constants.js";
 import { type CreateHandlerOptions, createZzzyncHandler } from "./handler.js";
 import {
@@ -26,7 +26,6 @@ export interface ZzzyncServices extends ServiceMap {
   identify: Identify;
   identifyPush: IdentifyPush;
   ping: Ping;
-  dht: KadDHT;
   fetch: Fetch;
   keychain: Keychain;
 }
@@ -48,6 +47,7 @@ export interface RegisterHandlersOptions
 
 export const registerHandlers = (
   components: ZzzyncServerComponents,
+  kubo: KuboRPCClient,
   options: RegisterHandlersOptions = {},
 ): { unregisterHandlers: () => void; } => {
   const ipnsRecordLookup = createIpnsRecordLookup(components);
@@ -63,6 +63,7 @@ export const registerHandlers = (
       ipns(components),
       car(components),
       components.pins,
+      kubo,
       options,
     ),
     options,
@@ -84,8 +85,9 @@ export async function createZzzyncServer<T extends Libp2p<ZzzyncServices>>(
   options: RegisterHandlersOptions = {},
 ): Promise<Helia<T>> {
   const helia = await createHelia(init);
+  const kubo = create();
 
-  registerHandlers(helia, options);
+  registerHandlers(helia, kubo, options);
 
   return helia;
 }

@@ -1,13 +1,12 @@
 import { noise } from "@chainsafe/libp2p-noise";
 import { yamux } from "@chainsafe/libp2p-yamux";
+import { delegatedRoutingV1HttpApiClient } from "@helia/delegated-routing-v1-http-api-client";
 import { bootstrap } from "@libp2p/bootstrap";
 import { fetch } from "@libp2p/fetch";
 import { identify, identifyPush } from "@libp2p/identify";
-import { kadDHT } from "@libp2p/kad-dht";
 import { keychain } from "@libp2p/keychain";
 import { ping } from "@libp2p/ping";
 import { tcp } from "@libp2p/tcp";
-import { ipnsSelector, ipnsValidator } from "@tabcat/helia-ipns";
 import type { Helia } from "helia";
 import type { Libp2p, Libp2pOptions } from "libp2p";
 import { RegisterHandlersOptions, ZzzyncServices } from "../server.js";
@@ -49,10 +48,8 @@ export const libp2pOptions: DaemonConfig["libp2pOptions"] = {
     ],
   })],
   services: {
-    dht: kadDHT({
-      clientMode: false,
-      validators: { ipns: ipnsValidator },
-      selectors: { ipns: ipnsSelector },
+    delegateRouter: delegatedRoutingV1HttpApiClient({
+      url: "http://127.0.0.1:8080/",
     }),
     identify: identify(),
     identifyPush: identifyPush(),

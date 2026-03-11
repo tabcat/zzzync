@@ -27,6 +27,7 @@ import {
   unmarshalIPNSRecord,
 } from "ipns";
 import { ipnsValidator } from "ipns/validator";
+import { KuboRPCClient } from "kubo-rpc-client";
 import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 import defer from "p-defer";
@@ -164,6 +165,7 @@ interface ReadCarFileOptions extends AbortOptions {
 export async function readCarFile(
   bs: ByteStream<Stream>,
   importer: Pick<Car, "import">,
+  kubo: KuboRPCClient,
   expectedRoot: UnixFsCID,
   options: ReadCarFileOptions = {},
 ): Promise<void> {
@@ -213,6 +215,11 @@ export async function readCarFile(
         }
       }
 
+      await kubo.block.put(block.bytes, {
+        version: 1,
+        format: cid.code === CODEC_DAG_PB ? "dag-pb" : "raw",
+      });
+
       yield block;
     }
   };
@@ -238,6 +245,7 @@ export const createZzzyncHandler =
     ipns: IPNS,
     importer: Pick<Car, "import">,
     pins: Pins,
+    kubo: KuboRPCClient,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
@@ -390,14 +398,14 @@ export const createZzzyncHandler =
 
       try {
         log("importing car stream");
-        await readCarFile(bs, importer, value, options);
+        await readCarFile(bs, importer, kubo, value, options);
         log("finished importing car stream");
       } catch (e) {
         log.error("failed while reading car stream");
         throw e;
       }
 
-      await pin(pins, dialerLibp2pKey, value, { signal });
+      await pin(pins, dialerLibp2pKey, value, { signal, kubo });
 
       log("republishing records to routers");
       const deferred = defer();
@@ -434,7 +442,10 @@ export const createZzzyncHandler =
       if (valueChanged && localRecordValue != null) {
         try {
           await pins.isPinned(localRecordValue)
-            && await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
+            && await unpin(pins, dialerLibp2pKey, localRecordValue, {
+              signal,
+              kubo,
+            });
         } catch (e) {
           if (e instanceof Error && e.name === "NotFoundError") {
             log("tried to unpin cid that was not pinned!");
