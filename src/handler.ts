@@ -12,7 +12,6 @@ import type {
   StreamHandler,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
-import { peerIdFromCID } from "@libp2p/peer-id";
 import { type ByteStream, byteStream } from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
