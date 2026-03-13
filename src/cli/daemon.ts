@@ -23,7 +23,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DAEMON_NAMESPACE = `${ZZZYNC}:daemon`;
 const log = logger(DAEMON_NAMESPACE);
 
-let enabled = `${ZZZYNC}:*`;
+let enabled = `${ZZZYNC}:*,watchlist`;
 if (process.env.DEBUG != null) {
   enabled = `${process.env.DEBUG},${enabled}`;
 }
