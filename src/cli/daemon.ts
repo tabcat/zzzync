@@ -91,7 +91,7 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     datastore,
     libp2p,
     start: false,
-  }, config.handlerOptions);
+  }, handlerOptions);
   helia.libp2p.addEventListener(
     "self:peer:update",
     ({ detail: { peer, previous } }) => {

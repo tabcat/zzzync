@@ -368,7 +368,7 @@ export const createZzzyncHandler =
       } catch (e) {
         if (
           e instanceof Error && (e.name === "RecordNotFoundError" || e
-                .name === "RecordsFaileValidationError")
+                .name === "RecordsFailedValidationError")
         ) {
           localRecord = undefined;
           log("no local record found for %c", dialerLibp2pKey);

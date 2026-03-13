@@ -113,7 +113,7 @@ export const detectUpdate = (peer: Peer, prev?: Peer): boolean => {
 
   const compareAddresses = (a: Address, b: Address): number => {
     const maA = a.multiaddr.toString();
-    const maB = a.multiaddr.toString();
+    const maB = b.multiaddr.toString();
 
     if (maA < maB) return -1;
     if (maA > maB) return 1;

@@ -195,5 +195,6 @@ export async function zzzync(
     });
   } finally {
     signal.clear();
+    stream.removeEventListener("close", abort);
   }
 }
