@@ -45,11 +45,13 @@ export interface RegisterHandlersOptions
   extends CreateHandlerOptions, StreamHandlerOptions
 {}
 
-export const registerHandlers = (
+export const registerHandlers = async (
   components: ZzzyncServerComponents,
   kubo: KuboRPCClient,
   options: RegisterHandlersOptions = {},
-): { unregisterHandlers: () => void; } => {
+): Promise<{ unregisterHandlers: () => Promise<void>; }> => {
+  await options.allow?.start?.();
+
   const ipnsRecordLookup = createIpnsRecordLookup(components);
 
   components.libp2p.services.fetch.registerLookupFunction(
@@ -69,12 +71,13 @@ export const registerHandlers = (
     options,
   );
 
-  const unregisterHandlers = (): void => {
+  const unregisterHandlers = async (): Promise<void> => {
     components.libp2p.services.fetch.unregisterLookupFunction(
       IPNS_PREFIX,
       ipnsRecordLookup,
     );
     components.libp2p.unhandle(ZZZYNC_PROTOCOL_ID);
+    await options.allow?.stop?.();
   };
 
   return { unregisterHandlers };
@@ -87,7 +90,7 @@ export async function createZzzyncServer<T extends Libp2p<ZzzyncServices>>(
   const helia = await createHelia(init);
   const kubo = create();
 
-  registerHandlers(helia, kubo, options);
+  await registerHandlers(helia, kubo, options);
 
   return helia;
 }
