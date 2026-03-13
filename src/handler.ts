@@ -233,13 +233,17 @@ export async function readCarFile(
   await importer.import({ blocks }, options);
 }
 
-export type AllowFn = (
-  dialerPublicKey: SupportedPrivateKey["publicKey"],
-  options?: AbortOptions,
-) => Promise<boolean> | boolean;
+export interface Allow {
+  allow(
+    dialerPublicKey: SupportedPrivateKey["publicKey"],
+    options?: AbortOptions,
+  ): Promise<boolean> | boolean;
+  start?(): Promise<void>;
+  stop?(): Promise<void>;
+}
 
 export interface CreateHandlerOptions extends ReadCarFileOptions {
-  allow?: AllowFn;
+  allow?: Allow;
 }
 
 const _log = logger(HANDLER_NAMESPACE);
@@ -292,7 +296,8 @@ export const createZzzyncHandler =
       const dialerLibp2pKey = dialerPublicKey.toCID();
 
       if (
-        options.allow && !(await options.allow(dialerPublicKey, { signal }))
+        options.allow
+        && !(await options.allow.allow(dialerPublicKey, { signal }))
       ) {
         const error = new Error("ipns key not allowed");
         log.error(error.message);

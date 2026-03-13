@@ -106,8 +106,10 @@ export const run: SubCommand["run"] = async (args: string[]) => {
     log("stopping helia...");
     await helia.stop();
     log("helia stopped.");
+    await handlerOptions.allow?.stop?.();
   };
 
+  await handlerOptions.allow?.start?.();
   await config?.beforeStart?.(helia);
 
   log("starting helia...");
