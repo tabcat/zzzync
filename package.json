@@ -41,6 +41,7 @@
     "lint": "dprint check",
     "format": "dprint fmt",
     "build": "tsc",
+    "bench": "vitest bench --config vitest.config.ts --run",
     "test": "vitest --config vitest.config.ts --run",
     "test:watch": "vitest --config vitest.config.ts",
     "api-docs": "typedoc src",
@@ -53,6 +54,7 @@
   "devDependencies": {
     "@libp2p/peer-id": "^6.0.4",
     "@types/node": "^25.0.3",
+    "@types/sinon": "^21.0.0",
     "dprint": "^0.51.1",
     "helia": "^6.0.14",
     "husky": "^9.1.7",

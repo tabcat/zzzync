@@ -144,6 +144,9 @@ importers:
       '@types/node':
         specifier: ^25.0.3
         version: 25.0.9
+      '@types/sinon':
+        specifier: ^21.0.0
+        version: 21.0.0
       dprint:
         specifier: ^0.51.1
         version: 0.51.1
@@ -1133,6 +1136,9 @@ packages:
 
   '@types/sinon@20.0.0':
     resolution: {integrity: sha512-etYGUC6IEevDGSWvR9WrECRA01ucR2/Oi9XMBUAdV0g4bLkNf4HlZWGiGlDOq5lgwXRwcV+PSeKgFcW4QzzYOg==}
+
+  '@types/sinon@21.0.0':
+    resolution: {integrity: sha512-+oHKZ0lTI+WVLxx1IbJDNmReQaIsQJjN2e7UUrJHEeByG7bFeKJYsv1E75JxTQ9QKJDp21bAa/0W2Xo4srsDnw==}
 
   '@types/sinonjs__fake-timers@15.0.1':
     resolution: {integrity: sha512-Ko2tjWJq8oozHzHV+reuvS5KYIRAokHnGbDwGh/J64LntgpbuylF74ipEL24HCyRjf9FOlBiBHWBR1RlVKsI1w==}
@@ -4803,6 +4809,10 @@ snapshots:
       undici-types: 7.16.0
 
   '@types/sinon@20.0.0':
+    dependencies:
+      '@types/sinonjs__fake-timers': 15.0.1
+
+  '@types/sinon@21.0.0':
     dependencies:
       '@types/sinonjs__fake-timers': 15.0.1
 
