@@ -1,45 +1,101 @@
-import type { Address, Peer } from "@libp2p/interface";
-import { multiaddr } from "@multiformats/multiaddr";
-import { stubInterface } from "sinon-ts";
-import { describe, expect, it } from "vitest";
-import { detectUpdate } from "../src/cli/utils.js";
+import * as dagPb from "@ipld/dag-pb";
+import { generateKeyPair } from "@libp2p/crypto/keys";
+import { CID } from "multiformats/cid";
+import * as raw from "multiformats/codecs/raw";
+import { sha256 } from "multiformats/hashes/sha2";
+import { beforeAll, describe, expect, it } from "vitest";
+import { CODEC_DAG_PB, IPFS_PREFIX } from "../src/constants.js";
+import {
+  contenthash,
+  getCodec,
+  getHasher,
+  parsedRecordValue,
+  publicKeyAsIpnsMultihash,
+} from "../src/utils.js";
 
-function makeAddress(ma: string, isCertified = false): Address {
-  return { multiaddr: multiaddr(ma), isCertified };
-}
+let dagPbCidStr: string;
+let rawCidStr: string;
+let ed25519Key: Awaited<ReturnType<typeof generateKeyPair>>;
+let secp256k1Key: Awaited<ReturnType<typeof generateKeyPair>>;
 
-function makePeer(addresses: Address[]): Peer {
-  return stubInterface<Peer>({ addresses });
-}
+beforeAll(async () => {
+  const digest = await sha256.digest(new Uint8Array(10));
+  dagPbCidStr = IPFS_PREFIX + CID.create(1, CODEC_DAG_PB, digest).toString();
+  rawCidStr = IPFS_PREFIX + CID.create(1, 0x55, digest).toString();
+  ed25519Key = await generateKeyPair("Ed25519");
+  secp256k1Key = await generateKeyPair("secp256k1");
+});
 
-describe("detectUpdate", () => {
-  it("returns true when prev is undefined", () => {
-    const peer = makePeer([makeAddress("/ip4/127.0.0.1/tcp/1234")]);
-    expect(detectUpdate(peer)).toBe(true);
+describe("parsedRecordValue", () => {
+  it("returns a CID for a valid dag-pb value", () => {
+    const cid = parsedRecordValue(dagPbCidStr);
+    expect(cid).not.toBeNull();
+    expect(cid!.code).toBe(CODEC_DAG_PB);
   });
 
-  it("returns false when addresses are identical", () => {
-    const addr = makeAddress("/ip4/127.0.0.1/tcp/1234");
-    expect(detectUpdate(makePeer([addr]), makePeer([addr]))).toBe(false);
+  it("returns a CID for a valid raw value", () => {
+    const cid = parsedRecordValue(rawCidStr);
+    expect(cid).not.toBeNull();
+    expect(cid!.code).toBe(0x55);
   });
 
-  it("returns true when port changes", () => {
-    const peer = makePeer([makeAddress("/ip4/127.0.0.1/tcp/1234")]);
-    const prev = makePeer([makeAddress("/ip4/127.0.0.1/tcp/5678")]);
-    expect(detectUpdate(peer, prev)).toBe(true);
+  it("returns null for an invalid string", () => {
+    expect(parsedRecordValue("not-a-cid")).toBeNull();
   });
 
-  it("returns true when an address is added", () => {
-    const addr = makeAddress("/ip4/127.0.0.1/tcp/1234");
-    const peer = makePeer([addr, makeAddress("/ip4/127.0.0.1/tcp/5678")]);
-    const prev = makePeer([addr]);
-    expect(detectUpdate(peer, prev)).toBe(true);
+  it("returns null for an unsupported codec (dag-cbor)", async () => {
+    const digest = await sha256.digest(new Uint8Array(10));
+    const cborCid = CID.create(1, 0x71, digest);
+    expect(parsedRecordValue(IPFS_PREFIX + cborCid.toString())).toBeNull();
+  });
+});
+
+describe("getCodec", () => {
+  it("returns the dag-pb codec for code 0x70", () => {
+    expect(getCodec(CODEC_DAG_PB)).toBe(dagPb);
   });
 
-  it("returns true when an address is removed", () => {
-    const addr = makeAddress("/ip4/127.0.0.1/tcp/1234");
-    const peer = makePeer([addr]);
-    const prev = makePeer([addr, makeAddress("/ip4/127.0.0.1/tcp/5678")]);
-    expect(detectUpdate(peer, prev)).toBe(true);
+  it("returns the raw codec for any other code", () => {
+    expect(getCodec(0x55)).toBe(raw);
+    expect(getCodec(0x71)).toBe(raw);
+  });
+});
+
+describe("getHasher", () => {
+  it("returns sha256 for code 0x12", () => {
+    expect(getHasher(sha256.code)).toBe(sha256);
+  });
+
+  it("throws for an unsupported hash code", () => {
+    expect(() => getHasher(999)).toThrow("Unsupported hash code.");
+  });
+});
+
+describe("publicKeyAsIpnsMultihash", () => {
+  it("returns a multihash for an Ed25519 key", () => {
+    expect(publicKeyAsIpnsMultihash(ed25519Key.publicKey)).not.toBeNull();
+  });
+
+  it("returns a multihash for a secp256k1 key", () => {
+    expect(publicKeyAsIpnsMultihash(secp256k1Key.publicKey)).not.toBeNull();
+  });
+});
+
+describe("contenthash", () => {
+  it("returns an /ipns/ prefixed string", () => {
+    const hash = contenthash(ed25519Key.publicKey);
+    expect(hash.startsWith("/ipns/")).toBe(true);
+  });
+
+  it("is deterministic for the same key", () => {
+    expect(contenthash(ed25519Key.publicKey)).toBe(
+      contenthash(ed25519Key.publicKey),
+    );
+  });
+
+  it("differs between keys", () => {
+    expect(contenthash(ed25519Key.publicKey)).not.toBe(
+      contenthash(secp256k1Key.publicKey),
+    );
   });
 });
