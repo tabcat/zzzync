@@ -8,7 +8,7 @@ import {
 import { secp256k1 as secp } from "@noble/curves/secp256k1.js";
 import { Uint8ArrayList } from "uint8arraylist";
 import { concat } from "uint8arrays";
-import { ZZZYNC_PROTOCOL_ID } from "./constants.js";
+import { ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
 
 export type SupportedPrivateKey = Ed25519PrivateKey | Secp256k1PrivateKey;
@@ -39,7 +39,7 @@ export function buildChallenge(
   dialerNonce: Uint8Array,
 ): Uint8Array {
   return concat([
-    new TextEncoder().encode(ZZZYNC_PROTOCOL_ID),
+    new TextEncoder().encode(ZZZYNC_PUSH_PROTOCOL_ID),
     handlerPeerId.toMultihash().bytes,
     dialerIpns.bytes,
     handlerNonce,

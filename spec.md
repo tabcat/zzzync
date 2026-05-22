@@ -6,7 +6,7 @@
 
 Push an IPNS Record and a CAR file to a Zzzync handler.
 
-protocol id: `/zzzync/1.0.0`
+protocol id: `/zzzync/push/1.0.0`
 
 ### Stream:
 
@@ -16,7 +16,7 @@ sequenceDiagram
   participant C as Client
   participant H as Handler
 
-  Note over C,H: Protocol: /zzzync/1.0.0
+  Note over C,H: Protocol: /zzzync/push/1.0.0
 
   C->>H: Open stream
 
@@ -62,7 +62,7 @@ concatenation:
 protocol-id || handler-peer-id-multihash || ipns-key-multihash || handler-nonce || dialer-nonce
 ```
 
-- **protocol-id** — UTF-8 bytes of the zzzync protocol id (`/zzzync/1.0.0`).
+- **protocol-id** — UTF-8 bytes of the zzzync protocol id (`/zzzync/push/1.0.0`).
 - **handler-peer-id-multihash**, **ipns-key-multihash** — raw multihash bytes.
 - **handler-nonce**, **dialer-nonce** — 32 bytes each.
 
