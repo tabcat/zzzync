@@ -6,7 +6,7 @@
 
 Push an IPNS Record and a CAR file to a Zzzync handler.
 
-protocol id: `/zzzync/push/1.0.0`
+protocol id: `/zzzync/1.0.0`
 
 ### Stream:
 
@@ -16,18 +16,25 @@ sequenceDiagram
   participant C as Client
   participant H as Handler
 
-  Note over C,H: Protocol: /zzzync/push/1.0.0
+  Note over C,H: Protocol: /zzzync/1.0.0
 
   C->>H: Open stream
 
   C->>H: IPNS Key
-  Note left of C: IPNS Key is an Identity Multihash
+  Note left of C: IPNS Key is an Identity Multihash of an<br/>Ed25519 or secp256k1 public key.
 
   alt Key allowed?
     H->>H: Optional authorization check
   else Not allowed
     H-->>C: Reject + close
   end
+
+  H->>C: Challenge nonce
+  Note right of H: 32 random bytes.
+
+  C->>H: Dialer nonce + signature
+  Note left of C: 32-byte dialer nonce, then a 64-byte<br/>signature over the challenge.
+  Note right of H: Verified with the public key from the IPNS<br/>Key — proves the client holds the key.
 
   C->>H: IPNS Record
   Note left of C: Marshalled IPNS record<br/>with an IPFS value.
@@ -43,6 +50,25 @@ sequenceDiagram
   Note right of H: Handler closes stream after<br/>IPNS/IPFS content is persisted.
   H-->>C: Close stream
 ```
+
+### Challenge
+
+Before sending any record or blocks the Client proves it holds the private key
+for the IPNS Key. The Handler sends a 32-byte random nonce; the Client replies
+with its own 32-byte nonce followed by a 64-byte signature over the
+concatenation:
+
+```
+protocol-id || handler-peer-id-multihash || ipns-key-multihash || handler-nonce || dialer-nonce
+```
+
+- **protocol-id** — UTF-8 bytes of the zzzync protocol id (`/zzzync/1.0.0`).
+- **handler-peer-id-multihash**, **ipns-key-multihash** — raw multihash bytes.
+- **handler-nonce**, **dialer-nonce** — 32 bytes each.
+
+The Handler verifies the signature with the public key recovered from the IPNS
+Key. Only Ed25519 and secp256k1 keys are supported; secp256k1 signatures use
+64-byte compact encoding (not DER).
 
 ### Notes
 
