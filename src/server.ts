@@ -15,7 +15,7 @@ import { createHelia, type HeliaInit } from "helia";
 import type { Blockstore } from "interface-blockstore";
 import type { Datastore } from "interface-datastore";
 import { create, type KuboRPCClient } from "kubo-rpc-client";
-import { IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "./constants.js";
+import { IPNS_PREFIX, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.js";
 import { type CreateHandlerOptions, createZzzyncHandler } from "./handler.js";
 import {
   createIpnsRecordLookup,
@@ -59,7 +59,7 @@ export const registerHandlers = async (
     ipnsRecordLookup,
   );
   components.libp2p.handle(
-    ZZZYNC_PROTOCOL_ID,
+    ZZZYNC_PUSH_PROTOCOL_ID,
     createZzzyncHandler(
       components.libp2p.peerId,
       ipns(components),
@@ -76,7 +76,7 @@ export const registerHandlers = async (
       IPNS_PREFIX,
       ipnsRecordLookup,
     );
-    components.libp2p.unhandle(ZZZYNC_PROTOCOL_ID);
+    components.libp2p.unhandle(ZZZYNC_PUSH_PROTOCOL_ID);
     await options.allow?.stop?.();
   };
 

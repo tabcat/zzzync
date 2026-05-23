@@ -6,7 +6,7 @@ import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import sinon from "sinon";
 import { stubInterface } from "sinon-ts";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { IPNS_PREFIX, ZZZYNC_PROTOCOL_ID } from "../src/constants.js";
+import { IPNS_PREFIX, ZZZYNC_PUSH_PROTOCOL_ID } from "../src/constants.js";
 import type { Allow } from "../src/handler.js";
 import { registerHandlers } from "../src/server.js";
 import type { ZzzyncServerComponents, ZzzyncServices } from "../src/server.js";
@@ -86,7 +86,7 @@ describe("registerHandlers", () => {
       .toBe(true);
     expect(
       (components.libp2p.handle as sinon.SinonStub).calledOnceWith(
-        ZZZYNC_PROTOCOL_ID,
+        ZZZYNC_PUSH_PROTOCOL_ID,
         sinon
           .match
           .func,
@@ -107,7 +107,7 @@ describe("registerHandlers", () => {
     expect(allow.stop.calledOnce).toBe(true);
     expect(
       (components.libp2p.unhandle as sinon.SinonStub).calledOnceWith(
-        ZZZYNC_PROTOCOL_ID,
+        ZZZYNC_PUSH_PROTOCOL_ID,
       ),
     )
       .toBe(true);

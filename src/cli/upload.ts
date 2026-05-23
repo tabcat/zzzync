@@ -11,7 +11,7 @@ import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { createSign } from "../challenge.js";
-import { ZZZYNC_PROTOCOL_ID } from "../constants.js";
+import { ZZZYNC_PUSH_PROTOCOL_ID } from "../constants.js";
 import { UPLOAD_NAMESPACE, zzzync } from "../dialer.js";
 import { fetchIpnsRecord } from "../libp2p-fetch/ipns.js";
 import { ZzzyncServices } from "../server.js";
@@ -172,7 +172,9 @@ export const run: SubCommand["run"] = async (args: string[]) => {
   log("created new ipns record");
 
   log("opening zzzync stream");
-  const stream = await connection.newStream(ZZZYNC_PROTOCOL_ID, { signal });
+  const stream = await connection.newStream(ZZZYNC_PUSH_PROTOCOL_ID, {
+    signal,
+  });
   log("opened zzzync stream");
 
   log("attempting to zzzync...");
