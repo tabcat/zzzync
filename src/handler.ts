@@ -245,7 +245,7 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
 const _log = logger(HANDLER_NAMESPACE);
 
 /**
- * Read the dialer's IPNS key and run the challenge/response handshake: the
+ * Run the challenge/response handshake for an already-read dialer IPNS key: the
  * dialer must sign the handler's nonce to prove ownership of the key. Throws if
  * the key type is unsupported, the dialer is not allowed, or the signature is
  * invalid. The handler side of the handshake (see spec.md).
@@ -253,19 +253,11 @@ const _log = logger(HANDLER_NAMESPACE);
 export async function authenticateDialer(
   bs: ByteStream<Stream>,
   handlerPeerId: PeerId,
+  dialerIpns: IpnsMultihash,
   options: CreateHandlerOptions,
   log: Logger,
   signal: AbortSignal,
-): Promise<{ dialerIpns: IpnsMultihash; dialerLibp2pKey: Libp2pKey; }> {
-  let dialerIpns: IpnsMultihash;
-  try {
-    dialerIpns = await readIpnsMultihash(bs, { signal });
-  } catch (e) {
-    log.error("failed while reading ipns key from stream");
-    throw e;
-  }
-  log(`read ipns multihash %t`, dialerIpns.bytes);
-
+): Promise<Libp2pKey> {
   const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
 
   if (
@@ -318,7 +310,7 @@ export async function authenticateDialer(
   }
   log("dialer completed challenge");
 
-  return { dialerIpns, dialerLibp2pKey };
+  return dialerLibp2pKey;
 }
 
 /**
@@ -414,9 +406,19 @@ export const createZzzyncHandler =
 
       const bs = byteStream(stream);
 
-      const { dialerIpns, dialerLibp2pKey } = await authenticateDialer(
+      let dialerIpns: IpnsMultihash;
+      try {
+        dialerIpns = await readIpnsMultihash(bs, { signal });
+      } catch (e) {
+        log.error("failed while reading ipns key from stream");
+        throw e;
+      }
+      log("read ipns multihash %t", dialerIpns.bytes);
+
+      const dialerLibp2pKey = await authenticateDialer(
         bs,
         handlerPeerId,
+        dialerIpns,
         options,
         log,
         signal,

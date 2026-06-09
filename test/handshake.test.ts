@@ -7,9 +7,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createSign } from "../src/challenge.js";
 import type { Sign, SupportedPrivateKey } from "../src/challenge.js";
 import { completeChallenge, writeIpnsMultihash } from "../src/dialer.js";
-import { authenticateDialer } from "../src/handler.js";
-import type { Allow } from "../src/handler.js";
-import type { IpnsMultihash } from "../src/interface.js";
+import { authenticateDialer, readIpnsMultihash } from "../src/handler.js";
+import type { Allow, CreateHandlerOptions } from "../src/handler.js";
+import type { IpnsMultihash, Libp2pKey } from "../src/interface.js";
 import { publicKeyAsIpnsMultihash } from "../src/utils.js";
 
 const log = defaultLogger().forComponent("test");
@@ -38,6 +38,26 @@ async function runDialer(
   await completeChallenge(bs, handlerPeerId, dialerIpns, sign, log, signal);
 }
 
+// read the key, then authenticate - authenticateDialer no longer reads the
+// multihash itself
+async function runHandler(
+  inbound: Stream,
+  options: CreateHandlerOptions,
+  signal: AbortSignal,
+): Promise<{ dialerIpns: IpnsMultihash; dialerLibp2pKey: Libp2pKey; }> {
+  const bs = byteStream(inbound);
+  const dialerIpns = await readIpnsMultihash(bs, { signal });
+  const dialerLibp2pKey = await authenticateDialer(
+    bs,
+    handlerPeerId,
+    dialerIpns,
+    options,
+    log,
+    signal,
+  );
+  return { dialerIpns, dialerLibp2pKey };
+}
+
 describe("handshake", () => {
   it("authenticates a dialer that proves key ownership", async () => {
     const [outbound, inbound] = await streamPair();
@@ -45,7 +65,7 @@ describe("handshake", () => {
 
     const [, auth] = await Promise.all([
       runDialer(outbound, createSign(dialerKey), signal),
-      authenticateDialer(byteStream(inbound), handlerPeerId, {}, log, signal),
+      runHandler(inbound, {}, signal),
     ]);
 
     expect(auth.dialerIpns.bytes).toEqual(dialerIpns.bytes);
@@ -60,7 +80,7 @@ describe("handshake", () => {
     await expect(
       Promise.all([
         runDialer(outbound, createSign(wrongKey), signal),
-        authenticateDialer(byteStream(inbound), handlerPeerId, {}, log, signal),
+        runHandler(inbound, {}, signal),
       ]),
     )
       .rejects
@@ -78,17 +98,9 @@ describe("handshake", () => {
       () => {},
     );
 
-    await expect(
-      authenticateDialer(
-        byteStream(inbound),
-        handlerPeerId,
-        { allow },
-        log,
-        signal,
-      ),
-    )
-      .rejects
-      .toThrow("ipns key not allowed");
+    await expect(runHandler(inbound, { allow }, signal)).rejects.toThrow(
+      "ipns key not allowed",
+    );
 
     outbound.abort(new Error("test done"));
     await dialer;
