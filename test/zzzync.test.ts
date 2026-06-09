@@ -61,7 +61,6 @@ afterAll(async () => {
 let mockIpns: ReturnType<typeof stubInterface<IPNS>>;
 let mockPins: ReturnType<typeof stubInterface<Pins>>;
 let mockImporter: Pick<Car, "import">;
-let kubo: any;
 let connection: Connection;
 
 beforeEach(() => {
@@ -76,17 +75,12 @@ beforeEach(() => {
   mockPins.add.callsFake(() => (async function*() {})());
   mockPins.isPinned.resolves(false);
 
-  // consume blocks so the CAR generator runs (drives kubo.block.put calls)
+  // consume blocks so the CAR generator runs
   mockImporter = {
     import: async ({ blocks }: any) => {
       for await (const _ of blocks()) {}
     },
   } as any;
-
-  kubo = {
-    block: { put: sinon.stub().resolves() },
-    pin: { add: sinon.stub().resolves(), rm: sinon.stub().resolves() },
-  };
 
   connection = { remotePeer: peerIdFromPrivateKey(dialerKey) } as any;
 });
@@ -103,7 +97,6 @@ function makeHandler(options?: { allow?: Allow; }) {
     mockIpns,
     mockImporter,
     mockPins,
-    kubo,
     options,
   );
 }
@@ -123,7 +116,6 @@ describe("zzzync protocol", () => {
 
     expect(mockIpns.republish.calledOnce).toBe(true);
     expect(mockPins.add.calledOnce).toBe(true);
-    expect(kubo.block.put.called).toBe(true);
   });
 
   it("passes the dialer public key to the allow function", async () => {

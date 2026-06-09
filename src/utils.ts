@@ -1,5 +1,12 @@
 import * as dagPb from "@ipld/dag-pb";
-import type { PublicKey } from "@libp2p/interface";
+import type {
+  AbortOptions,
+  EventHandler,
+  PublicKey,
+  Stream,
+  StreamCloseEvent,
+} from "@libp2p/interface";
+import { anySignal } from "any-signal";
 import type { BlockCodec, MultihashHasher } from "multiformats";
 import { base36 } from "multiformats/bases/base36";
 import { CID } from "multiformats/cid";
@@ -23,8 +30,6 @@ export function parsedRecordValue(value: string): UnixFsCID | null {
   } catch {}
   return null;
 }
-
-export type SupportedCodecs = typeof CODEC_DAG_PB & typeof CODEC_RAW;
 
 export function getCodec(code: number): BlockCodec<number, unknown> {
   switch (code) {
@@ -58,4 +63,38 @@ export function publicKeyAsIpnsMultihash(
 
 export function contenthash(publicKey: PublicKey): string {
   return `/ipns/${publicKey.toCID().toString(base36)}`;
+}
+
+export interface StreamSignal {
+  /** Aborts when the stream errors-closes or `options.signal` aborts. */
+  signal: AbortSignal;
+  /** Detach the close listener and clear the combined signal; call in `finally`. */
+  clear: () => void;
+}
+
+/**
+ * Tie an AbortSignal to a stream's lifetime: it aborts if the stream closes with
+ * an error, and also follows `options.signal`. Both the handler and dialer wrap
+ * their stream work in this; always call `clear()` in a `finally`.
+ */
+export function streamSignal(
+  stream: Stream,
+  options: AbortOptions = {},
+): StreamSignal {
+  const controller = new AbortController();
+  const onClose: EventHandler<StreamCloseEvent> = (event) => {
+    if (event.error != null) {
+      controller.abort();
+    }
+  };
+  stream.addEventListener("close", onClose);
+  const signal = anySignal([controller.signal, options.signal]);
+
+  return {
+    signal,
+    clear: () => {
+      signal.clear();
+      stream.removeEventListener("close", onClose);
+    },
+  };
 }

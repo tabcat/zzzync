@@ -2,7 +2,6 @@ import type { Pin, Pins } from "@helia/interface";
 import { logger } from "@libp2p/logger";
 import type { AbortOptions } from "interface-store";
 import drain from "it-drain";
-import { KuboRPCClient } from "kubo-rpc-client";
 import type { CID } from "multiformats/cid";
 import { ZZZYNC } from "./constants.js";
 import type { Libp2pKey } from "./interface.js";
@@ -17,24 +16,18 @@ const log = logger(PINS_NAMESPACE);
 // critical section per cid. Different cids never block each other.
 const mutex = createKeyedMutex();
 
-interface PinOptions extends AbortOptions {
-  kubo?: KuboRPCClient;
-}
-
 export async function pin(
   pins: Pins,
   pinner: Libp2pKey,
   cid: CID,
-  options: PinOptions = {},
+  options: AbortOptions = {},
 ): Promise<void> {
   return mutex.acquire(cid.toString(), async () => {
     const now = Date.now();
     try {
-      await Promise.all([
-        drain(pins
-          .add(cid, { ...options, metadata: { [pinner.toString()]: now } })),
-        options.kubo?.pin.add(cid),
-      ]);
+      await drain(
+        pins.add(cid, { ...options, metadata: { [pinner.toString()]: now } }),
+      );
       log("pinned %c", cid, pinner);
     } catch (e) {
       if (e instanceof Error && e.name === "AlreadyPinnedError") {
@@ -60,7 +53,7 @@ export async function unpin(
   pins: Pins,
   pinner: Libp2pKey,
   cid: CID,
-  options: PinOptions = {},
+  options: AbortOptions = {},
 ): Promise<void> {
   return mutex.acquire(cid.toString(), async () => {
     let metadata: Pin["metadata"];
@@ -86,12 +79,7 @@ export async function unpin(
       await pins.setMetadata(cid, metadata, options);
       log("unpinned %c for pinner %c", cid, pinner);
     } else {
-      await Promise.all([
-        drain(pins.rm(cid, options)),
-        options.kubo?.pin.rm(cid).catch(() => {
-          log("failed to unpin %c from kubo", cid);
-        }),
-      ]);
+      await drain(pins.rm(cid, options));
       log("unpinned %c", cid);
     }
   });

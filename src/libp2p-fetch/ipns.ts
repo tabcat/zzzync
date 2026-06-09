@@ -6,6 +6,7 @@ import { ipnsValidator } from "@tabcat/helia-ipns";
 import { type Datastore, Key } from "interface-datastore";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";
 import { toString as uint8ArrayToString } from "uint8arrays";
+import { IPNS_PREFIX } from "../constants.js";
 import type { IpnsMultihash } from "../interface.js";
 
 export async function fetchIpnsRecord(
@@ -51,3 +52,18 @@ export const createIpnsRecordLookup =
       throw e;
     }
   };
+
+/**
+ * Register an IPNS record `LookupFunction` on the libp2p fetch service under
+ * `IPNS_PREFIX`. Returns a function that unregisters it.
+ */
+export function registerZzzyncIpnsLookup(
+  fetch: Pick<Fetch, "registerLookupFunction" | "unregisterLookupFunction">,
+  lookup: LookupFunction,
+): () => void {
+  fetch.registerLookupFunction(IPNS_PREFIX, lookup);
+
+  return () => {
+    fetch.unregisterLookupFunction(IPNS_PREFIX, lookup);
+  };
+}

@@ -1,23 +1,26 @@
 import { Car, UnixFSExporter } from "@helia/car";
 import {
   AbortOptions,
-  EventHandler,
+  Libp2p,
+  Logger,
   PeerId,
   Stream,
-  StreamCloseEvent,
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { ByteStream, byteStream, Filter } from "@libp2p/utils";
 import { IPNSPublishResult, IPNSRecord } from "@tabcat/helia-ipns";
-import { anySignal } from "any-signal";
 import { marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, Sign } from "./challenge.js";
-import { ZZZYNC } from "./constants.js";
+import { ZZZYNC, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.js";
 import { IpnsMultihash } from "./interface.js";
-import { parsedRecordValue, publicKeyAsIpnsMultihash } from "./utils.js";
+import {
+  parsedRecordValue,
+  publicKeyAsIpnsMultihash,
+  streamSignal,
+} from "./utils.js";
 
 export const UPLOAD_NAMESPACE = `${ZZZYNC}:upload`;
 
@@ -96,6 +99,45 @@ export async function writeCarFile(
   }
 }
 
+/**
+ * Read the handler's nonce, sign the challenge (bound to `dialerIpns`), and send
+ * the response. The caller must have already announced the dialer's key. The
+ * dialer side of the challenge/response (see spec.md).
+ */
+export async function completeChallenge(
+  bs: ByteStream<Stream>,
+  handlerPeerId: PeerId,
+  dialerIpns: IpnsMultihash,
+  sign: Sign,
+  log: Logger,
+  signal: AbortSignal,
+): Promise<void> {
+  let handlerNonce: Uint8Array;
+  try {
+    handlerNonce = await readNonce(bs, { signal });
+    log("read handler nonce");
+  } catch (e) {
+    log.error("failed while reading challenge nonce");
+    throw e;
+  }
+
+  try {
+    const dialerNonce = generateNonce();
+    const challenge = buildChallenge(
+      handlerPeerId,
+      dialerIpns,
+      handlerNonce,
+      dialerNonce,
+    );
+    const sig = await sign(challenge, { signal }); // raw sig 64 byte length
+    await writeChallengeResponse(bs, dialerNonce, sig, { signal });
+    log("wrote response to challenge");
+  } catch (e) {
+    log.error("failed while writing challenge response");
+    throw e;
+  }
+}
+
 export async function zzzync(
   stream: Stream,
   handlerPeerId: PeerId,
@@ -106,14 +148,7 @@ export async function zzzync(
 ): Promise<void> {
   const log = logger(`${UPLOAD_NAMESPACE}:${stream.id}`);
 
-  const controller = new AbortController();
-  const abort: EventHandler<StreamCloseEvent> = (event: StreamCloseEvent) => {
-    if (event.error != null) {
-      controller.abort();
-    }
-  };
-  stream.addEventListener("close", abort);
-  const signal = anySignal([controller.signal, options.signal]);
+  const { signal, clear } = streamSignal(stream, options);
 
   try {
     log("starting zzzync");
@@ -136,30 +171,7 @@ export async function zzzync(
       throw e;
     }
 
-    let handlerNonce: Uint8Array;
-    try {
-      handlerNonce = await readNonce(bs, { signal });
-      log("read handler nonce");
-    } catch (e) {
-      log.error("failed while reading challenge nonce");
-      throw e;
-    }
-
-    try {
-      const dialerNonce = generateNonce();
-      const challenge = buildChallenge(
-        handlerPeerId,
-        dialerIpns,
-        handlerNonce,
-        dialerNonce,
-      );
-      const sig = await sign(challenge, { signal }); // raw sig 64 byte length
-      await writeChallengeResponse(bs, dialerNonce, sig, { signal });
-      log("wrote response to challenge");
-    } catch (e) {
-      log.error("failed while writing challenge response");
-      throw e;
-    }
+    await completeChallenge(bs, handlerPeerId, dialerIpns, sign, log, signal);
 
     try {
       await writeIpnsRecord(bs, record, { signal });
@@ -194,7 +206,27 @@ export async function zzzync(
       signal.addEventListener("abort", reject);
     });
   } finally {
-    signal.clear();
-    stream.removeEventListener("close", abort);
+    clear();
   }
+}
+
+/**
+ * Dial a peer on `ZZZYNC_PUSH_PROTOCOL_ID` and run the zzzync dialer over the
+ * opened stream. `peerId` is both the dial target and the handler peer id the
+ * challenge is bound to.
+ */
+export async function dialZzzync(
+  libp2p: Pick<Libp2p, "dialProtocol">,
+  peerId: PeerId,
+  exporter: Pick<Car, "export">,
+  result: IPNSPublishResult,
+  sign: Sign,
+  options: AbortOptions = {},
+): Promise<void> {
+  const stream = await libp2p.dialProtocol(
+    peerId,
+    ZZZYNC_PUSH_PROTOCOL_ID,
+    options,
+  );
+  await zzzync(stream, peerId, exporter, result, sign, options);
 }
