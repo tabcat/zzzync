@@ -3,3 +3,10 @@ export { dialZzzync, zzzync } from "./dialer.js";
 export { createZzzyncHandler, registerZzzyncHandler } from "./handler.js";
 export type { Allow, CreateHandlerOptions } from "./handler.js";
 export * from "./interface.js";
+export { countPutValuePeers, republishWithRetry } from "./republish.js";
+export type {
+  ProgressEventLike,
+  PutValueCounter,
+  RepublishResult,
+  RepublishWithRetryOptions,
+} from "./republish.js";
