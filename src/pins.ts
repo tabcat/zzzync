@@ -1,10 +1,10 @@
-import type { Pin, Pins } from "@helia/interface";
+import type { Pin } from "@helia/interface";
 import { logger } from "@libp2p/logger";
 import type { AbortOptions } from "interface-store";
 import drain from "it-drain";
 import type { CID } from "multiformats/cid";
 import { ZZZYNC } from "./constants.js";
-import type { Libp2pKey } from "./interface.js";
+import type { HandlerPins, Libp2pKey } from "./interface.js";
 import { createKeyedMutex } from "./mutex.js";
 
 export const PINS_NAMESPACE = `${ZZZYNC}:pins`;
@@ -17,7 +17,7 @@ const log = logger(PINS_NAMESPACE);
 const mutex = createKeyedMutex();
 
 export async function pin(
-  pins: Pins,
+  pins: HandlerPins,
   pinner: Libp2pKey,
   cid: CID,
   options: AbortOptions = {},
@@ -50,7 +50,7 @@ export async function pin(
 }
 
 export async function unpin(
-  pins: Pins,
+  pins: HandlerPins,
   pinner: Libp2pKey,
   cid: CID,
   options: AbortOptions = {},

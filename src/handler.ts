@@ -1,5 +1,4 @@
 import { type Car } from "@helia/car";
-import type { Pins } from "@helia/interface";
 import { CarBlockIterator } from "@ipld/car/iterator";
 import { publicKeyFromMultihash } from "@libp2p/crypto/keys";
 import type {
@@ -16,7 +15,6 @@ import { logger } from "@libp2p/logger";
 import { type ByteStream, byteStream } from "@libp2p/utils";
 import {
   type DatastoreProgressEvents,
-  type IPNS,
   type IPNSRoutingProgressEvents,
   ipnsSelector,
   type RepublishProgressEvents,
@@ -46,7 +44,13 @@ import {
   ZZZYNC,
   ZZZYNC_PUSH_PROTOCOL_ID,
 } from "./constants.js";
-import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
+import type {
+  HandlerIpns,
+  HandlerPins,
+  IpnsMultihash,
+  Libp2pKey,
+  UnixFsCID,
+} from "./interface.js";
 import { pin, unpin } from "./pins.js";
 import {
   contenthash,
@@ -320,7 +324,7 @@ export async function authenticateDialer(
  * the local one.
  */
 async function selectRemoteRecord(
-  ipns: IPNS,
+  ipns: HandlerIpns,
   dialerIpns: IpnsMultihash,
   dialerLibp2pKey: Libp2pKey,
   remoteRecord: IPNSRecord,
@@ -391,9 +395,9 @@ async function selectRemoteRecord(
 export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
-    ipns: IPNS,
+    ipns: HandlerIpns,
     importer: Pick<Car, "import">,
-    pins: Pins,
+    pins: HandlerPins,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
