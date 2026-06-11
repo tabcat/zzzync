@@ -13,12 +13,7 @@ import type {
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { type ByteStream, byteStream } from "@libp2p/utils";
-import {
-  type DatastoreProgressEvents,
-  type IPNSRoutingProgressEvents,
-  ipnsSelector,
-  type RepublishProgressEvents,
-} from "@tabcat/helia-ipns";
+import { ipnsSelector } from "@tabcat/helia-ipns";
 import {
   type IPNSRecord,
   marshalIPNSRecord,
@@ -28,7 +23,6 @@ import {
 import { ipnsValidator } from "ipns/validator";
 import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
-import defer from "p-defer";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { equals } from "uint8arrays";
@@ -46,12 +40,10 @@ import {
 } from "./constants.js";
 import type {
   HandlerIpns,
-  HandlerPins,
   IpnsMultihash,
   Libp2pKey,
   UnixFsCID,
 } from "./interface.js";
-import { pin, unpin } from "./pins.js";
 import {
   contenthash,
   getCodec,
@@ -246,6 +238,37 @@ export interface CreateHandlerOptions extends ReadCarFileOptions {
   allow?: Allow;
 }
 
+/**
+ * A record received and validated by the handler and written to the local
+ * datastore (offline), ready for the caller to pin and publish to routers.
+ */
+export interface ReceivedRecord {
+  /** The dialer's IPNS key. */
+  name: IpnsMultihash;
+  /** The received IPNS record (already written to the local datastore). */
+  record: IPNSRecord;
+  /** The content root the record points at, to pin. */
+  value: UnixFsCID;
+  /** The dialer's libp2p key, used as the pinner. */
+  pinner: Libp2pKey;
+  /** The previous local value to unpin when `valueChanged`, else `null`. */
+  previousValue: UnixFsCID | null;
+  /** Whether `value` differs from the previous local value. */
+  valueChanged: boolean;
+}
+
+/**
+ * Called once the handler has received, validated, and locally persisted a
+ * record. Implementations own pinning the content and publishing the record to
+ * routers (durably). The handler awaits this before closing the stream as
+ * success, so it must persist enough to recover the work; the slow pin and DHT
+ * publish should run in the background.
+ */
+export type OnReceive = (
+  received: ReceivedRecord,
+  options?: AbortOptions,
+) => Promise<void>;
+
 const _log = logger(HANDLER_NAMESPACE);
 
 /**
@@ -397,7 +420,7 @@ export const createZzzyncHandler =
     handlerPeerId: PeerId,
     ipns: HandlerIpns,
     importer: Pick<Car, "import">,
-    pins: HandlerPins,
+    onReceive: OnReceive,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
@@ -466,55 +489,32 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      await pin(pins, dialerLibp2pKey, value, { signal });
-
-      log("republishing records to routers");
-      const deferred = defer();
-      const onProgress = (
-        event:
-          | RepublishProgressEvents
-          | IPNSRoutingProgressEvents
-          | DatastoreProgressEvents,
-      ): void => {
-        if (event.type === "ipns:routing:datastore:complete") {
-          log("ipns record updated locally");
-          deferred.resolve();
-        }
-
-        if (event.type === "ipns:routing:datastore:error") {
-          log("failed to update record locally");
-          deferred.reject();
-        }
-      };
-      const republishing = ipns.republish(dialerIpns, {
-        onProgress,
-        record: remoteRecord,
-        skipResolution: true,
-      });
-      if (!localRecordEqual) {
-        await Promise.race([republishing, deferred.promise]);
+      if (localRecordEqual) {
+        log("ipns record already existed locally, skipping handoff");
       } else {
-        log("ipns record already existed locally");
+        // write the record to the local datastore so it is immediately
+        // resolvable, then hand off pinning and DHT publishing to the caller
+        await ipns.republish(dialerIpns, {
+          record: remoteRecord,
+          offline: true,
+          skipResolution: true,
+          signal,
+        });
+        log("wrote record to local datastore");
+
+        await onReceive({
+          name: dialerIpns,
+          record: remoteRecord,
+          value,
+          pinner: dialerLibp2pKey,
+          previousValue: localRecordValue,
+          valueChanged,
+        }, { signal });
+        log("handed off received record");
       }
 
       await stream.close({ signal });
       log("closed stream");
-
-      if (valueChanged && localRecordValue != null) {
-        try {
-          await pins.isPinned(localRecordValue)
-            && await unpin(pins, dialerLibp2pKey, localRecordValue, { signal });
-        } catch (e) {
-          if (e instanceof Error && e.name === "NotFoundError") {
-            log("tried to unpin cid that was not pinned!");
-            log.error(e);
-          } else {
-            throw e;
-          }
-        }
-      } else {
-        log("value unchanged, skipping unpin");
-      }
     } catch (e) {
       log.error("failed while processing stream - %e", e);
       if (e instanceof Error) {

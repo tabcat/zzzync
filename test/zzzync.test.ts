@@ -1,6 +1,5 @@
 import { car } from "@helia/car";
 import type { Car } from "@helia/car";
-import type { Pins } from "@helia/interface";
 import { unixfs } from "@helia/unixfs";
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import type { Connection, PeerId } from "@libp2p/interface";
@@ -26,7 +25,7 @@ import { createSign } from "../src/challenge.js";
 import type { SupportedPrivateKey } from "../src/challenge.js";
 import { zzzync } from "../src/dialer.js";
 import { createZzzyncHandler } from "../src/handler.js";
-import type { Allow } from "../src/handler.js";
+import type { Allow, OnReceive } from "../src/handler.js";
 
 // ─── shared test fixtures ────────────────────────────────────────────────────
 
@@ -59,8 +58,8 @@ afterAll(async () => {
 // ─── per-test stubs ──────────────────────────────────────────────────────────
 
 let mockIpns: ReturnType<typeof stubInterface<IPNS>>;
-let mockPins: ReturnType<typeof stubInterface<Pins>>;
 let mockImporter: Pick<Car, "import">;
+let onReceive: sinon.SinonStub;
 let connection: Connection;
 
 beforeEach(() => {
@@ -69,11 +68,11 @@ beforeEach(() => {
   mockIpns.resolve.rejects(
     Object.assign(new Error("not found"), { name: "RecordNotFoundError" }),
   );
+  // the handler's offline local write
   mockIpns.republish.resolves({} as any);
 
-  mockPins = stubInterface<Pins>();
-  mockPins.add.callsFake(() => (async function*() {})());
-  mockPins.isPinned.resolves(false);
+  // the handoff: ice-queen persists + pins + publishes; here just a spy
+  onReceive = sinon.stub().resolves();
 
   // consume blocks so the CAR generator runs
   mockImporter = {
@@ -96,7 +95,7 @@ function makeHandler(options?: { allow?: Allow; }) {
     handlerPeerId,
     mockIpns,
     mockImporter,
-    mockPins,
+    onReceive as unknown as OnReceive,
     options,
   );
 }
@@ -104,7 +103,7 @@ function makeHandler(options?: { allow?: Allow; }) {
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe("zzzync protocol", () => {
-  it("completes the full sync protocol", async () => {
+  it("writes the record offline then hands off the received record", async () => {
     const [outbound, inbound] = await streamPair();
     const handler = makeHandler();
     const exporter = car(helia);
@@ -114,8 +113,20 @@ describe("zzzync protocol", () => {
       handler(inbound, connection),
     ]);
 
+    // local write happened offline (no DHT) before the handoff
     expect(mockIpns.republish.calledOnce).toBe(true);
-    expect(mockPins.add.calledOnce).toBe(true);
+    expect(mockIpns.republish.firstCall.args[1]?.offline).toBe(true);
+
+    // handed off exactly once with the received record
+    expect(onReceive.calledOnce).toBe(true);
+    const received = onReceive.firstCall.args[0];
+    expect(received.name.bytes).toEqual(
+      dialerKey.publicKey.toMultihash().bytes,
+    );
+    expect(received.value.equals(contentCid)).toBe(true);
+    expect(received.pinner.equals(dialerKey.publicKey.toCID())).toBe(true);
+    expect(received.valueChanged).toBe(true);
+    expect(received.previousValue).toBe(null);
   });
 
   it("passes the dialer public key to the allow function", async () => {
@@ -138,7 +149,7 @@ describe("zzzync protocol", () => {
     expect(stub.firstCall.args[0].equals(dialerKey.publicKey)).toBe(true);
   });
 
-  it("aborts when the allow function denies the dialer", async () => {
+  it("aborts and does not hand off when the allow function denies", async () => {
     const allow: Allow = { allow: () => false };
     const [outbound, inbound] = await streamPair();
 
@@ -157,10 +168,10 @@ describe("zzzync protocol", () => {
       .rejects
       .toThrow();
 
-    expect(mockPins.add.called).toBe(false);
+    expect(onReceive.called).toBe(false);
   });
 
-  it("aborts when the challenge is signed with the wrong key", async () => {
+  it("aborts and does not hand off when the challenge key is wrong", async () => {
     const wrongKey = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
     const [outbound, inbound] = await streamPair();
 
@@ -179,11 +190,11 @@ describe("zzzync protocol", () => {
       .rejects
       .toThrow();
 
-    expect(mockPins.add.called).toBe(false);
+    expect(onReceive.called).toBe(false);
   });
 
-  it("does not import when the local record is already up to date", async () => {
-    // stub resolve to return the same record
+  it("does not write or hand off when the local record is up to date", async () => {
+    // resolve returns the same record -> localRecordEqual
     mockIpns.resolve.resolves({ record: result.record } as any);
 
     const [outbound, inbound] = await streamPair();
@@ -199,9 +210,7 @@ describe("zzzync protocol", () => {
       makeHandler()(inbound, connection),
     ]);
 
-    // republish skipped (localRecordEqual = true)
-    expect(mockIpns.republish.called).toBe(true);
-    // pin still happens since same CID already pinned
-    expect(mockPins.add.called).toBe(true);
+    expect(mockIpns.republish.called).toBe(false);
+    expect(onReceive.called).toBe(false);
   });
 });
