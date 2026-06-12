@@ -8,6 +8,7 @@ export type {
   ReceivedRecord,
 } from "./handler.js";
 export * from "./interface.js";
+export { pin, unpin } from "./pins.js";
 export { countPutValuePeers, republishWithRetry } from "./republish.js";
 export type {
   ProgressEventLike,

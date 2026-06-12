@@ -24,6 +24,10 @@
       "types": "./dist/src/republish.d.ts",
       "import": "./dist/src/republish.js"
     },
+    "./pins": {
+      "types": "./dist/src/pins.d.ts",
+      "import": "./dist/src/pins.js"
+    },
     "./libp2p-fetch/ipns": {
       "types": "./dist/src/libp2p-fetch/ipns.d.ts",
       "import": "./dist/src/libp2p-fetch/ipns.js"
