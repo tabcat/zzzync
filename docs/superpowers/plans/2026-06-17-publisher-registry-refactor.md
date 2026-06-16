@@ -825,20 +825,34 @@ async function rawCid(text: string): Promise<CID> {
   return CID.createV1(raw.code, digest);
 }
 
-// A fake Pins where add() fails for any CID in `failFor`, succeeds otherwise.
-// Records pinned/unpinned CIDs so tests can assert reconciliation.
+// A fake Pins modelling helia's metadata-based pinning, so zzzync's unpin (which
+// removes a pin only once its last pinner is gone from the metadata) behaves
+// correctly. add() fails for any CID in `failFor`. `pinned` maps a currently-
+// pinned CID string to its pinner metadata, so tests can assert what is pinned.
 function fakePins(failFor: Set<string> = new Set()) {
-  const pinned = new Set<string>();
+  const pinned = new Map<string, Record<string, number>>();
   const pins = {
-    add: async function* (cid: CID) {
-      if (failFor.has(cid.toString())) throw new Error("no blocks");
-      pinned.add(cid.toString());
+    add: async function* (cid: CID, opts?: { metadata?: Record<string, number>; }) {
+      const k = cid.toString();
+      if (failFor.has(k)) throw new Error("no blocks");
+      if (pinned.has(k)) {
+        throw Object.assign(new Error("already"), { name: "AlreadyPinnedError" });
+      }
+      pinned.set(k, { ...(opts?.metadata ?? {}) });
+    },
+    get: async (cid: CID) => {
+      const metadata = pinned.get(cid.toString());
+      if (metadata == null) {
+        throw Object.assign(new Error("nf"), { name: "NotFoundError" });
+      }
+      return { metadata };
+    },
+    setMetadata: async (cid: CID, metadata: Record<string, number>) => {
+      pinned.set(cid.toString(), { ...metadata });
     },
     rm: async function* (cid: CID) {
       pinned.delete(cid.toString());
     },
-    get: async () => { throw Object.assign(new Error("nf"), { name: "NotFoundError" }); },
-    setMetadata: async () => {},
     isPinned: async (cid: CID) => pinned.has(cid.toString()),
   };
   return { pins: pins as unknown as Pins, pinned };
@@ -1001,6 +1015,32 @@ describe("publisher.resumePins", () => {
     expect(pinned.has(v1.toString())).toBe(true);
     expect((await store.get(name))?.pinnedValue?.equals(v1)).toBe(true);
     expect((await store.get(name2))?.status).toBe("pin-error");
+  });
+});
+
+describe("publisher concurrency", () => {
+  it("converges to the newest record under concurrent same-name pushes", async () => {
+    const datastore = new MemoryDatastore();
+    const { ipns } = fakeIpns(10);
+    const { pins, pinned } = fakePins();
+    const publisher = createPublisher({ datastore, ipns, pins });
+
+    // fire two pushes for the same name (older v1, newer v2) without awaiting
+    // between them, so they race on the per-name mutex
+    await Promise.all([
+      publisher.onReceive({ name, record: recordV1, pinner }),
+      publisher.onReceive({ name, record: recordV2, pinner }),
+    ]);
+    await publisher.idle();
+
+    // whatever the interleaving: the newest record wins, its value is the one
+    // left pinned, and the loser (v1) is not left pinned (no leaked pin)
+    const entry = await createRepublishingStore(datastore).get(name);
+    expect(entry?.record.value).toBe(recordV2.value);
+    expect(entry?.pinnedValue?.equals(v2)).toBe(true);
+    expect(pinned.has(v2.toString())).toBe(true);
+    expect(pinned.has(v1.toString())).toBe(false);
+    expect(entry?.status).toBe("republishing");
   });
 });
 ```
@@ -1426,6 +1466,19 @@ Run: `grep -rc "" /home/tabcat/github.com/tabcat/zzzync/src/handler.ts` and comp
 
 ---
 
+## Follow-up (after this plan, not part of it)
+
+- **Ship zzzync `.ts` source for the link, so ice-queen needs no zzzync build.**
+  Today ice-queen resolves zzzync through `dist` (built `.js`), so every zzzync
+  edit needs `pnpm build` before ice-queen sees it (see "Cross-repo ordering").
+  Idea: also expose the raw `.ts` via `exports` so the linked consumer (which
+  already runs `.ts` via Node type-stripping) imports source directly, no build.
+  Worth doing, but not purely additive: zzzync's own source imports use `.js`
+  extensions (it builds with `tsc`), so a `.ts` entry would resolve those `.js`
+  siblings and still need the build unless zzzync also moves to `.ts` import
+  extensions (the ice-queen model). So it is its own small change with a
+  resolution / build-model decision; revisit once this refactor lands.
+
 ## Self-Review
 
 **1. Spec coverage:**
@@ -1437,6 +1490,7 @@ Run: `grep -rc "" /home/tabcat/github.com/tabcat/zzzync/src/handler.ts` and comp
 - `server.ts` builds handler without `ipns`, wires `allowRecord` -> Task 5.
 - `ipns.republish` left as-is -> unchanged (used for the offline write + republishWithRetry).
 - Testing items (handler flow + allowRecord gate; store round-trip + constructors; publisher onReceive/allowRecord/pin-before-publish/pin-error/per-name/resumePins gating) -> Tasks 2-4.
+- Concurrent same-name pushes: a publisher test fires two concurrent `onReceive` (older + newer) and asserts convergence (newest record + value win, the loser is not left pinned, no leaked pin). This documents the observable behavior of the flagged concurrency residual at the publisher; the handler-level double-CAR-import residual is not unit-tested -> Task 4.
 
 **2. Placeholder scan:** No "TBD"/"handle errors appropriately"/"similar to" placeholders; every code step shows full code; every command states expected output.
 
