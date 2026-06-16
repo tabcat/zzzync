@@ -13,10 +13,8 @@ import type {
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { type ByteStream, byteStream } from "@libp2p/utils";
-import { ipnsSelector } from "@tabcat/helia-ipns";
 import {
   type IPNSRecord,
-  marshalIPNSRecord,
   multihashToIPNSRoutingKey,
   unmarshalIPNSRecord,
 } from "ipns";
@@ -25,7 +23,6 @@ import { create } from "multiformats/block";
 import * as Digest from "multiformats/hashes/digest";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
-import { equals } from "uint8arrays";
 import {
   buildChallenge,
   generateNonce,
@@ -38,12 +35,7 @@ import {
   ZZZYNC,
   ZZZYNC_PUSH_PROTOCOL_ID,
 } from "./constants.js";
-import type {
-  HandlerIpns,
-  IpnsMultihash,
-  Libp2pKey,
-  UnixFsCID,
-} from "./interface.js";
+import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
 import {
   contenthash,
   getCodec,
@@ -236,33 +228,38 @@ export interface Allow {
 
 export interface CreateHandlerOptions extends ReadCarFileOptions {
   allow?: Allow;
+  /**
+   * Decide whether to accept `record` for `name`. The authoritative downgrade
+   * guard: reject (return false) to abort the stream before the CAR is imported.
+   * ice-queen wires this to its registry.
+   */
+  allowRecord?(
+    name: IpnsMultihash,
+    record: IPNSRecord,
+    options?: AbortOptions,
+  ): boolean | Promise<boolean>;
 }
 
 /**
- * A record received and validated by the handler and written to the local
- * datastore (offline), ready for the caller to pin and publish to routers.
+ * A record received and validated by the handler, ready for the caller to pin
+ * and publish to routers.
  */
 export interface ReceivedRecord {
   /** The dialer's IPNS key. */
   name: IpnsMultihash;
-  /** The received IPNS record (already written to the local datastore). */
+  /** The received, signature-validated IPNS record. */
   record: IPNSRecord;
-  /** The content root the record points at, to pin. */
-  value: UnixFsCID;
   /** The dialer's libp2p key, used as the pinner. */
   pinner: Libp2pKey;
-  /** The previous local value to unpin when `valueChanged`, else `null`. */
-  previousValue: UnixFsCID | null;
-  /** Whether `value` differs from the previous local value. */
-  valueChanged: boolean;
 }
 
 /**
- * Called once the handler has received, validated, and locally persisted a
- * record. Implementations own pinning the content and publishing the record to
- * routers (durably). The handler awaits this before closing the stream as
- * success, so it must persist enough to recover the work; the slow pin and DHT
- * publish should run in the background.
+ * Called once the handler has received and signature-validated a record and
+ * imported its CAR into the blockstore. Implementations own the durable side:
+ * recording the work, pinning the content, and publishing the record to
+ * routers. The handler awaits this before closing the stream as success, so it
+ * should return promptly once it has durably recorded enough to recover the
+ * work, running the slow pin and DHT publish in the background.
  */
 export type OnReceive = (
   received: ReceivedRecord,
@@ -340,145 +337,70 @@ export async function authenticateDialer(
   return dialerLibp2pKey;
 }
 
-/**
- * Resolve the local record for the dialer's key and decide how the incoming
- * record relates to it: whether the value changed, whether they are byte-equal,
- * and the local value (for unpinning). Throws if the remote record is worse than
- * the local one.
- */
-async function selectRemoteRecord(
-  ipns: HandlerIpns,
-  dialerIpns: IpnsMultihash,
-  dialerLibp2pKey: Libp2pKey,
-  remoteRecord: IPNSRecord,
-  value: UnixFsCID,
-  log: Logger,
-  signal: AbortSignal,
-): Promise<
-  {
-    localRecordValue: UnixFsCID | null;
-    valueChanged: boolean;
-    localRecordEqual: boolean;
-  }
-> {
-  let localRecord: IPNSRecord | undefined;
-  try {
-    const resolved = await ipns.resolve(dialerIpns, { offline: true, signal });
-    localRecord = resolved.record;
-    log(
-      "found local record for %c with value %s",
-      dialerLibp2pKey,
-      localRecord.value,
-    );
-  } catch (e) {
-    if (
-      e instanceof Error && (e.name === "RecordNotFoundError" || e
-            .name === "RecordsFailedValidationError")
-    ) {
-      localRecord = undefined;
-      log("no local record found for %c", dialerLibp2pKey);
-    } else {
-      log.error("failed while resolving local record");
-      throw e;
-    }
-  }
-
-  const localRecordValue = parsedRecordValue(localRecord?.value ?? "");
-  const valueChanged = !value.equals(localRecordValue);
-
-  // check that localRecord is not better than remoteRecord
-  let localRecordEqual = false;
-  if (!valueChanged && localRecord != null) {
-    const records: [IPNSRecord, IPNSRecord] = [remoteRecord, localRecord];
-    const marshaledRecords = records.map(marshalIPNSRecord) as [
-      Uint8Array,
-      Uint8Array,
-    ];
-    const selected = ipnsSelector(
-      multihashToIPNSRoutingKey(dialerIpns),
-      marshaledRecords,
-    );
-
-    if (selected !== 0) {
-      const error = new Error(
-        "Record received from remote was worse than local record.",
-      );
-      log.error(error);
-      throw error;
-    }
-
-    if (equals(...marshaledRecords)) {
-      localRecordEqual = true;
-    }
-  }
-
-  return { localRecordValue, valueChanged, localRecordEqual };
-}
-
 export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
-    ipns: HandlerIpns,
     importer: Pick<Car, "import">,
     onReceive: OnReceive,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
     const log = _log.newScope(stream.id);
-
     const { signal, clear } = streamSignal(stream);
 
     try {
       log("new stream from %s", connection.remotePeer);
-
       const bs = byteStream(stream);
 
-      let dialerIpns: IpnsMultihash;
+      let name: IpnsMultihash;
       try {
-        dialerIpns = await readIpnsMultihash(bs, { signal });
+        name = await readIpnsMultihash(bs, { signal });
       } catch (e) {
         log.error("failed while reading ipns key from stream");
         throw e;
       }
-      log("read ipns multihash %t", dialerIpns.bytes);
+      log("read ipns multihash %t", name.bytes);
 
-      const dialerLibp2pKey = await authenticateDialer(
+      const pinner = await authenticateDialer(
         bs,
         handlerPeerId,
-        dialerIpns,
+        name,
         options,
         log,
         signal,
       );
 
-      let remoteRecord: IPNSRecord;
+      let record: IPNSRecord;
       try {
-        remoteRecord = await readIpnsRecord(bs, dialerIpns, { signal });
+        record = await readIpnsRecord(bs, name, { signal });
       } catch (e) {
         log.error("failed while reading ipns record from stream");
         throw e;
       }
-      log("read ipns record with value %s", remoteRecord.value);
-      const value = parsedRecordValue(remoteRecord.value);
+      log("read ipns record with value %s", record.value);
 
-      if (value == null) {
-        const e = new Error(
-          "Failed to parse value. Unsupported codec or hash.",
-        );
+      if (
+        options.allowRecord != null
+        && !(await options.allowRecord(name, record, { signal }))
+      ) {
+        const e = new Error("ipns record not allowed");
+        log.error(e.message);
+        // abort with the specific reason so the dialer sees it; the outer catch's
+        // abort is then a no-op on the already-aborted stream
         stream.abort(e);
         throw e;
       }
 
-      const { localRecordValue, valueChanged, localRecordEqual } =
-        await selectRemoteRecord(
-          ipns,
-          dialerIpns,
-          dialerLibp2pKey,
-          remoteRecord,
-          value,
-          log,
-          signal,
+      const value = parsedRecordValue(record.value);
+      if (value == null) {
+        const e = new Error(
+          "Failed to parse value. Unsupported codec or hash.",
         );
+        // abort with the specific reason so the dialer sees it; the outer catch's
+        // abort is then a no-op on the already-aborted stream
+        stream.abort(e);
+        throw e;
+      }
 
       try {
         log("importing car stream");
@@ -489,29 +411,8 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      if (localRecordEqual) {
-        log("ipns record already existed locally, skipping handoff");
-      } else {
-        // write the record to the local datastore so it is immediately
-        // resolvable, then hand off pinning and DHT publishing to the caller
-        await ipns.republish(dialerIpns, {
-          record: remoteRecord,
-          offline: true,
-          skipResolution: true,
-          signal,
-        });
-        log("wrote record to local datastore");
-
-        await onReceive({
-          name: dialerIpns,
-          record: remoteRecord,
-          value,
-          pinner: dialerLibp2pKey,
-          previousValue: localRecordValue,
-          valueChanged,
-        }, { signal });
-        log("handed off received record");
-      }
+      await onReceive({ name, record, pinner }, { signal });
+      log("handed off received record");
 
       await stream.close({ signal });
       log("closed stream");

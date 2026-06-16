@@ -1,5 +1,4 @@
 import type { Pins } from "@helia/interface";
-import type { IPNS } from "@tabcat/helia-ipns";
 import type { CID, MultihashDigest } from "multiformats/cid";
 import type {
   CID_VERSION_1,
@@ -31,13 +30,6 @@ export type UnixFsCID = CID<
   SupportedHasherCodes,
   1
 >;
-
-/**
- * The subset of Helia's `IPNS` interface the zzzync handler depends on. Provide
- * your own implementation of these methods to back the handler with a custom
- * IPNS router.
- */
-export type HandlerIpns = Pick<IPNS, "resolve" | "republish">;
 
 /**
  * The subset of Helia's `Pins` interface the zzzync handler depends on. Provide
