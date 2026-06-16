@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createKeyedMutex as createKeyedMutexFromIndex } from "../src/index.js";
 import { createKeyedMutex } from "../src/mutex.js";
 
 const delay = (ms: number): Promise<void> =>
@@ -75,6 +76,14 @@ describe("createKeyedMutex", () => {
     });
     await held;
 
+    expect(mutex.size).toBe(0);
+  });
+});
+
+describe("createKeyedMutex (public export)", () => {
+  it("is re-exported from the package index", () => {
+    expect(typeof createKeyedMutexFromIndex).toBe("function");
+    const mutex = createKeyedMutexFromIndex();
     expect(mutex.size).toBe(0);
   });
 });

@@ -28,6 +28,10 @@
       "types": "./dist/src/pins.d.ts",
       "import": "./dist/src/pins.js"
     },
+    "./mutex": {
+      "types": "./dist/src/mutex.d.ts",
+      "import": "./dist/src/mutex.js"
+    },
     "./libp2p-fetch/ipns": {
       "types": "./dist/src/libp2p-fetch/ipns.d.ts",
       "import": "./dist/src/libp2p-fetch/ipns.js"
