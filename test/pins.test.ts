@@ -1,8 +1,6 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import { peerIdFromPrivateKey, peerIdFromString } from "@libp2p/peer-id";
-import { MemoryDatastore } from "datastore-core";
-import { createHelia, type Pins } from "helia";
-import type { Datastore } from "interface-datastore";
+import type { Pins } from "helia";
 import { CID } from "multiformats/cid";
 import { sha256 } from "multiformats/hashes/sha2";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -70,15 +68,17 @@ class FakePins {
 
 describe("Pins", () => {
   let pins: Pins;
-  let datastore: Datastore;
   let libp2pKey1: Libp2pKey;
   let libp2pKey2: Libp2pKey;
   let cid: CID;
 
-  beforeAll(async () => {
-    datastore = new MemoryDatastore();
-    const helia = await createHelia({ datastore, start: false });
-    pins = helia.pins;
+  beforeAll(() => {
+    // Use the faithful in-memory FakePins (above) rather than a real helia
+    // node. pin/unpin only depend on the Pins interface, which FakePins models
+    // exactly; a live node here was load-sensitive (its ops could exceed the
+    // test timeout under concurrent CI load). Real-helia pinning is covered by
+    // the ice-queen daemon smoke.
+    pins = new FakePins() as unknown as Pins;
     const peerId1 = peerIdFromString(
       "12D3KooWKnDdG3iXw9eTFijk3EWSunZcFi54Zka4wmtqtt6rPxc8",
     );
