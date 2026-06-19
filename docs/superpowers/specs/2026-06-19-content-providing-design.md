@@ -33,8 +33,15 @@ Provide is treated like republish, so it gets the same peer-count + threshold-re
 
 Open sub-decision: step 2 gating step 3 (proposed yes - "reprovide before republishing" so we don't advertise under-provided content; the downside is a persistent provide shortfall defers the IPNS publish).
 
-### Update teardown
-At the pin transition (the existing unpin timing in both `pinThenPublish` and `resumePins`), for the superseded old value: `await routing.cancelReprovide(oldPinnedValue)` then `unpin(oldPinnedValue)` - unprovide before unpin. This keeps the change minimal and crash-safe like the existing proven structure, rather than restructuring both reconcile paths to defer teardown until after the new value is published. The practical dangling window is negligible: unpinned old blocks linger in the blockstore until the next startup GC, and old provider records persist on the DHT (~48h until expiry), so old content stays fetchable the few seconds until the new value is published. A stricter "keep old pinned + provided until the new value is published" variant is possible but materially complicates the commit/crash-safety across `pinThenPublish` + `resumePins`; deferred unless needed.
+### Update teardown (after the new value is pinned + provided)
+Tear down the superseded old value AFTER the new value is pinned and provided, so the new content is discoverable before the old is dropped. `pinnedValue` is the durable handle that makes this crash-safe:
+
+- `pinnedValue` durably names the OLD applied value. The reconcile keeps `pinnedValue = old` in its intermediate `store.put`s (the `pinning` and `providing` writes) while it pins + provides the new value (`record.value`).
+- Once `provideWithRetry` reaches the threshold (the providing -> publishing edge): tear down the old value - `await routing.cancelReprovide(oldPinnedValue)` then `unpin(oldPinnedValue)` (unprovide before unpin) - and only THEN commit `pinnedValue = record.value` (status `publishing`), then republish.
+- Crash-safety: a crash before the commit leaves `pinnedValue = old != record.value`, so the resume re-runs the whole transition (re-pin, re-provide, tear down old, commit). Every step is idempotent (`unpin` no-ops when the value is already gone, `cancelReprovide` no-ops on an already-cancelled CID, `pin`/`provide` re-announce harmlessly), so the teardown is never lost - `pinnedValue` keeps naming the old value until the commit lands.
+- Graceful: if the new value cannot be provided yet (DHT trouble, provide shortfall), the old stays pinned + provided (still available) rather than being dropped early.
+
+`resumePins` is correspondingly simplified: it ONLY ensures `record.value` is pinned (GC-safety) and counts failures (`pin-error` on a hard pin failure). It no longer unpins the old value or commits `pinnedValue` - all teardown and the `pinnedValue` commit live solely in `pinThenPublish`. So `resumePins` becomes: for each entry, skip if `pinnedValue` already equals `record.value`, else `pinValue(record.value)` (idempotent); never unpin, never commit.
 
 ### Wiring
 - Publisher components gain `routing: Pick<Helia["routing"], "provide" | "cancelReprovide">`.
