@@ -34,7 +34,7 @@ Provide is treated like republish, so it gets the same peer-count + threshold-re
 Open sub-decision: step 2 gating step 3 (proposed yes - "reprovide before republishing" so we don't advertise under-provided content; the downside is a persistent provide shortfall defers the IPNS publish).
 
 ### Update teardown
-After the new value is pinned + provided + published, for the old value: `await routing.cancelReprovide(oldPinnedValue)` then `unpin(oldPinnedValue)` (the existing unpin). Build the new fully before tearing down the old, so the name never points at content we have stopped providing/pinning. `oldPinnedValue` is the reconcile's captured prior `pinnedValue` (same value the existing unpin uses) - no extra stored field.
+At the pin transition (the existing unpin timing in both `pinThenPublish` and `resumePins`), for the superseded old value: `await routing.cancelReprovide(oldPinnedValue)` then `unpin(oldPinnedValue)` - unprovide before unpin. This keeps the change minimal and crash-safe like the existing proven structure, rather than restructuring both reconcile paths to defer teardown until after the new value is published. The practical dangling window is negligible: unpinned old blocks linger in the blockstore until the next startup GC, and old provider records persist on the DHT (~48h until expiry), so old content stays fetchable the few seconds until the new value is published. A stricter "keep old pinned + provided until the new value is published" variant is possible but materially complicates the commit/crash-safety across `pinThenPublish` + `resumePins`; deferred unless needed.
 
 ### Wiring
 - Publisher components gain `routing: Pick<Helia["routing"], "provide" | "cancelReprovide">`.
