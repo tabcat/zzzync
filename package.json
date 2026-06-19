@@ -20,6 +20,10 @@
       "types": "./dist/src/dialer.d.ts",
       "import": "./dist/src/dialer.js"
     },
+    "./provide": {
+      "types": "./dist/src/provide.d.ts",
+      "import": "./dist/src/provide.js"
+    },
     "./republish": {
       "types": "./dist/src/republish.d.ts",
       "import": "./dist/src/republish.js"

@@ -13,17 +13,21 @@ export interface PutValueCounter {
   readonly peers: Set<string>;
 }
 
-export function countPutValuePeers(): PutValueCounter {
+export function countQueryPeers(messageName: string): PutValueCounter {
   const peers = new Set<string>();
   return {
     peers,
     onProgress(evt) {
       if (evt.type !== "kad-dht:query:peer-response") return;
       const detail = evt.detail as PeerResponseEvent;
-      if (detail.messageName !== "PUT_VALUE") return;
+      if (detail.messageName !== messageName) return;
       peers.add(detail.from.toString());
     },
   };
+}
+
+export function countPutValuePeers(): PutValueCounter {
+  return countQueryPeers("PUT_VALUE");
 }
 
 export interface RepublishWithRetryOptions extends AbortOptions {
