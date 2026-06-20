@@ -1,4 +1,5 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
+import type { Logger } from "@libp2p/interface";
 import { peerIdFromPrivateKey, peerIdFromString } from "@libp2p/peer-id";
 import type { Pins } from "helia";
 import { CID } from "multiformats/cid";
@@ -173,5 +174,57 @@ describe("pin/unpin concurrency", () => {
     expect(Object.keys(metadata).sort()).toEqual(
       [b, c].map((pinner) => pinner.toString()).sort(),
     );
+  });
+});
+
+describe("pins logger", () => {
+  const freshCid = async (seed: string): Promise<CID> =>
+    CID.createV1(0x55, await sha256.digest(new TextEncoder().encode(seed)));
+  const makePinner = async (): Promise<Libp2pKey> =>
+    peerIdFromPrivateKey(await generateKeyPair("Ed25519")).toCID() as Libp2pKey;
+
+  // a base logger spy whose newScope(name) records the scope and returns a
+  // child spy that records messages, so we can assert pin/unpin add "pins"
+  const spyLogger = (): {
+    log: Logger;
+    messages: string[];
+    scopes: string[];
+  } => {
+    const messages: string[] = [];
+    const scopes: string[] = [];
+    const scoped = ((format: string) => {
+      messages.push(format);
+    }) as unknown as Logger;
+    const log = Object.assign(() => {}, {
+      newScope(name: string): Logger {
+        scopes.push(name);
+        return scoped;
+      },
+    }) as unknown as Logger;
+    return { log, messages, scopes };
+  };
+
+  it("logs pin under a pins scope of the handed logger", async () => {
+    const pins = new FakePins() as unknown as Pins;
+    const { log, messages, scopes } = spyLogger();
+
+    await pin(pins, await makePinner(), await freshCid("log-pin"), { log });
+
+    expect(scopes).toContain("pins");
+    expect(messages.some((m) => m.includes("pinned"))).toBe(true);
+  });
+
+  it("logs unpin under a pins scope of the handed logger", async () => {
+    const pins = new FakePins() as unknown as Pins;
+    const cid = await freshCid("log-unpin");
+    const pinner = await makePinner();
+    await pin(pins, pinner, cid);
+
+    const { log, messages, scopes } = spyLogger();
+
+    await unpin(pins, pinner, cid, { log });
+
+    expect(scopes).toContain("pins");
+    expect(messages.some((m) => m.includes("unpinned"))).toBe(true);
   });
 });
