@@ -1,32 +1,40 @@
 # 💤<sub><sup>ync</sup></sub>
 
-> sync with peers that have gone to sleep 😴
+> A libp2p protocol for handing a signed dataset to another peer that can serve it as a verifiable replica of the original publisher.
 
-## About
+A publisher proves it holds an IPNS key, then streams a signed IPNS record and a CAR of its content to a handler. The handler verifies the signature and the content, then hands the record to your application to pin and serve. The result is a durable, verifiable copy that stays available and provably the publisher's even while the publisher is offline.
 
-This project focuses on sending and receiving authenticated replicas from a cryptographic namespace (IPNS) and a content-addressed storage layer (IPFS).
-An authenticated replica is simply a replica that a peer has cryptographically signed as its own copy.
+## Push protocol
 
----
+Protocol id `/zzzync/push/1.0.0`. Full wire spec: [spec.md](./spec.md).
 
-## HEAVY RECONSTRUCTION
+```mermaid
+sequenceDiagram
+  autonumber
+  participant D as Dialer (publisher)
+  participant H as Handler
 
-🚧
-🚧
-🚧
-🚧
-🚧
+  D->>H: open /zzzync/push/1.0.0
+  D->>H: IPNS key
+  H->>D: challenge nonce
+  D->>H: dialer nonce + signature
+  Note over H: signature proves the dialer holds the key
+  D->>H: signed IPNS record
+  D->>H: CAR file (root matches the record)
+  Note over H: every block verified to descend from the root
+  Note over H: verified record handed to the app (onReceive) to pin and serve
+```
 
-ZZZYNC IS BEING REDESIGNED INTO A LIBP2P PROTOCOL HANDLER AND CLI TOOL
+## Install
 
-FOLLOW PROGRESS HERE:
+```sh
+npm install @tabcat/zzzync
+```
 
-https://github.com/tabcat/zzzync/issues/38
+## Docs
 
----
+API reference and examples: https://tabcat.github.io/zzzync
 
-This project won a [gold medal prize at HACKFS2022](https://ethglobal.com/showcase/zzzync-xk96u) 🥇
+## Credits
 
-Additional work was funded as part of a [grant](https://github.com/tabcat/rough-opal) by [Protocol Labs](https://protocol.ai)
-
-Current work is all independent.
+Won a [gold medal at HACKFS 2022](https://ethglobal.com/showcase/zzzync-xk96u). Additional work was funded by a [Protocol Labs grant](https://github.com/tabcat/rough-opal). Current work is independent.
