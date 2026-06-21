@@ -46,6 +46,11 @@
   ],
   "author": "tabcat",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tabcat/zzzync.git"
+  },
+  "homepage": "https://tabcat.github.io/zzzync",
   "scripts": {
     "prepublishOnly": "pnpm install && pnpm build",
     "lint": "dprint check",
