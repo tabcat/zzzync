@@ -1,10 +1,10 @@
-export * from "./constants.js";
-export { dialZzzync, zzzync } from "./dialer.js";
-export { createZzzyncHandler, registerZzzyncHandler } from "./handler.js";
+export * from "./constants.ts";
+export { dialZzzync, zzzync } from "./dialer.ts";
+export { createZzzyncHandler, registerZzzyncHandler } from "./handler.ts";
 export type {
   Allow,
   CreateHandlerOptions,
   OnReceive,
   ReceivedRecord,
-} from "./handler.js";
-export * from "./interface.js";
+} from "./handler.ts";
+export * from "./interface.ts";

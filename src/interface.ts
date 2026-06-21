@@ -5,8 +5,8 @@ import type {
   CODEC_IDENTITY,
   CODEC_LIBP2P_KEY,
   CODEC_RAW,
-} from "./constants.js";
-import type { SupportedHasherCodes } from "./utils.js";
+} from "./constants.ts";
+import type { SupportedHasherCodes } from "./utils.ts";
 
 /**
  * CID<0x1, 0x72, 0x00>

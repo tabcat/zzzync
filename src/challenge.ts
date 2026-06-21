@@ -8,8 +8,8 @@ import {
 import { secp256k1 as secp } from "@noble/curves/secp256k1.js";
 import { Uint8ArrayList } from "uint8arraylist";
 import { concat } from "uint8arrays";
-import { ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.js";
-import { IpnsMultihash } from "./interface.js";
+import { ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.ts";
+import { IpnsMultihash } from "./interface.ts";
 
 export type SupportedPrivateKey = Ed25519PrivateKey | Secp256k1PrivateKey;
 

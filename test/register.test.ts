@@ -1,8 +1,8 @@
 import type { Libp2p, StreamHandler } from "@libp2p/interface";
 import sinon from "sinon";
 import { afterEach, describe, expect, it } from "vitest";
-import { ZZZYNC_PUSH_PROTOCOL_ID } from "../src/constants.js";
-import { registerZzzyncHandler } from "../src/handler.js";
+import { ZZZYNC_PUSH_PROTOCOL_ID } from "../src/constants.ts";
+import { registerZzzyncHandler } from "../src/handler.ts";
 
 afterEach(() => sinon.restore());
 

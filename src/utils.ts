@@ -17,8 +17,8 @@ import {
   CODEC_RAW,
   type CODEC_SHA2_256,
   IPFS_PREFIX,
-} from "./constants.js";
-import type { IpnsMultihash, UnixFsCID } from "./interface.js";
+} from "./constants.ts";
+import type { IpnsMultihash, UnixFsCID } from "./interface.ts";
 
 export function parsedRecordValue(value: string): UnixFsCID | null {
   try {

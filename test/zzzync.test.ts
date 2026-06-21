@@ -19,11 +19,11 @@ import {
   expect,
   it,
 } from "vitest";
-import { createSign } from "../src/challenge.js";
-import type { SupportedPrivateKey } from "../src/challenge.js";
-import { zzzync } from "../src/dialer.js";
-import { createZzzyncHandler } from "../src/handler.js";
-import type { Allow, OnReceive } from "../src/handler.js";
+import { createSign } from "../src/challenge.ts";
+import type { SupportedPrivateKey } from "../src/challenge.ts";
+import { zzzync } from "../src/dialer.ts";
+import { createZzzyncHandler } from "../src/handler.ts";
+import type { Allow, OnReceive } from "../src/handler.ts";
 
 // shared fixtures
 let helia: Helia;

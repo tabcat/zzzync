@@ -27,22 +27,22 @@ import {
   buildChallenge,
   generateNonce,
   SupportedPrivateKey,
-} from "./challenge.js";
+} from "./challenge.ts";
 import {
   CODEC_DAG_PB,
   CODEC_IDENTITY,
   CODEC_SHA2_256,
   ZZZYNC,
   ZZZYNC_PUSH_PROTOCOL_ID,
-} from "./constants.js";
-import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.js";
+} from "./constants.ts";
+import type { IpnsMultihash, Libp2pKey, UnixFsCID } from "./interface.ts";
 import {
   contenthash,
   getCodec,
   getHasher,
   parsedRecordValue,
   streamSignal,
-} from "./utils.js";
+} from "./utils.ts";
 
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
 const l = logger(HANDLER_NAMESPACE);

@@ -4,14 +4,14 @@ import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
 import { beforeAll, describe, expect, it } from "vitest";
-import { CODEC_DAG_PB, IPFS_PREFIX } from "../src/constants.js";
+import { CODEC_DAG_PB, IPFS_PREFIX } from "../src/constants.ts";
 import {
   contenthash,
   getCodec,
   getHasher,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
-} from "../src/utils.js";
+} from "../src/utils.ts";
 
 let dagPbCidStr: string;
 let rawCidStr: string;

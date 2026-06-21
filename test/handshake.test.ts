@@ -4,13 +4,13 @@ import { defaultLogger } from "@libp2p/logger";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { byteStream, streamPair } from "@libp2p/utils";
 import { beforeAll, describe, expect, it } from "vitest";
-import { createSign } from "../src/challenge.js";
-import type { Sign, SupportedPrivateKey } from "../src/challenge.js";
-import { completeChallenge, writeIpnsMultihash } from "../src/dialer.js";
-import { authenticateDialer, readIpnsMultihash } from "../src/handler.js";
-import type { Allow, CreateHandlerOptions } from "../src/handler.js";
-import type { IpnsMultihash, Libp2pKey } from "../src/interface.js";
-import { publicKeyAsIpnsMultihash } from "../src/utils.js";
+import { createSign } from "../src/challenge.ts";
+import type { Sign, SupportedPrivateKey } from "../src/challenge.ts";
+import { completeChallenge, writeIpnsMultihash } from "../src/dialer.ts";
+import { authenticateDialer, readIpnsMultihash } from "../src/handler.ts";
+import type { Allow, CreateHandlerOptions } from "../src/handler.ts";
+import type { IpnsMultihash, Libp2pKey } from "../src/interface.ts";
+import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
 
 const log = defaultLogger().forComponent("test");
 

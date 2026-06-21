@@ -13,14 +13,14 @@ import { marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
-import { buildChallenge, generateNonce, Sign } from "./challenge.js";
-import { ZZZYNC, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.js";
-import { IpnsMultihash } from "./interface.js";
+import { buildChallenge, generateNonce, Sign } from "./challenge.ts";
+import { ZZZYNC, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.ts";
+import { IpnsMultihash } from "./interface.ts";
 import {
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
   streamSignal,
-} from "./utils.js";
+} from "./utils.ts";
 
 export const DIALER_NAMESPACE = `${ZZZYNC}:dialer`;
 const l = logger(DIALER_NAMESPACE);

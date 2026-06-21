@@ -1,9 +1,9 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildChallenge, createSign, generateNonce } from "../src/challenge.js";
-import type { SupportedPrivateKey } from "../src/challenge.js";
-import { publicKeyAsIpnsMultihash } from "../src/utils.js";
+import { buildChallenge, createSign, generateNonce } from "../src/challenge.ts";
+import type { SupportedPrivateKey } from "../src/challenge.ts";
+import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
 
 describe("challenge", () => {
   let sk: SupportedPrivateKey;
