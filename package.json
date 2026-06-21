@@ -59,7 +59,7 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*/**": "pnpm run format"
+    "*/**": "pnpm run format --allow-no-files"
   },
   "devDependencies": {
     "@helia/unixfs": "^7.2.1",
