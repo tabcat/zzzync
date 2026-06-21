@@ -14,9 +14,6 @@ importers:
       '@helia/car':
         specifier: ^5.4.0
         version: 5.4.2
-      '@helia/interface':
-        specifier: ^6.2.1
-        version: 6.2.1
       '@ipld/car':
         specifier: ^5.4.2
         version: 5.4.2

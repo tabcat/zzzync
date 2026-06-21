@@ -1,4 +1,3 @@
-import type { Pins } from "@helia/interface";
 import type { CID, MultihashDigest } from "multiformats/cid";
 import type {
   CID_VERSION_1,
@@ -29,14 +28,4 @@ export type UnixFsCID = CID<
   typeof CODEC_DAG_PB | typeof CODEC_RAW,
   SupportedHasherCodes,
   1
->;
-
-/**
- * The subset of Helia's `Pins` interface the zzzync handler depends on. Provide
- * your own implementation of these methods to back the handler with a custom
- * pin store.
- */
-export type HandlerPins = Pick<
-  Pins,
-  "add" | "get" | "setMetadata" | "rm" | "isPinned"
 >;
