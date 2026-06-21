@@ -54,7 +54,7 @@
     "bench": "vitest bench --config vitest.config.ts --run",
     "test": "vitest --config vitest.config.ts --run",
     "test:watch": "vitest --config vitest.config.ts",
-    "api-docs": "typedoc src",
+    "api-docs": "typedoc",
     "ci": "pnpm build && pnpm lint && pnpm test",
     "prepare": "husky"
   },
@@ -74,6 +74,7 @@
     "sinon": "^21.0.0",
     "sinon-ts": "^2.0.0",
     "typedoc": "^0.28.4",
+    "typedoc-plugin-mermaid": "^1.12.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"
   },

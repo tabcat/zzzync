@@ -1,0 +1,13 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/handler.ts",
+    "src/dialer.ts",
+    "src/challenge.ts",
+    "src/constants.ts",
+    "src/interface.ts",
+    "src/utils.ts"
+  ],
+  "plugin": ["typedoc-plugin-mermaid"]
+}

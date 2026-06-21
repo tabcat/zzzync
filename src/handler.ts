@@ -154,7 +154,7 @@ export async function readIpnsRecord(
   return unmarshalIPNSRecord(marshalledRecord);
 }
 
-interface ReadCarFileOptions extends AbortOptions {
+export interface ReadCarFileOptions extends AbortOptions {
   maxByteLength?: number;
 }
 

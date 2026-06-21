@@ -1,6 +1,6 @@
 # Zzzync Protocol
 
-> Group of utils that make it easy to backup and sync data over libp2p
+> The `/zzzync/push/1.0.0` wire protocol: a publisher pushes a signed IPNS record and a CAR file to a handler.
 
 ## Zzzync Push
 
@@ -47,7 +47,7 @@ sequenceDiagram
 
   H->>H: Pin CAR blocks
   H->>H: Republish IPNS record
-  Note right of H: Handler closes stream after<br/>IPNS/IPFS content is persisted.
+  Note right of H: Pin + republish are delegated to the<br/>application via the onReceive callback; the handler<br/>closes the stream once it completes.
   H-->>C: Close stream
 ```
 
@@ -73,18 +73,3 @@ Key. Only Ed25519 and secp256k1 keys are supported; secp256k1 signatures use
 ### Notes
 
 - Only supports IPNS Keys using Identity multihashes (multicodec: 0x00).
-
-<!-- ## Zzzync Push Bitswap
-
-`/zzzync/push/bs`
-
-Triggers a Zzzync server to pull the latest changes from the client over bitswap.
-The client sends its latest IPNS Record and the helia node gets all the missing blocks and then pins the new root.
-
-Both send Multihash then IPNS Record first.
-
-- [ ] Check if handlers are safe opening up streams, maybe use the given connection to do it.
-  - i bet its fine, might be a reason the connection is given
-
-There needs to be a flag for whether to refresh the IPNS Record
-The IPNS Record is always pushed and is used for reading the authenticated IPFS Root and for Authorization. -->
