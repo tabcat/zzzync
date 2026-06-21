@@ -50,7 +50,7 @@
     "prepublishOnly": "pnpm install && pnpm build",
     "lint": "dprint check",
     "format": "dprint fmt",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "bench": "vitest bench --config vitest.config.ts --run",
     "test": "vitest --config vitest.config.ts --run",
     "test:watch": "vitest --config vitest.config.ts",
