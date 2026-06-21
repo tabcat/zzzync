@@ -1,6 +1,9 @@
 .zzzync
 todo
 
+# typedoc api docs output (built and deployed by .github/workflows/pages.yml)
+docs
+
 # Logs
 logs
 *.log
