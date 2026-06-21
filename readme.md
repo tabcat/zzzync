@@ -2,8 +2,6 @@
 
 > A libp2p protocol for handing a signed dataset to another peer that can serve it as a verifiable replica of the original publisher.
 
-A publisher proves it holds an IPNS key, then streams a signed IPNS record and a CAR of its content to a handler. The handler verifies the signature and the content, then hands the record to your application to pin and serve. The result is a durable, verifiable copy that stays available and provably the publisher's even while the publisher is offline.
-
 ## Push protocol
 
 Protocol id `/zzzync/push/1.0.0`. Full wire spec: [spec.md](./spec.md).
@@ -25,13 +23,17 @@ sequenceDiagram
   Note over H: verified record handed to the app (onReceive) to pin and serve
 ```
 
+A publisher proves it holds an IPNS key, then streams a signed IPNS record and a CAR of its content to a handler. The handler verifies the signature and the content, then hands the record to your application to pin and serve.
+
+The result is a durable, verifiable copy that stays available even while the publisher is offline.
+
 ## Install
 
 ```sh
 npm install @tabcat/zzzync
 ```
 
-## Docs
+## Docs and Usage
 
 API reference and examples: https://tabcat.github.io/zzzync
 
