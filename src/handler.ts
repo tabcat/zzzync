@@ -219,26 +219,25 @@ export async function readCarFile(
 }
 
 export interface Allow {
-  allow(
+  /** Whether the dialer's key may push at all. */
+  multihash(
     dialerPublicKey: SupportedPrivateKey["publicKey"],
     options?: AbortOptions,
-  ): Promise<boolean> | boolean;
-  start?(): Promise<void>;
-  stop?(): Promise<void>;
-}
-
-export interface CreateHandlerOptions extends ReadCarFileOptions {
-  allow?: Allow;
+  ): boolean | Promise<boolean>;
   /**
-   * Decide whether to accept `record` for `name`. The authoritative downgrade
-   * guard: reject (return false) to abort the stream before the CAR is imported.
+   * Whether to accept `record` for `name`. The authoritative downgrade guard:
+   * reject (return false) to abort the stream before the CAR is imported.
    * ice-queen wires this to its registry.
    */
-  allowRecord?(
+  record(
     name: IpnsMultihash,
     record: IPNSRecord,
     options?: AbortOptions,
   ): boolean | Promise<boolean>;
+}
+
+export interface CreateHandlerOptions extends ReadCarFileOptions {
+  allow?: Allow;
 }
 
 /**
@@ -292,9 +291,7 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
-  if (
-    options.allow && !(await options.allow.allow(dialerPublicKey, { signal }))
-  ) {
+  if (!(await options.allow?.multihash(dialerPublicKey, { signal }) ?? true)) {
     const error = new Error("ipns key not allowed");
     log.error(error.message);
     throw error;
@@ -379,10 +376,7 @@ export const createZzzyncHandler =
       }
       log("read ipns record with value %s", record.value);
 
-      if (
-        options.allowRecord != null
-        && !(await options.allowRecord(name, record, { signal }))
-      ) {
+      if (!(await options.allow?.record(name, record, { signal }) ?? true)) {
         const e = new Error("ipns record not allowed");
         log.error(e.message);
         // abort with the specific reason so the dialer sees it; the outer catch's

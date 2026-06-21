@@ -88,7 +88,7 @@ describe("handshake", () => {
   });
 
   it("rejects a dialer the allow function denies", async () => {
-    const allow: Allow = { allow: () => false };
+    const allow: Allow = { multihash: () => false, record: () => true };
     const [outbound, inbound] = await streamPair();
     const signal = AbortSignal.timeout(5000);
 

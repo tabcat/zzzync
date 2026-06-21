@@ -23,7 +23,7 @@ import { createSign } from "../src/challenge.js";
 import type { SupportedPrivateKey } from "../src/challenge.js";
 import { zzzync } from "../src/dialer.js";
 import { createZzzyncHandler } from "../src/handler.js";
-import type { Allow, CreateHandlerOptions, OnReceive } from "../src/handler.js";
+import type { Allow, OnReceive } from "../src/handler.js";
 
 // shared fixtures
 let helia: Helia;
@@ -72,12 +72,7 @@ afterEach(() => {
   sinon.restore();
 });
 
-function makeHandler(
-  options?: {
-    allow?: Allow;
-    allowRecord?: CreateHandlerOptions["allowRecord"];
-  },
-) {
+function makeHandler(options?: { allow?: Allow; }) {
   return createZzzyncHandler(
     handlerPeerId,
     mockImporter,
@@ -112,8 +107,11 @@ describe("zzzync protocol", () => {
     expect(Object.keys(received).sort()).toEqual(["name", "pinner", "record"]);
   });
 
-  it("passes the dialer public key to the allow function", async () => {
-    const allow: Allow = { allow: sinon.stub().resolves(true) };
+  it("passes the dialer public key to allow.multihash", async () => {
+    const allow: Allow = {
+      multihash: sinon.stub().resolves(true),
+      record: () => true,
+    };
     const [outbound, inbound] = await streamPair();
 
     await Promise.all([
@@ -127,13 +125,13 @@ describe("zzzync protocol", () => {
       makeHandler({ allow })(inbound, connection),
     ]);
 
-    const stub = allow.allow as sinon.SinonStub;
+    const stub = allow.multihash as sinon.SinonStub;
     expect(stub.calledOnce).toBe(true);
     expect(stub.firstCall.args[0].equals(dialerKey.publicKey)).toBe(true);
   });
 
   it("aborts and does not hand off when the allow function denies", async () => {
-    const allow: Allow = { allow: () => false };
+    const allow: Allow = { multihash: () => false, record: () => true };
     const [outbound, inbound] = await streamPair();
 
     await expect(
@@ -176,8 +174,9 @@ describe("zzzync protocol", () => {
     expect(onReceive.called).toBe(false);
   });
 
-  it("passes the name and record to allowRecord", async () => {
-    const allowRecord = sinon.stub().resolves(true);
+  it("passes the name and record to allow.record", async () => {
+    const record = sinon.stub().resolves(true);
+    const allow: Allow = { multihash: () => true, record };
     const [outbound, inbound] = await streamPair();
 
     await Promise.all([
@@ -188,18 +187,18 @@ describe("zzzync protocol", () => {
         result,
         createSign(dialerKey),
       ),
-      makeHandler({ allowRecord })(inbound, connection),
+      makeHandler({ allow })(inbound, connection),
     ]);
 
-    expect(allowRecord.calledOnce).toBe(true);
-    expect(allowRecord.firstCall.args[0].bytes).toEqual(
+    expect(record.calledOnce).toBe(true);
+    expect(record.firstCall.args[0].bytes).toEqual(
       dialerKey.publicKey.toMultihash().bytes,
     );
-    expect(allowRecord.firstCall.args[1].value).toBe(result.record.value);
+    expect(record.firstCall.args[1].value).toBe(result.record.value);
   });
 
-  it("aborts and does not hand off when allowRecord denies", async () => {
-    const allowRecord = sinon.stub().resolves(false);
+  it("aborts and does not hand off when allow.record denies", async () => {
+    const allow: Allow = { multihash: () => true, record: () => false };
     const [outbound, inbound] = await streamPair();
 
     await expect(
@@ -211,7 +210,7 @@ describe("zzzync protocol", () => {
           result,
           createSign(dialerKey),
         ),
-        makeHandler({ allowRecord })(inbound, connection),
+        makeHandler({ allow })(inbound, connection),
       ]),
     )
       .rejects
