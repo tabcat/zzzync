@@ -22,7 +22,8 @@ import {
   streamSignal,
 } from "./utils.js";
 
-export const UPLOAD_NAMESPACE = `${ZZZYNC}:upload`;
+export const DIALER_NAMESPACE = `${ZZZYNC}:dialer`;
+const l = logger(DIALER_NAMESPACE);
 
 export async function writeVarint(
   bs: ByteStream<Stream>,
@@ -146,8 +147,7 @@ export async function zzzync(
   sign: Sign,
   options: AbortOptions = {},
 ): Promise<void> {
-  const log = logger(`${UPLOAD_NAMESPACE}:${stream.id}`);
-
+  const log = l.newScope(stream.id);
   const { signal, clear } = streamSignal(stream, options);
 
   try {

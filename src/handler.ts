@@ -45,6 +45,7 @@ import {
 } from "./utils.js";
 
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
+const l = logger(HANDLER_NAMESPACE);
 
 async function readByte(
   bs: ByteStream<Stream>,
@@ -266,8 +267,6 @@ export type OnReceive = (
   options?: AbortOptions,
 ) => Promise<void>;
 
-const _log = logger(HANDLER_NAMESPACE);
-
 /**
  * Run the challenge/response handshake for an already-read dialer IPNS key: the
  * dialer must sign the handler's nonce to prove ownership of the key. Throws if
@@ -345,11 +344,12 @@ export const createZzzyncHandler =
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
-    const log = _log.newScope(stream.id);
+    const log = l.newScope(stream.id);
     const { signal, clear } = streamSignal(stream);
 
     try {
       log("new stream from %s", connection.remotePeer);
+
       const bs = byteStream(stream);
 
       let name: IpnsMultihash;
