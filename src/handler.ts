@@ -270,7 +270,7 @@ export type OnReceive = (
  * Run the challenge/response handshake for an already-read dialer IPNS key: the
  * dialer must sign the handler's nonce to prove ownership of the key. Throws if
  * the key type is unsupported, the dialer is not allowed, or the signature is
- * invalid. The handler side of the handshake (see spec.md).
+ * invalid. The handler side of the handshake.
  */
 export async function authenticateDialer(
   bs: ByteStream<Stream>,

@@ -103,7 +103,7 @@ export async function writeCarFile(
 /**
  * Read the handler's nonce, sign the challenge (bound to `dialerIpns`), and send
  * the response. The caller must have already announced the dialer's key. The
- * dialer side of the challenge/response (see spec.md).
+ * dialer side of the challenge/response.
  */
 export async function completeChallenge(
   bs: ByteStream<Stream>,

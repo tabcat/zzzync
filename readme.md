@@ -4,7 +4,7 @@
 
 ## Push protocol
 
-Protocol id `/zzzync/push/1.0.0`. Full wire spec: [spec.md](./spec.md).
+Protocol id `/zzzync/push/1.0.0`.
 
 ```mermaid
 sequenceDiagram

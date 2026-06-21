@@ -10,9 +10,6 @@
  * is a durable, verifiable copy that stays available even while the publisher is
  * offline.
  *
- * The wire protocol is specified in
- * {@link https://github.com/tabcat/zzzync/blob/master/spec.md | spec.md}.
- *
  * @example Receive pushes (handler)
  *
  * ```ts
