@@ -232,4 +232,27 @@ describe("zzzync protocol", () => {
     expect(onReceive.called).toBe(false);
     outbound.abort(new Error("test done"));
   });
+
+  it("aborts the dialer stream when the handler never responds", async () => {
+    const [outbound, inbound] = await streamPair();
+    const abortSpy = sinon.spy(outbound, "abort");
+
+    // inbound never sends its handshake nonce, so the dialer's read hits the
+    // per-step deadline; zzzync should abort the stream rather than leak it
+    await expect(
+      zzzync(
+        outbound,
+        handlerPeerId,
+        car(helia),
+        result,
+        createSign(dialerKey),
+        { writeTimeoutMs: 50 },
+      ),
+    )
+      .rejects
+      .toThrow();
+
+    expect(abortSpy.called).toBe(true);
+    inbound.abort(new Error("test done"));
+  });
 });
