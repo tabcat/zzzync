@@ -181,12 +181,24 @@ export async function readCarFile(
   const maxBlockCount = options.maxBlockCount ?? DEFAULT_MAX_BLOCK_COUNT;
 
   const blocks = async function*() {
+    // Bound the raw bytes fed to the CAR decoder. @ipld/car buffers a whole
+    // section (a block or the header) of its declared length before yielding it,
+    // and the per-block/total caps below only see a block once it is fully
+    // materialized; without this budget an attacker-declared length would be
+    // buffered in full first (a memory DoS). Counting raw bytes also makes
+    // maxByteLength cover CAR framing, not just decoded block payload.
+    let pulled = 0;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
         while (true) {
           const byteList = await bs.read({ signal: options.signal });
 
           if (byteList == null) break;
+
+          pulled += byteList.byteLength;
+          if (pulled > maxByteLength) {
+            throw new Error("CAR file exceeded max byte length");
+          }
 
           yield* byteList;
         }
@@ -207,16 +219,11 @@ export async function readCarFile(
     // so a dag-pb link cannot be satisfied by a raw block of the same bytes.
     const wanted = new Set<string>([cidKey(root)]);
     const received = new Set<string>();
-    let byteLength = 0;
     let blockCount = 0;
 
     for await (const { cid, bytes } of car) {
       if (bytes.byteLength > MAX_BLOCK_BYTES) {
         throw new Error("block exceeded max byte length");
-      }
-      byteLength += bytes.byteLength;
-      if (byteLength > maxByteLength) {
-        throw new Error("CAR file exceeded max byte length");
       }
       if (++blockCount > maxBlockCount) {
         throw new Error("CAR file exceeded max block count");
