@@ -1,38 +1,40 @@
 import { Car, UnixFSExporter } from "@helia/car";
-import {
-  AbortOptions,
-  Libp2p,
-  Logger,
-  PeerId,
-  Stream,
-} from "@libp2p/interface";
+import { AbortOptions, Libp2p, PeerId, Stream } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { ByteStream, byteStream, Filter } from "@libp2p/utils";
+import { anySignal } from "any-signal";
 import { IPNSRecord, marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, Sign } from "./challenge.ts";
-import { ZZZYNC, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.ts";
+import {
+  DEFAULT_ACK_TIMEOUT_MS,
+  DEFAULT_WRITE_TIMEOUT_MS,
+  ZZZYNC,
+  ZZZYNC_PUSH_PROTOCOL_ID,
+} from "./constants.ts";
 import { IpnsMultihash, PushInput } from "./interface.ts";
 import {
+  DeadlineOptions,
+  eventPromise,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
   streamSignal,
+  withDeadline,
 } from "./utils.ts";
 
 export const DIALER_NAMESPACE = `${ZZZYNC}:dialer`;
 const l = logger(DIALER_NAMESPACE);
 
-export async function writeVarint(
-  bs: ByteStream<Stream>,
-  n: number,
-  options: AbortOptions,
-): Promise<void> {
-  return bs.write(varint.encode(n), options);
+export interface DialOptions extends AbortOptions {
+  /** Per-step deadline (ms) for each read/write step: handshake, record, CAR chunk. */
+  writeTimeoutMs?: number;
+  /** Deadline (ms) waiting for the handler to close its write side after the CAR. */
+  ackTimeoutMs?: number;
 }
 
-export async function writeVarintPrefixed(
+async function writeVarintPrefixed(
   bs: ByteStream<Stream>,
   bytes: Uint8Array,
   options: AbortOptions = {},
@@ -43,100 +45,143 @@ export async function writeVarintPrefixed(
   );
 }
 
-export async function writeIpnsMultihash(
+const writeKey = (
   bs: ByteStream<Stream>,
-  ipnsMultihash: IpnsMultihash,
-  options: AbortOptions = {},
+  dialerIpns: IpnsMultihash,
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    (deadline) => bs.write(dialerIpns.bytes, { signal: deadline }),
+    "wrote ipns key",
+    "failed while writing ipns key",
+    options,
+  );
+
+const readHandlerNonce = (
+  bs: ByteStream<Stream>,
+  options: DeadlineOptions,
+): Promise<Uint8Array> =>
+  withDeadline(
+    async (deadline) =>
+      (await bs.read({ bytes: 32, signal: deadline })).subarray(),
+    "read handler nonce",
+    "failed while reading challenge nonce",
+    options,
+  );
+
+const respondToChallenge = (
+  bs: ByteStream<Stream>,
+  handlerPeerId: PeerId,
+  dialerIpns: IpnsMultihash,
+  handlerNonce: Uint8Array,
+  sign: Sign,
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    async (deadline) => {
+      const dialerNonce = generateNonce();
+      const challenge = buildChallenge(
+        handlerPeerId,
+        dialerIpns,
+        handlerNonce,
+        dialerNonce,
+      );
+      const sig = await sign(challenge, { signal: deadline });
+      await bs.write(new Uint8ArrayList(dialerNonce, sig), {
+        signal: deadline,
+      });
+    },
+    "wrote response to challenge",
+    "failed while writing challenge response",
+    options,
+  );
+
+/**
+ * Announce the dialer's key and prove ownership: write the IPNS key, read the
+ * handler's nonce, and send a signed response. Each step gets its own deadline.
+ * The dialer side of the challenge/response.
+ */
+export async function authenticateToHandler(
+  bs: ByteStream<Stream>,
+  handlerPeerId: PeerId,
+  dialerIpns: IpnsMultihash,
+  sign: Sign,
+  options: DeadlineOptions,
 ): Promise<void> {
-  return bs.write(ipnsMultihash.bytes, options);
+  await writeKey(bs, dialerIpns, options);
+  const handlerNonce = await readHandlerNonce(bs, options);
+  await respondToChallenge(
+    bs,
+    handlerPeerId,
+    dialerIpns,
+    handlerNonce,
+    sign,
+    options,
+  );
 }
 
-export async function readNonce(
-  bs: ByteStream<Stream>,
-  options: AbortOptions = {},
-): Promise<Uint8Array> {
-  return (await bs.read({ bytes: 32, signal: options.signal })).subarray();
-}
-
-export async function writeChallengeResponse(
-  bs: ByteStream<Stream>,
-  dialerNonce: Uint8Array,
-  sig: Uint8Array,
-  options: AbortOptions = {},
-): Promise<void> {
-  await bs.write(new Uint8ArrayList(dialerNonce, sig), options);
-}
-
-export async function writeIpnsRecord(
+export const writeRecord = (
   bs: ByteStream<Stream>,
   record: IPNSRecord,
-  options: AbortOptions = {},
-): Promise<void> {
-  return writeVarintPrefixed(bs, marshalIPNSRecord(record), options);
-}
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    (deadline) =>
+      writeVarintPrefixed(bs, marshalIPNSRecord(record), { signal: deadline }),
+    "wrote ipns record",
+    "failed while writing ipns record",
+    options,
+  );
 
 export async function writeCarFile(
   bs: ByteStream<Stream>,
   exporter: Pick<Car, "export">,
   cid: CID,
-  options: AbortOptions = {},
+  options: DeadlineOptions,
 ): Promise<void> {
-  const references = new Set<string>();
-  const blockFilter: Filter = {
-    add: (bytes) => references.add(bytes.toString()),
-    has: (bytes) => references.has(bytes.toString()),
-  };
-  for await (
-    const data of exporter.export(cid, {
-      ...options,
-      blockFilter, // dedupe
-      exporter: new UnixFSExporter(),
-      offline: true,
-      signal: options.signal,
-    })
-  ) {
-    await bs.write(data);
-  }
-}
-
-/**
- * Read the handler's nonce, sign the challenge (bound to `dialerIpns`), and send
- * the response. The caller must have already announced the dialer's key. The
- * dialer side of the challenge/response.
- */
-export async function completeChallenge(
-  bs: ByteStream<Stream>,
-  handlerPeerId: PeerId,
-  dialerIpns: IpnsMultihash,
-  sign: Sign,
-  log: Logger,
-  signal: AbortSignal,
-): Promise<void> {
-  let handlerNonce: Uint8Array;
   try {
-    handlerNonce = await readNonce(bs, { signal });
-    log("read handler nonce");
+    const references = new Set<string>();
+    const blockFilter: Filter = {
+      add: (bytes) => references.add(bytes.toString()),
+      has: (bytes) => references.has(bytes.toString()),
+    };
+    for await (
+      const data of exporter.export(cid, {
+        blockFilter, // dedupe
+        exporter: new UnixFSExporter(),
+        offline: true,
+        signal: options.signal,
+      })
+    ) {
+      // each chunk write gets its own deadline; the gap between chunks (slow
+      // blockstore reads) is not bounded
+      const deadline = anySignal([
+        options.signal,
+        AbortSignal.timeout(options.timeoutMs),
+      ]);
+      try {
+        await bs.write(data, { signal: deadline });
+      } finally {
+        deadline.clear();
+      }
+    }
+    options.log("wrote car file");
   } catch (e) {
-    log.error("failed while reading challenge nonce");
-    throw e;
-  }
-
-  try {
-    const dialerNonce = generateNonce();
-    const challenge = buildChallenge(
-      handlerPeerId,
-      dialerIpns,
-      handlerNonce,
-      dialerNonce,
-    );
-    const sig = await sign(challenge, { signal }); // raw sig 64 byte length
-    await writeChallengeResponse(bs, dialerNonce, sig, { signal });
-    log("wrote response to challenge");
-  } catch (e) {
-    log.error("failed while writing challenge response");
+    options.log.error("failed while writing car file");
     throw e;
   }
 }
+
+export const awaitHandlerClose = (
+  stream: Stream,
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    (deadline) => eventPromise(stream, "remoteCloseWrite", deadline),
+    "remote closed write",
+    "failed while waiting for remote to close write",
+    options,
+  );
 
 export async function zzzync(
   stream: Stream,
@@ -144,7 +189,7 @@ export async function zzzync(
   exporter: Pick<Car, "export">,
   result: PushInput,
   sign: Sign,
-  options: AbortOptions = {},
+  options: DialOptions = {},
 ): Promise<void> {
   const log = l.newScope(stream.id);
   const { signal, clear } = streamSignal(stream, options);
@@ -153,56 +198,39 @@ export async function zzzync(
     log("starting zzzync");
 
     const bs = byteStream(stream);
-
     const { record, publicKey } = result;
-
     const dialerIpns = publicKeyAsIpnsMultihash(publicKey);
-
     if (dialerIpns == null) {
       throw new Error("unsupported public key");
     }
 
-    try {
-      await writeIpnsMultihash(bs, dialerIpns, { signal });
-      log("wrote ipns key");
-    } catch (e) {
-      log.error("failed while writing ipns key");
-      throw e;
-    }
-
-    await completeChallenge(bs, handlerPeerId, dialerIpns, sign, log, signal);
-
-    try {
-      await writeIpnsRecord(bs, record, { signal });
-      log("wrote ipns record");
-    } catch (e) {
-      log.error("failed while writing ipns record");
-      throw e;
-    }
+    // handshake, record, and CAR writes all share the per-step write deadline
+    const deadlineOptions: DeadlineOptions = {
+      signal,
+      timeoutMs: options.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS,
+      log,
+    };
+    await authenticateToHandler(
+      bs,
+      handlerPeerId,
+      dialerIpns,
+      sign,
+      deadlineOptions,
+    );
+    await writeRecord(bs, record, deadlineOptions);
 
     const cid = parsedRecordValue(record.value);
-
     if (cid == null) {
       throw new Error("Unable to parse record value");
     }
 
-    try {
-      await writeCarFile(bs, exporter, cid, { ...options, signal });
-      await stream.close();
-      log("wrote car file");
-    } catch (e) {
-      log.error("failed while writing car file");
-      throw e;
-    }
+    await writeCarFile(bs, exporter, cid, deadlineOptions);
+    await stream.close({ signal });
 
-    log("waiting for remote to close write");
-    await new Promise((resolve, reject) => {
-      signal.throwIfAborted();
-      stream.addEventListener("remoteCloseWrite", resolve, {
-        once: true,
-        signal,
-      });
-      signal.addEventListener("abort", reject);
+    await awaitHandlerClose(stream, {
+      signal,
+      timeoutMs: options.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS,
+      log,
     });
   } finally {
     clear();
@@ -220,7 +248,7 @@ export async function dialZzzync(
   exporter: Pick<Car, "export">,
   result: PushInput,
   sign: Sign,
-  options: AbortOptions = {},
+  options: DialOptions = {},
 ): Promise<void> {
   const stream = await libp2p.dialProtocol(
     peerId,

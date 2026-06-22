@@ -6,7 +6,7 @@ import { byteStream, streamPair } from "@libp2p/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createSign } from "../src/challenge.ts";
 import type { Sign, SupportedPrivateKey } from "../src/challenge.ts";
-import { completeChallenge, writeIpnsMultihash } from "../src/dialer.ts";
+import { authenticateToHandler, awaitHandlerClose } from "../src/dialer.ts";
 import { authenticateDialer, readIpnsMultihash } from "../src/handler.ts";
 import type { Allow } from "../src/handler.ts";
 import type { IpnsMultihash, Libp2pKey } from "../src/interface.ts";
@@ -26,16 +26,19 @@ beforeAll(async () => {
   dialerIpns = ipns;
 });
 
-// announce the key, then complete the challenge - completeChallenge no longer
-// sends the multihash itself
+// announce the key and prove ownership via the dialer handshake helper
 async function runDialer(
   outbound: Stream,
   sign: Sign,
   signal: AbortSignal,
+  timeoutMs = 5000,
 ): Promise<void> {
   const bs = byteStream(outbound);
-  await writeIpnsMultihash(bs, dialerIpns, { signal });
-  await completeChallenge(bs, handlerPeerId, dialerIpns, sign, log, signal);
+  await authenticateToHandler(bs, handlerPeerId, dialerIpns, sign, {
+    signal,
+    timeoutMs,
+    log,
+  });
 }
 
 // read the key, then authenticate - authenticateDialer no longer reads the
@@ -118,14 +121,12 @@ describe("handshake", () => {
     const [, key] = await Promise.all([
       (async () => {
         const bs = byteStream(outbound);
-        await writeIpnsMultihash(bs, secpIpns, { signal });
-        await completeChallenge(
+        await authenticateToHandler(
           bs,
           handlerPeerId,
           secpIpns,
           createSign(secpKey),
-          log,
-          signal,
+          { signal, timeoutMs: 5000, log },
         );
       })(),
       (async () => {
@@ -143,5 +144,29 @@ describe("handshake", () => {
     ]);
 
     expect(key.equals(secpKey.publicKey.toCID())).toBe(true);
+  });
+
+  it("times out a handshake step when the handler never responds", async () => {
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(5000);
+
+    // the handler sends no nonce, so the dialer's nonce read hits its per-step
+    // deadline well before the 5s backstop signal
+    await expect(runDialer(outbound, createSign(dialerKey), signal, 50)).rejects
+      .toThrow();
+
+    inbound.abort(new Error("test done"));
+  });
+
+  it("times out awaiting the handler's close", async () => {
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(5000);
+
+    // nothing closes inbound's write side, so remoteCloseWrite never fires
+    await expect(awaitHandlerClose(outbound, { signal, timeoutMs: 50, log }))
+      .rejects
+      .toThrow();
+
+    inbound.abort(new Error("test done"));
   });
 });

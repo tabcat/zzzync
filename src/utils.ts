@@ -3,6 +3,7 @@ import * as dagPb from "@ipld/dag-pb";
 import type {
   AbortOptions,
   EventHandler,
+  Logger,
   PublicKey,
   Stream,
   StreamCloseEvent,
@@ -75,6 +76,74 @@ export function publicKeyAsIpnsMultihash(
 
 export function contenthash(publicKey: PublicKey): string {
   return `/ipns/${publicKey.toCID().toString(base36)}`;
+}
+
+/**
+ * Resolve when `target` emits `type`; reject if `signal` aborts. Both listeners
+ * are removed once the promise settles, so neither path leaks a listener.
+ */
+export function eventPromise<E extends string>(
+  target: {
+    addEventListener(type: E, listener: () => void): void;
+    removeEventListener(type: E, listener: () => void): void;
+  },
+  type: E,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    function cleanup(): void {
+      target.removeEventListener(type, onEvent);
+      signal.removeEventListener("abort", onAbort);
+    }
+    function onEvent(): void {
+      cleanup();
+      resolve();
+    }
+    function onAbort(): void {
+      cleanup();
+      reject(signal.reason ?? new Error("aborted"));
+    }
+
+    if (signal.aborted) {
+      reject(signal.reason ?? new Error("aborted"));
+      return;
+    }
+    target.addEventListener(type, onEvent);
+    signal.addEventListener("abort", onAbort);
+  });
+}
+
+export interface DeadlineOptions {
+  signal: AbortSignal;
+  timeoutMs: number;
+  log: Logger;
+}
+
+/**
+ * Run `op` under a per-call deadline (the session signal combined with an
+ * `AbortSignal.timeout`). Logs `done` on success and `error` on failure, always
+ * rethrowing on failure.
+ */
+export async function withDeadline<T>(
+  op: (deadline: AbortSignal) => Promise<T>,
+  done: string,
+  error: string,
+  options: DeadlineOptions,
+): Promise<T> {
+  const deadline = anySignal([
+    options.signal,
+    AbortSignal.timeout(options.timeoutMs),
+  ]);
+  try {
+    const result = await op(deadline);
+    options.log(done);
+    return result;
+  } catch (e) {
+    options.log.error(error);
+    throw e;
+  } finally {
+    deadline.clear();
+  }
 }
 
 export interface StreamSignal {

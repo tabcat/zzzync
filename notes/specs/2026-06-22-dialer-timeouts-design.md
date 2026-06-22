@@ -24,7 +24,7 @@ this adds built-in deadlines so even a no-signal caller is covered.
 
 ## Design
 
-### withDeadline helper (dialer.ts)
+### withDeadline helper (utils.ts)
 
 One helper runs an op under a per-call deadline and owns its logging. `timeoutMs`
 is required (the dialer always sets one), so there is no conditional:
@@ -76,14 +76,15 @@ phase helpers; the public surface becomes the phase helpers + `zzzync`/
 
 ```ts
 interface DialOptions extends AbortOptions {
-  handshakeStepTimeoutMs?: number; // per handshake step (key/nonce/response). default 5_000
-  writeTimeoutMs?: number;         // per CAR chunk (and the record write). default 30_000
-  ackTimeoutMs?: number;           // wait for the handler to close. default 15_000
+  writeTimeoutMs?: number; // per read/write step: handshake, record, CAR chunk. default 5_000
+  ackTimeoutMs?: number;   // wait for the handler to close. default 15_000
 }
 ```
 
-Orchestrator applies the defaults (`options.x ?? DEFAULT_X`) before passing a
-concrete `timeoutMs` into the helpers.
+One `writeTimeoutMs` covers every per-step read/write (each handshake step, the
+record, each CAR chunk); the handshake has no separate knob. The orchestrator
+applies the defaults (`options.x ?? DEFAULT_X`) before passing a concrete
+`timeoutMs` into the helpers.
 
 ### eventPromise (re-added, utils.ts)
 
