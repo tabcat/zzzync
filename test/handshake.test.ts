@@ -51,7 +51,7 @@ async function runHandler(
   signal: AbortSignal,
 ): Promise<{ dialerIpns: IpnsMultihash; dialerLibp2pKey: Libp2pKey; }> {
   const bs = byteStream(inbound);
-  const dialerIpns = await readIpnsMultihash(bs, { signal });
+  const dialerIpns = await readIpnsMultihash(bs, log, { signal });
   const dialerLibp2pKey = await authenticateDialer(
     bs,
     handlerPeerId,
@@ -131,7 +131,7 @@ describe("handshake", () => {
       })(),
       (async () => {
         const bs = byteStream(inbound);
-        const ipns = await readIpnsMultihash(bs, { signal });
+        const ipns = await readIpnsMultihash(bs, log, { signal });
         return authenticateDialer(
           bs,
           handlerPeerId,

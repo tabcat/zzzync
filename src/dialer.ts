@@ -20,7 +20,6 @@ import {
   eventPromise,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
-  streamSignal,
   withDeadline,
 } from "./utils.ts";
 
@@ -189,49 +188,44 @@ export async function zzzync(
   options: DialOptions = {},
 ): Promise<void> {
   const log = l.newScope(stream.id);
-  const { signal, clear } = streamSignal(stream, options);
+  log("starting zzzync");
 
-  try {
-    log("starting zzzync");
-
-    const bs = byteStream(stream);
-    const { record, publicKey } = result;
-    const dialerIpns = publicKeyAsIpnsMultihash(publicKey);
-    if (dialerIpns == null) {
-      throw new Error("unsupported public key");
-    }
-
-    // handshake, record, and CAR writes all share the per-step write deadline
-    const deadlineOptions: DeadlineOptions = {
-      signal,
-      timeoutMs: options.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS,
-      log,
-    };
-    await authenticateToHandler(
-      bs,
-      handlerPeerId,
-      dialerIpns,
-      sign,
-      deadlineOptions,
-    );
-    await writeRecord(bs, record, deadlineOptions);
-
-    const cid = parsedRecordValue(record.value);
-    if (cid == null) {
-      throw new Error("Unable to parse record value");
-    }
-
-    await writeCarFile(bs, exporter, cid, deadlineOptions);
-    await stream.close({ signal });
-
-    await awaitHandlerClose(stream, {
-      signal,
-      timeoutMs: options.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS,
-      log,
-    });
-  } finally {
-    clear();
+  const bs = byteStream(stream);
+  const { record, publicKey } = result;
+  const dialerIpns = publicKeyAsIpnsMultihash(publicKey);
+  if (dialerIpns == null) {
+    throw new Error("unsupported public key");
   }
+
+  // handshake, record, and CAR writes share the per-step write deadline; the
+  // caller's signal (if any) plus byteStream erroring on close cover the rest
+  const deadlineOptions: DeadlineOptions = {
+    signal: options.signal,
+    timeoutMs: options.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS,
+    log,
+  };
+  await authenticateToHandler(
+    bs,
+    handlerPeerId,
+    dialerIpns,
+    sign,
+    deadlineOptions,
+  );
+  await writeRecord(bs, record, deadlineOptions);
+
+  const cid = parsedRecordValue(record.value);
+  if (cid == null) {
+    throw new Error("Unable to parse record value");
+  }
+
+  await writeCarFile(bs, exporter, cid, deadlineOptions);
+  await stream.close({ signal: options.signal });
+
+  await awaitHandlerClose(stream, {
+    signal: options.signal,
+    timeoutMs: options.ackTimeoutMs ?? DEFAULT_ACK_TIMEOUT_MS,
+    log,
+  });
 }
 
 /**

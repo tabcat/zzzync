@@ -1,6 +1,7 @@
 import { CarWriter } from "@ipld/car";
 import * as dagPb from "@ipld/dag-pb";
 import type { Stream } from "@libp2p/interface";
+import { defaultLogger } from "@libp2p/logger";
 import { byteStream, streamPair } from "@libp2p/utils";
 import * as Block from "multiformats/block";
 import { CID } from "multiformats/cid";
@@ -10,6 +11,8 @@ import { concat } from "uint8arrays";
 import { describe, expect, it } from "vitest";
 import { readCarFile } from "../src/handler.ts";
 import type { UnixFsCID } from "../src/interface.ts";
+
+const log = defaultLogger().forComponent("test");
 
 // importer that just drains the verified block stream
 const drain: {
@@ -67,6 +70,7 @@ async function runReadCar(
       byteStream(inbound as Stream),
       drain,
       expectedRoot as UnixFsCID,
+      log,
       options,
     );
   } finally {

@@ -87,22 +87,29 @@ export async function readVarint(
 
 export async function readIpnsMultihash(
   bs: ByteStream<Stream>,
+  log: Logger,
   options: AbortOptions = {},
 ): Promise<IpnsMultihash> {
-  // IPNS keys are identity multihashes: <code 0x00><length><digest>
-  const code = await readVarint(bs, options);
-  if (code !== CODEC_IDENTITY) {
-    throw new Error("Expected identity multihash");
+  try {
+    // IPNS keys are identity multihashes: <code 0x00><length><digest>
+    const code = await readVarint(bs, options);
+    if (code !== CODEC_IDENTITY) {
+      throw new Error("Expected identity multihash");
+    }
+
+    const length = await readVarint(bs, options);
+    if (length > MAX_IPNS_KEY_BYTES) {
+      throw new Error("IPNS key exceeds max byte length");
+    }
+
+    const digest = await bs.read({ bytes: length, signal: options.signal });
+    const name = Digest.create(CODEC_IDENTITY, digest.subarray());
+    log("read ipns multihash %t", name.bytes);
+    return name;
+  } catch (e) {
+    log.error("failed while reading ipns key from stream");
+    throw e;
   }
-
-  const length = await readVarint(bs, options);
-  if (length > MAX_IPNS_KEY_BYTES) {
-    throw new Error("IPNS key exceeds max byte length");
-  }
-
-  const digest = await bs.read({ bytes: length, signal: options.signal });
-
-  return Digest.create(CODEC_IDENTITY, digest.subarray());
 }
 
 export async function writeChallengeNonce(
@@ -128,22 +135,31 @@ export async function readChallengeResponse(
 export async function readIpnsRecord(
   bs: ByteStream<Stream>,
   ipnsMultihash: IpnsMultihash,
+  log: Logger,
   options: AbortOptions = {},
 ): Promise<IPNSRecord> {
-  const recordLength = await readVarint(bs, options);
-  if (recordLength > MAX_IPNS_RECORD_SIZE) {
-    throw new Error("IPNS record exceeds max size");
+  try {
+    const recordLength = await readVarint(bs, options);
+    if (recordLength > MAX_IPNS_RECORD_SIZE) {
+      throw new Error("IPNS record exceeds max size");
+    }
+
+    const marshalledRecord = (await bs
+      .read({ bytes: recordLength, signal: options.signal }))
+      .subarray();
+
+    await ipnsValidator(
+      multihashToIPNSRoutingKey(ipnsMultihash),
+      marshalledRecord,
+    );
+
+    const record = unmarshalIPNSRecord(marshalledRecord);
+    log("read ipns record with value %s", record.value);
+    return record;
+  } catch (e) {
+    log.error("failed while reading ipns record from stream");
+    throw e;
   }
-
-  const marshalledRecord =
-    (await bs.read({ bytes: recordLength, signal: options.signal })).subarray();
-
-  await ipnsValidator(
-    multihashToIPNSRoutingKey(ipnsMultihash),
-    marshalledRecord,
-  );
-
-  return unmarshalIPNSRecord(marshalledRecord);
 }
 
 export interface ReadCarFileOptions extends AbortOptions {
@@ -158,6 +174,7 @@ export async function readCarFile(
   bs: ByteStream<Stream>,
   importer: Pick<Car, "import">,
   expectedRoot: UnixFsCID,
+  log: Logger,
   options: ReadCarFileOptions = {},
 ): Promise<void> {
   const maxByteLength = options.maxByteLength ?? DEFAULT_MAX_CAR_BYTES;
@@ -234,8 +251,15 @@ export async function readCarFile(
     }
   };
 
-  // the write side should be closed after import completes
-  await importer.import({ blocks }, options);
+  try {
+    log("importing car stream");
+    // the write side should be closed after import completes
+    await importer.import({ blocks }, options);
+    log("finished importing car stream");
+  } catch (e) {
+    log.error("failed while reading car stream");
+    throw e;
+  }
 }
 
 export interface Allow {
@@ -353,54 +377,6 @@ export async function authenticateDialer(
   return dialerLibp2pKey;
 }
 
-async function readKey(
-  bs: ByteStream<Stream>,
-  log: Logger,
-  signal: AbortSignal,
-): Promise<IpnsMultihash> {
-  try {
-    const name = await readIpnsMultihash(bs, { signal });
-    log("read ipns multihash %t", name.bytes);
-    return name;
-  } catch (e) {
-    log.error("failed while reading ipns key from stream");
-    throw e;
-  }
-}
-
-async function readRecord(
-  bs: ByteStream<Stream>,
-  name: IpnsMultihash,
-  log: Logger,
-  signal: AbortSignal,
-): Promise<IPNSRecord> {
-  try {
-    const record = await readIpnsRecord(bs, name, { signal });
-    log("read ipns record with value %s", record.value);
-    return record;
-  } catch (e) {
-    log.error("failed while reading ipns record from stream");
-    throw e;
-  }
-}
-
-async function importCar(
-  bs: ByteStream<Stream>,
-  importer: Pick<Car, "import">,
-  value: UnixFsCID,
-  log: Logger,
-  options: ReadCarFileOptions,
-): Promise<void> {
-  try {
-    log("importing car stream");
-    await readCarFile(bs, importer, value, options);
-    log("finished importing car stream");
-  } catch (e) {
-    log.error("failed while reading car stream");
-    throw e;
-  }
-}
-
 export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
@@ -411,16 +387,17 @@ export const createZzzyncHandler =
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
     const log = l.newScope(stream.id);
-    const { signal, clear } = streamSignal(stream, {
-      idleTimeoutMs: options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
-    });
+    const { signal, clear } = streamSignal(
+      stream,
+      options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
+    );
 
     try {
       log("new stream from %s", connection.remotePeer);
 
       const bs = byteStream(stream);
 
-      const name = await readKey(bs, log, signal);
+      const name = await readIpnsMultihash(bs, log, { signal });
       const pinner = await authenticateDialer(
         bs,
         handlerPeerId,
@@ -429,7 +406,7 @@ export const createZzzyncHandler =
         log,
         signal,
       );
-      const record = await readRecord(bs, name, log, signal);
+      const record = await readIpnsRecord(bs, name, log, { signal });
 
       if (!(await allow.record(name, record, { signal }))) {
         const e = new Error("ipns record not allowed");
@@ -449,7 +426,7 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      await importCar(bs, importer, value, log, { ...options, signal });
+      await readCarFile(bs, importer, value, log, { ...options, signal });
 
       await onReceive({ name, record, pinner }, { signal });
       log("handed off received record");

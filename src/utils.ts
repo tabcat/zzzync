@@ -124,7 +124,7 @@ export interface DeadlineSignal {
  * and detach the combined signal.
  */
 export function deadlineSignal(
-  signal: AbortSignal,
+  signal: AbortSignal | undefined,
   timeoutMs: number,
 ): DeadlineSignal {
   const controller = new AbortController();
@@ -143,7 +143,7 @@ export function deadlineSignal(
 }
 
 export interface DeadlineOptions {
-  signal: AbortSignal;
+  signal?: AbortSignal;
   timeoutMs: number;
   log: Logger;
 }
@@ -172,25 +172,24 @@ export async function withDeadline<T>(
 }
 
 export interface StreamSignal {
-  /** Aborts on idle timeout, stream error-close, or `options.signal`. */
+  /** Aborts on idle timeout or stream error-close. */
   signal: AbortSignal;
-  /** Detach listeners and clear the combined signal; call in `finally`. */
+  /** Detach listeners and cancel the timer; call in `finally`. */
   clear: () => void;
 }
 
 /**
- * Tie an AbortSignal to a stream's lifetime: it aborts if the stream closes with
- * an error and follows `options.signal`. When `idleTimeoutMs` is set it also
- * aborts if no `message` (incoming bytes) arrives for that long; the idle timer
- * resets on each `message` and stops once the remote closes its write side
- * (`remoteCloseWrite`), so processing the already-buffered tail is not bounded by
- * it. The idle listeners only manage the timer, never reading or consuming data,
- * so they run alongside the byte stream's own handlers. Always call `clear()` in
- * a `finally`.
+ * Tie an AbortSignal to a handler stream's lifetime: it aborts if the stream
+ * closes with an error, or if no `message` (incoming bytes) arrives for
+ * `idleTimeoutMs`. The idle timer resets on each `message` and stops once the
+ * remote closes its write side (`remoteCloseWrite`), so processing the
+ * already-buffered tail is not bounded by it. The listeners only manage the
+ * timer, never reading or consuming data, so they run alongside the byte
+ * stream's own handlers. Always call `clear()` in a `finally`.
  */
 export function streamSignal(
   stream: Stream,
-  options: { idleTimeoutMs?: number; signal?: AbortSignal; } = {},
+  idleTimeoutMs: number,
 ): StreamSignal {
   const controller = new AbortController();
   const onClose: EventHandler<StreamCloseEvent> = (event) => {
@@ -198,50 +197,39 @@ export function streamSignal(
       controller.abort();
     }
   };
-  stream.addEventListener("close", onClose);
 
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let onMessage: (() => void) | undefined;
-  let onRemoteCloseWrite: (() => void) | undefined;
-  const { idleTimeoutMs } = options;
-  if (idleTimeoutMs != null) {
-    const resetIdle = (): void => {
-      if (timer != null) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(
-        () => controller.abort(new Error("stream idle timeout")),
-        idleTimeoutMs,
-      );
-    };
-    onMessage = resetIdle;
-    onRemoteCloseWrite = (): void => {
-      if (timer != null) {
-        clearTimeout(timer);
-        timer = undefined;
-      }
-    };
-    stream.addEventListener("message", onMessage);
-    stream.addEventListener("remoteCloseWrite", onRemoteCloseWrite);
-    resetIdle();
-  }
+  const resetIdle = (): void => {
+    if (timer != null) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(
+      () => controller.abort(new Error("stream idle timeout")),
+      idleTimeoutMs,
+    );
+  };
+  const onMessage = resetIdle;
+  const onRemoteCloseWrite = (): void => {
+    if (timer != null) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+  };
 
-  const signal = anySignal([controller.signal, options.signal]);
+  stream.addEventListener("close", onClose);
+  stream.addEventListener("message", onMessage);
+  stream.addEventListener("remoteCloseWrite", onRemoteCloseWrite);
+  resetIdle();
 
   return {
-    signal,
+    signal: controller.signal,
     clear: () => {
       if (timer != null) {
         clearTimeout(timer);
       }
-      signal.clear();
       stream.removeEventListener("close", onClose);
-      if (onMessage != null) {
-        stream.removeEventListener("message", onMessage);
-      }
-      if (onRemoteCloseWrite != null) {
-        stream.removeEventListener("remoteCloseWrite", onRemoteCloseWrite);
-      }
+      stream.removeEventListener("message", onMessage);
+      stream.removeEventListener("remoteCloseWrite", onRemoteCloseWrite);
     },
   };
 }
