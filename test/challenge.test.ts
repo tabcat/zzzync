@@ -1,7 +1,12 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildChallenge, createSign, generateNonce } from "../src/challenge.ts";
+import {
+  buildChallenge,
+  createSign,
+  generateNonce,
+  verifyChallenge,
+} from "../src/challenge.ts";
 import type { SupportedPrivateKey } from "../src/challenge.ts";
 import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
 
@@ -74,7 +79,7 @@ describe("challenge", () => {
       expect(await sk.publicKey.verify(challenge, sig)).toBe(true);
     });
 
-    it("produces a compact 64-byte signature for secp256k1", async () => {
+    it("produces a compact 64-byte secp256k1 signature that verifies", async () => {
       const secp = (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
       const peerId = peerIdFromPrivateKey(secp);
       const ipnsMh = publicKeyAsIpnsMultihash(secp.publicKey)!;
@@ -89,6 +94,8 @@ describe("challenge", () => {
 
       // DER-encoded secp256k1 sigs are variable-length; compact is always 64
       expect(sig.length).toBe(64);
+      // verifyChallenge converts compact -> DER before verifying
+      expect(await verifyChallenge(secp.publicKey, challenge, sig)).toBe(true);
     });
 
     it("a signature from a different key does not verify", async () => {
@@ -105,6 +112,37 @@ describe("challenge", () => {
       const sig = await createSign(other)(challenge);
 
       expect(await sk.publicKey.verify(challenge, sig)).toBe(false);
+    });
+  });
+
+  describe("verifyChallenge", () => {
+    it("verifies an Ed25519 signature", async () => {
+      const peerId = peerIdFromPrivateKey(sk);
+      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const challenge = buildChallenge(
+        peerId,
+        ipnsMh,
+        generateNonce(),
+        generateNonce(),
+      );
+      const sig = await createSign(sk)(challenge);
+
+      expect(await verifyChallenge(sk.publicKey, challenge, sig)).toBe(true);
+    });
+
+    it("rejects a signature from a different key", async () => {
+      const other = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
+      const peerId = peerIdFromPrivateKey(sk);
+      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const challenge = buildChallenge(
+        peerId,
+        ipnsMh,
+        generateNonce(),
+        generateNonce(),
+      );
+      const sig = await createSign(other)(challenge);
+
+      expect(await verifyChallenge(sk.publicKey, challenge, sig)).toBe(false);
     });
   });
 });

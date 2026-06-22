@@ -1,3 +1,4 @@
+import * as dagCbor from "@ipld/dag-cbor";
 import * as dagPb from "@ipld/dag-pb";
 import type {
   AbortOptions,
@@ -13,6 +14,7 @@ import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
 import {
+  CODEC_DAG_CBOR,
   CODEC_DAG_PB,
   CODEC_RAW,
   type CODEC_SHA2_256,
@@ -21,10 +23,16 @@ import {
 import type { IpnsMultihash, UnixFsCID } from "./interface.ts";
 
 export function parsedRecordValue(value: string): UnixFsCID | null {
+  if (!value.startsWith(IPFS_PREFIX)) {
+    return null;
+  }
   try {
     const cid = CID.parse(value.substring(IPFS_PREFIX.length));
     getHasher(cid.multihash.code);
-    if (cid.code === CODEC_DAG_PB || cid.code === CODEC_RAW) {
+    if (
+      cid.code === CODEC_DAG_PB || cid.code === CODEC_RAW || cid
+          .code === CODEC_DAG_CBOR
+    ) {
       return cid as UnixFsCID;
     }
   } catch {}
@@ -35,8 +43,12 @@ export function getCodec(code: number): BlockCodec<number, unknown> {
   switch (code) {
     case dagPb.code:
       return dagPb;
-    default:
+    case dagCbor.code:
+      return dagCbor;
+    case raw.code:
       return raw;
+    default:
+      throw new Error("Unsupported codec.");
   }
 }
 

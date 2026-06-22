@@ -8,14 +8,13 @@ import {
 } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { ByteStream, byteStream, Filter } from "@libp2p/utils";
-import { IPNSPublishResult, IPNSRecord } from "@tabcat/helia-ipns";
-import { marshalIPNSRecord } from "ipns";
+import { IPNSRecord, marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, Sign } from "./challenge.ts";
 import { ZZZYNC, ZZZYNC_PUSH_PROTOCOL_ID } from "./constants.ts";
-import { IpnsMultihash } from "./interface.ts";
+import { IpnsMultihash, PushInput } from "./interface.ts";
 import {
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
@@ -143,7 +142,7 @@ export async function zzzync(
   stream: Stream,
   handlerPeerId: PeerId,
   exporter: Pick<Car, "export">,
-  result: IPNSPublishResult,
+  result: PushInput,
   sign: Sign,
   options: AbortOptions = {},
 ): Promise<void> {
@@ -219,7 +218,7 @@ export async function dialZzzync(
   libp2p: Pick<Libp2p, "dialProtocol">,
   peerId: PeerId,
   exporter: Pick<Car, "export">,
-  result: IPNSPublishResult,
+  result: PushInput,
   sign: Sign,
   options: AbortOptions = {},
 ): Promise<void> {

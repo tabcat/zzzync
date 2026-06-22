@@ -8,7 +8,7 @@ import { createSign } from "../src/challenge.ts";
 import type { Sign, SupportedPrivateKey } from "../src/challenge.ts";
 import { completeChallenge, writeIpnsMultihash } from "../src/dialer.ts";
 import { authenticateDialer, readIpnsMultihash } from "../src/handler.ts";
-import type { Allow, CreateHandlerOptions } from "../src/handler.ts";
+import type { Allow } from "../src/handler.ts";
 import type { IpnsMultihash, Libp2pKey } from "../src/interface.ts";
 import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
 
@@ -40,9 +40,11 @@ async function runDialer(
 
 // read the key, then authenticate - authenticateDialer no longer reads the
 // multihash itself
+const allowAll: Allow = { multihash: () => true, record: () => true };
+
 async function runHandler(
   inbound: Stream,
-  options: CreateHandlerOptions,
+  allow: Allow,
   signal: AbortSignal,
 ): Promise<{ dialerIpns: IpnsMultihash; dialerLibp2pKey: Libp2pKey; }> {
   const bs = byteStream(inbound);
@@ -51,7 +53,7 @@ async function runHandler(
     bs,
     handlerPeerId,
     dialerIpns,
-    options,
+    allow,
     log,
     signal,
   );
@@ -65,7 +67,7 @@ describe("handshake", () => {
 
     const [, auth] = await Promise.all([
       runDialer(outbound, createSign(dialerKey), signal),
-      runHandler(inbound, {}, signal),
+      runHandler(inbound, allowAll, signal),
     ]);
 
     expect(auth.dialerIpns.bytes).toEqual(dialerIpns.bytes);
@@ -80,7 +82,7 @@ describe("handshake", () => {
     await expect(
       Promise.all([
         runDialer(outbound, createSign(wrongKey), signal),
-        runHandler(inbound, {}, signal),
+        runHandler(inbound, allowAll, signal),
       ]),
     )
       .rejects
@@ -98,11 +100,48 @@ describe("handshake", () => {
       () => {},
     );
 
-    await expect(runHandler(inbound, { allow }, signal)).rejects.toThrow(
+    await expect(runHandler(inbound, allow, signal)).rejects.toThrow(
       "ipns key not allowed",
     );
 
     outbound.abort(new Error("test done"));
     await dialer;
+  });
+
+  it("authenticates a secp256k1 dialer", async () => {
+    const secpKey = (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
+    const secpIpns = publicKeyAsIpnsMultihash(secpKey.publicKey);
+    if (secpIpns == null) throw new Error("expected ipns multihash");
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(5000);
+
+    const [, key] = await Promise.all([
+      (async () => {
+        const bs = byteStream(outbound);
+        await writeIpnsMultihash(bs, secpIpns, { signal });
+        await completeChallenge(
+          bs,
+          handlerPeerId,
+          secpIpns,
+          createSign(secpKey),
+          log,
+          signal,
+        );
+      })(),
+      (async () => {
+        const bs = byteStream(inbound);
+        const ipns = await readIpnsMultihash(bs, { signal });
+        return authenticateDialer(
+          bs,
+          handlerPeerId,
+          ipns,
+          allowAll,
+          log,
+          signal,
+        );
+      })(),
+    ]);
+
+    expect(key.equals(secpKey.publicKey.toCID())).toBe(true);
   });
 });

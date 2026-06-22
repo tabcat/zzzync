@@ -1,3 +1,4 @@
+import * as dagCbor from "@ipld/dag-cbor";
 import * as dagPb from "@ipld/dag-pb";
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import { CID } from "multiformats/cid";
@@ -43,10 +44,17 @@ describe("parsedRecordValue", () => {
     expect(parsedRecordValue("not-a-cid")).toBeNull();
   });
 
-  it("returns null for an unsupported codec (dag-cbor)", async () => {
+  it("returns a CID for a valid dag-cbor value", async () => {
     const digest = await sha256.digest(new Uint8Array(10));
     const cborCid = CID.create(1, 0x71, digest);
-    expect(parsedRecordValue(IPFS_PREFIX + cborCid.toString())).toBeNull();
+    const cid = parsedRecordValue(IPFS_PREFIX + cborCid.toString());
+    expect(cid).not.toBeNull();
+    expect(cid!.code).toBe(0x71);
+  });
+
+  it("returns null for a value without the /ipfs/ prefix", () => {
+    const cidStr = dagPbCidStr.slice(IPFS_PREFIX.length);
+    expect(parsedRecordValue("/ipns/" + cidStr)).toBeNull();
   });
 });
 
@@ -55,9 +63,16 @@ describe("getCodec", () => {
     expect(getCodec(CODEC_DAG_PB)).toBe(dagPb);
   });
 
-  it("returns the raw codec for any other code", () => {
+  it("returns the dag-cbor codec for code 0x71", () => {
+    expect(getCodec(0x71)).toBe(dagCbor);
+  });
+
+  it("returns the raw codec for code 0x55", () => {
     expect(getCodec(0x55)).toBe(raw);
-    expect(getCodec(0x71)).toBe(raw);
+  });
+
+  it("throws for an unsupported codec", () => {
+    expect(() => getCodec(0x99)).toThrow("Unsupported codec.");
   });
 });
 

@@ -19,10 +19,15 @@
  * const handler = createZzzyncHandler(
  *   helia.libp2p.peerId,
  *   car(helia),
+ *   {
+ *     // gate which keys may push, and which records to accept
+ *     multihash: (key) => myAllowList.has(key.toCID().toString()),
+ *     record: (name, record) => true,
+ *   },
  *   async ({ name, record, pinner }) => {
  *     // record is signature-verified and its CAR fully validated;
  *     // pin the content, persist the record, then serve and announce it
- *   }
+ *   },
  * )
  *
  * const unregister = await registerZzzyncHandler(helia.libp2p, handler)
@@ -38,14 +43,14 @@
  *
  * // publish locally, then push the signed record + content to a handler peer
  * const name = ipns(helia)
- * const published = await name.publish(keyName, cid)
+ * const { record, publicKey } = await name.publish(keyName, cid)
  *
  * await dialZzzync(
  *   helia.libp2p,
  *   handlerPeerId,
  *   car(helia),
- *   published,
- *   createSign(privateKey)
+ *   { record, publicKey },
+ *   createSign(privateKey),
  * )
  * ```
  */

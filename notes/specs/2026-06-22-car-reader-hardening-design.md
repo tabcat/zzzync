@@ -71,27 +71,13 @@ special case.
 - `parsedRecordValue`: require the value to start with `IPFS_PREFIX` before
   slicing; accept root codec dag-pb, raw, or dag-cbor; sha256 hasher only.
 
-### 3. Timeouts (configurable)
+### 3. Timeouts (DEFERRED)
 
-Idle read timeout (handler + dialer): a session AbortSignal that fires after
-`idleTimeoutMs` with no read progress, reset after every successful `bs.read`.
-Implemented as a wrapper that resets the timer on each read; the existing reads
-already pass the session signal, plus we fix the two reads that drop it
-(`readByte` first byte, `readVarintPrefixed` payload).
-
-Flat dialer ack timeout: the dialer's wait for the handler's `remoteCloseWrite`
-cannot use idle detection (handler writes nothing back), so it uses a flat
-`ackTimeoutMs` deadline. The handler closes its write side promptly once
-`onReceive` has durably recorded the work.
-
-Defaults: `idleTimeoutMs = 10_000`, `ackTimeoutMs = 15_000`. All overridable via
-options.
-
-`eventPromise(target, type, signal)` helper (utils.ts) encapsulates the
-listener bookkeeping (resolve on event, reject on abort, both listeners removed
-on settle via an AbortController token). Replaces the hand-rolled promise in the
-dialer's `remoteCloseWrite` wait, which currently leaks an abort listener and
-rejects with `undefined`.
+Idle/read timeouts, the dialer's wait-for-close timeout, and the listener leak in
+that wait are deferred to a separate brainstorm and are NOT implemented in this
+pass. The dialer's `remoteCloseWrite` wait is left as-is for now. (A receive-based
+idle fits the handler but not the dialer's upload phase, which needs more
+thought.)
 
 ### 4. secp256k1 verify (challenge.ts / handler.ts)
 

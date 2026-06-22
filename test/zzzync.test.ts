@@ -4,7 +4,6 @@ import { generateKeyPair } from "@libp2p/crypto/keys";
 import type { Connection, PeerId } from "@libp2p/interface";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { streamPair } from "@libp2p/utils";
-import type { IPNSPublishResult } from "@tabcat/helia-ipns";
 import { createHelia } from "helia";
 import type { Helia } from "helia";
 import { createIPNSRecord } from "ipns";
@@ -24,13 +23,14 @@ import type { SupportedPrivateKey } from "../src/challenge.ts";
 import { zzzync } from "../src/dialer.ts";
 import { createZzzyncHandler } from "../src/handler.ts";
 import type { Allow, OnReceive } from "../src/handler.ts";
+import type { PushInput } from "../src/interface.ts";
 
 // shared fixtures
 let helia: Helia;
 let dialerKey: SupportedPrivateKey;
 let handlerPeerId: PeerId;
 let contentCid: CID;
-let result: IPNSPublishResult;
+let result: PushInput;
 
 beforeAll(async () => {
   helia = await createHelia({ start: false });
@@ -72,12 +72,14 @@ afterEach(() => {
   sinon.restore();
 });
 
-function makeHandler(options?: { allow?: Allow; }) {
+const allowAll: Allow = { multihash: () => true, record: () => true };
+
+function makeHandler(allow: Allow = allowAll) {
   return createZzzyncHandler(
     handlerPeerId,
     mockImporter,
+    allow,
     onReceive as unknown as OnReceive,
-    options,
   );
 }
 
@@ -122,7 +124,7 @@ describe("zzzync protocol", () => {
         result,
         createSign(dialerKey),
       ),
-      makeHandler({ allow })(inbound, connection),
+      makeHandler(allow)(inbound, connection),
     ]);
 
     const stub = allow.multihash as sinon.SinonStub;
@@ -143,7 +145,7 @@ describe("zzzync protocol", () => {
           result,
           createSign(dialerKey),
         ),
-        makeHandler({ allow })(inbound, connection),
+        makeHandler(allow)(inbound, connection),
       ]),
     )
       .rejects
@@ -187,7 +189,7 @@ describe("zzzync protocol", () => {
         result,
         createSign(dialerKey),
       ),
-      makeHandler({ allow })(inbound, connection),
+      makeHandler(allow)(inbound, connection),
     ]);
 
     expect(record.calledOnce).toBe(true);
@@ -210,7 +212,7 @@ describe("zzzync protocol", () => {
           result,
           createSign(dialerKey),
         ),
-        makeHandler({ allow })(inbound, connection),
+        makeHandler(allow)(inbound, connection),
       ]),
     )
       .rejects

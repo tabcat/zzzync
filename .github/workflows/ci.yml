@@ -28,7 +28,7 @@ jobs:
     - name: Use Node
       uses: actions/setup-node@v3
       with:
-        node-version: 20
+        node-version: 24
         cache: 'pnpm'
         cache-dependency-path: pnpm-lock.yaml
     - run: pnpm install

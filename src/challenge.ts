@@ -32,6 +32,22 @@ export const createSign =
     }
   };
 
+export async function verifyChallenge(
+  publicKey: SupportedPrivateKey["publicKey"],
+  challenge: Uint8Array | Uint8ArrayList,
+  sig: Uint8Array,
+  options: AbortOptions = {},
+): Promise<boolean> {
+  if (publicKey.type === "secp256k1") {
+    // createSign emits compact secp256k1 sigs for a uniform 64-byte wire width;
+    // @libp2p/crypto verify expects DER, so convert back before verifying.
+    const der = secp.Signature.fromBytes(sig, "compact").toBytes("der");
+    return publicKey.verify(challenge, der, options);
+  }
+
+  return publicKey.verify(challenge, sig, options);
+}
+
 export function buildChallenge(
   handlerPeerId: PeerId,
   dialerIpns: IpnsMultihash,

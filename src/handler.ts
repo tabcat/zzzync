@@ -19,19 +19,26 @@ import {
   unmarshalIPNSRecord,
 } from "ipns";
 import { ipnsValidator } from "ipns/validator";
+import { base32 } from "multiformats/bases/base32";
 import { create } from "multiformats/block";
+import type { CID } from "multiformats/cid";
 import * as Digest from "multiformats/hashes/digest";
 import * as varint from "uint8-varint";
-import { Uint8ArrayList } from "uint8arraylist";
 import {
   buildChallenge,
   generateNonce,
   SupportedPrivateKey,
+  verifyChallenge,
 } from "./challenge.ts";
 import {
+  CODEC_DAG_CBOR,
   CODEC_DAG_PB,
   CODEC_IDENTITY,
-  CODEC_SHA2_256,
+  DEFAULT_MAX_BLOCK_COUNT,
+  DEFAULT_MAX_CAR_BYTES,
+  MAX_BLOCK_BYTES,
+  MAX_IPNS_KEY_BYTES,
+  MAX_IPNS_RECORD_SIZE,
   ZZZYNC,
   ZZZYNC_PUSH_PROTOCOL_ID,
 } from "./constants.ts";
@@ -61,7 +68,7 @@ export async function readVarint(
   bs: ByteStream<Stream>,
   options: AbortOptions = {},
 ): Promise<number> {
-  let byte = await readByte(bs);
+  let byte = await readByte(bs, options);
   const varintBytes: number[] = [byte];
 
   while (byte & 0x80) {
@@ -77,44 +84,24 @@ export async function readVarint(
   return varint.decode(new Uint8Array(varintBytes));
 }
 
-export type VarintGuard<T extends number = number> = (
-  n: number,
-) => asserts n is T;
-
-export async function readVarintPrefixed<T extends number>(
-  bs: ByteStream<Stream>,
-  varintGuard: VarintGuard<T>,
-  options: AbortOptions = {},
-): Promise<[T, Uint8ArrayList]> {
-  const n = await readVarint(bs, options);
-
-  varintGuard(n);
-
-  return [n as T, await bs.read({ bytes: n })];
-}
-
-const validateIpnsCode: VarintGuard<
-  typeof CODEC_IDENTITY | typeof CODEC_SHA2_256
-> = (n: number) => {
-  if (n !== CODEC_IDENTITY && n !== CODEC_SHA2_256) {
-    throw new Error("UNSUPPORTED_IPNS_KEY");
-  }
-};
-
 export async function readIpnsMultihash(
   bs: ByteStream<Stream>,
   options: AbortOptions = {},
 ): Promise<IpnsMultihash> {
-  let [code, digest] = await readVarintPrefixed(bs, validateIpnsCode, options);
-
-  if (code === CODEC_IDENTITY) {
-    const [, _digest] = await readVarintPrefixed(bs, () => {}, options);
-    digest = _digest;
-  } else {
-    throw new Error("Expected identity multihash.");
+  // IPNS keys are identity multihashes: <code 0x00><length><digest>
+  const code = await readVarint(bs, options);
+  if (code !== CODEC_IDENTITY) {
+    throw new Error("Expected identity multihash");
   }
 
-  return Digest.create(code, digest.subarray());
+  const length = await readVarint(bs, options);
+  if (length > MAX_IPNS_KEY_BYTES) {
+    throw new Error("IPNS key exceeds max byte length");
+  }
+
+  const digest = await bs.read({ bytes: length, signal: options.signal });
+
+  return Digest.create(CODEC_IDENTITY, digest.subarray());
 }
 
 export async function writeChallengeNonce(
@@ -143,6 +130,10 @@ export async function readIpnsRecord(
   options: AbortOptions = {},
 ): Promise<IPNSRecord> {
   const recordLength = await readVarint(bs, options);
+  if (recordLength > MAX_IPNS_RECORD_SIZE) {
+    throw new Error("IPNS record exceeds max size");
+  }
+
   const marshalledRecord =
     (await bs.read({ bytes: recordLength, signal: options.signal })).subarray();
 
@@ -156,7 +147,11 @@ export async function readIpnsRecord(
 
 export interface ReadCarFileOptions extends AbortOptions {
   maxByteLength?: number;
+  maxBlockCount?: number;
 }
+
+/** Canonical (v1, base32) CID key so codec differences are preserved. */
+const cidKey = (cid: CID): string => cid.toV1().toString(base32);
 
 export async function readCarFile(
   bs: ByteStream<Stream>,
@@ -164,12 +159,14 @@ export async function readCarFile(
   expectedRoot: UnixFsCID,
   options: ReadCarFileOptions = {},
 ): Promise<void> {
+  const maxByteLength = options.maxByteLength ?? DEFAULT_MAX_CAR_BYTES;
+  const maxBlockCount = options.maxBlockCount ?? DEFAULT_MAX_BLOCK_COUNT;
+
   const blocks = async function*() {
-    const maxByteLength = options.maxByteLength ?? Infinity;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
         while (true) {
-          const byteList = await bs.read();
+          const byteList = await bs.read({ signal: options.signal });
 
           if (byteList == null) break;
 
@@ -184,33 +181,55 @@ export async function readCarFile(
       throw new Error("ERR_UNEXPECTED_ROOT");
     }
 
-    const references = new Set<string>([root.toString()]);
+    // Deduped CAR: `wanted` holds CIDs referenced but not yet received, `received`
+    // holds CIDs already imported. A block must already be wanted (else it is
+    // unreferenced or a duplicate); after importing it, its links become wanted
+    // unless already received/wanted. At the end `wanted` must be empty, which
+    // proves the full DAG was delivered. Keying by canonical CID preserves codec,
+    // so a dag-pb link cannot be satisfied by a raw block of the same bytes.
+    const wanted = new Set<string>([cidKey(root)]);
+    const received = new Set<string>();
     let byteLength = 0;
-    for await (const { cid, bytes } of car) {
-      byteLength += bytes.byteLength;
+    let blockCount = 0;
 
+    for await (const { cid, bytes } of car) {
+      if (bytes.byteLength > MAX_BLOCK_BYTES) {
+        throw new Error("block exceeded max byte length");
+      }
+      byteLength += bytes.byteLength;
       if (byteLength > maxByteLength) {
         throw new Error("CAR file exceeded max byte length");
       }
+      if (++blockCount > maxBlockCount) {
+        throw new Error("CAR file exceeded max block count");
+      }
 
-      const cidstring = cid.toString();
-      if (!references.has(cidstring)) {
+      const key = cidKey(cid);
+      if (!wanted.has(key)) {
         throw new Error("CID has not been referenced yet");
       }
-      references.delete(cidstring);
 
-      // getCodec will return raw codec if no codec found
       const codec = getCodec(cid.code);
       const hasher = getHasher(cid.multihash.code);
       const block = await create({ bytes, cid, codec, hasher });
 
-      if (codec.code === CODEC_DAG_PB) {
-        for (const [_, link] of block.links()) {
-          references.add(link.toString());
+      wanted.delete(key);
+      received.add(key);
+
+      if (codec.code === CODEC_DAG_PB || codec.code === CODEC_DAG_CBOR) {
+        for (const [, link] of block.links()) {
+          const linkKey = cidKey(link);
+          if (!received.has(linkKey) && !wanted.has(linkKey)) {
+            wanted.add(linkKey);
+          }
         }
       }
 
       yield block;
+    }
+
+    if (wanted.size > 0) {
+      throw new Error("CAR incomplete: referenced blocks not delivered");
     }
   };
 
@@ -227,7 +246,6 @@ export interface Allow {
   /**
    * Whether to accept `record` for `name`. The authoritative downgrade guard:
    * reject (return false) to abort the stream before the CAR is imported.
-   * ice-queen wires this to its registry.
    */
   record(
     name: IpnsMultihash,
@@ -236,9 +254,7 @@ export interface Allow {
   ): boolean | Promise<boolean>;
 }
 
-export interface CreateHandlerOptions extends ReadCarFileOptions {
-  allow?: Allow;
-}
+export interface CreateHandlerOptions extends ReadCarFileOptions {}
 
 /**
  * A record received and validated by the handler, ready for the caller to pin
@@ -276,7 +292,7 @@ export async function authenticateDialer(
   bs: ByteStream<Stream>,
   handlerPeerId: PeerId,
   dialerIpns: IpnsMultihash,
-  options: CreateHandlerOptions,
+  allow: Allow,
   log: Logger,
   signal: AbortSignal,
 ): Promise<Libp2pKey> {
@@ -291,7 +307,7 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
-  if (!(await options.allow?.multihash(dialerPublicKey, { signal }) ?? true)) {
+  if (!(await allow.multihash(dialerPublicKey, { signal }))) {
     const error = new Error("ipns key not allowed");
     log.error(error.message);
     throw error;
@@ -317,7 +333,7 @@ export async function authenticateDialer(
       handlerNonce,
       dialerNonce,
     );
-    valid = await dialerPublicKey.verify(challenge, sig, { signal });
+    valid = await verifyChallenge(dialerPublicKey, challenge, sig, { signal });
   } catch (e) {
     log.error("failed while validating challenge response");
     throw e;
@@ -337,6 +353,7 @@ export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
     importer: Pick<Car, "import">,
+    allow: Allow,
     onReceive: OnReceive,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
@@ -362,7 +379,7 @@ export const createZzzyncHandler =
         bs,
         handlerPeerId,
         name,
-        options,
+        allow,
         log,
         signal,
       );
@@ -376,7 +393,7 @@ export const createZzzyncHandler =
       }
       log("read ipns record with value %s", record.value);
 
-      if (!(await options.allow?.record(name, record, { signal }) ?? true)) {
+      if (!(await allow.record(name, record, { signal }))) {
         const e = new Error("ipns record not allowed");
         log.error(e.message);
         // abort with the specific reason so the dialer sees it; the outer catch's
@@ -398,7 +415,7 @@ export const createZzzyncHandler =
 
       try {
         log("importing car stream");
-        await readCarFile(bs, importer, value, options);
+        await readCarFile(bs, importer, value, { ...options, signal });
         log("finished importing car stream");
       } catch (e) {
         log.error("failed while reading car stream");
@@ -424,14 +441,18 @@ export const createZzzyncHandler =
 
 /**
  * Register the zzzync push handler on a libp2p node under
- * `ZZZYNC_PUSH_PROTOCOL_ID`. Returns a function that unregisters it.
+ * `ZZZYNC_PUSH_PROTOCOL_ID`. Defaults `maxInboundStreams` to a small value;
+ * pass `options` to override. Returns a function that unregisters it.
  */
 export async function registerZzzyncHandler(
   libp2p: Pick<Libp2p, "handle" | "unhandle">,
   handler: StreamHandler,
   options?: StreamHandlerOptions,
 ): Promise<() => Promise<void>> {
-  await libp2p.handle(ZZZYNC_PUSH_PROTOCOL_ID, handler, options);
+  await libp2p.handle(ZZZYNC_PUSH_PROTOCOL_ID, handler, {
+    maxInboundStreams: 5,
+    ...options,
+  });
 
   return async () => {
     await libp2p.unhandle(ZZZYNC_PUSH_PROTOCOL_ID);
