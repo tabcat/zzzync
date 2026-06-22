@@ -22,7 +22,7 @@ import { createSign } from "../src/challenge.ts";
 import type { SupportedPrivateKey } from "../src/challenge.ts";
 import { zzzync } from "../src/dialer.ts";
 import { createZzzyncHandler } from "../src/handler.ts";
-import type { Allow, OnReceive } from "../src/handler.ts";
+import type { Allow, CreateHandlerOptions, OnReceive } from "../src/handler.ts";
 import type { PushInput } from "../src/interface.ts";
 
 // shared fixtures
@@ -74,12 +74,13 @@ afterEach(() => {
 
 const allowAll: Allow = { multihash: () => true, record: () => true };
 
-function makeHandler(allow: Allow = allowAll) {
+function makeHandler(allow: Allow = allowAll, options?: CreateHandlerOptions) {
   return createZzzyncHandler(
     handlerPeerId,
     mockImporter,
     allow,
     onReceive as unknown as OnReceive,
+    options,
   );
 }
 
@@ -219,5 +220,16 @@ describe("zzzync protocol", () => {
       .toThrow();
 
     expect(onReceive.called).toBe(false);
+  });
+
+  it("aborts a stalled stream after the idle timeout", async () => {
+    const [outbound, inbound] = await streamPair();
+
+    // the dialer sends nothing and never closes its write side, so the handler
+    // never sees a message and its idle timer fires
+    await makeHandler(allowAll, { idleTimeoutMs: 50 })(inbound, connection);
+
+    expect(onReceive.called).toBe(false);
+    outbound.abort(new Error("test done"));
   });
 });

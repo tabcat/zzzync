@@ -1,7 +1,6 @@
 import * as dagCbor from "@ipld/dag-cbor";
 import * as dagPb from "@ipld/dag-pb";
 import type {
-  AbortOptions,
   EventHandler,
   Logger,
   PublicKey,
@@ -113,6 +112,36 @@ export function eventPromise<E extends string>(
   });
 }
 
+export interface DeadlineSignal {
+  signal: AbortSignal;
+  /** Cancel the timer and detach the combined signal; call in `finally`. */
+  clear: () => void;
+}
+
+/**
+ * A signal that aborts when `signal` aborts or after `timeoutMs`. Unlike
+ * `AbortSignal.timeout`, the timer is cancellable: call `clear()` to cancel it
+ * and detach the combined signal.
+ */
+export function deadlineSignal(
+  signal: AbortSignal,
+  timeoutMs: number,
+): DeadlineSignal {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error("deadline exceeded")),
+    timeoutMs,
+  );
+  const combined = anySignal([signal, controller.signal]);
+  return {
+    signal: combined,
+    clear: () => {
+      clearTimeout(timer);
+      combined.clear();
+    },
+  };
+}
+
 export interface DeadlineOptions {
   signal: AbortSignal;
   timeoutMs: number;
@@ -120,9 +149,8 @@ export interface DeadlineOptions {
 }
 
 /**
- * Run `op` under a per-call deadline (the session signal combined with an
- * `AbortSignal.timeout`). Logs `done` on success and `error` on failure, always
- * rethrowing on failure.
+ * Run `op` under a per-call deadline. Logs `done` on success and `error` on
+ * failure, always rethrowing on failure.
  */
 export async function withDeadline<T>(
   op: (deadline: AbortSignal) => Promise<T>,
@@ -130,12 +158,9 @@ export async function withDeadline<T>(
   error: string,
   options: DeadlineOptions,
 ): Promise<T> {
-  const deadline = anySignal([
-    options.signal,
-    AbortSignal.timeout(options.timeoutMs),
-  ]);
+  const deadline = deadlineSignal(options.signal, options.timeoutMs);
   try {
-    const result = await op(deadline);
+    const result = await op(deadline.signal);
     options.log(done);
     return result;
   } catch (e) {
@@ -147,20 +172,25 @@ export async function withDeadline<T>(
 }
 
 export interface StreamSignal {
-  /** Aborts when the stream errors-closes or `options.signal` aborts. */
+  /** Aborts on idle timeout, stream error-close, or `options.signal`. */
   signal: AbortSignal;
-  /** Detach the close listener and clear the combined signal; call in `finally`. */
+  /** Detach listeners and clear the combined signal; call in `finally`. */
   clear: () => void;
 }
 
 /**
  * Tie an AbortSignal to a stream's lifetime: it aborts if the stream closes with
- * an error, and also follows `options.signal`. Both the handler and dialer wrap
- * their stream work in this; always call `clear()` in a `finally`.
+ * an error and follows `options.signal`. When `idleTimeoutMs` is set it also
+ * aborts if no `message` (incoming bytes) arrives for that long; the idle timer
+ * resets on each `message` and stops once the remote closes its write side
+ * (`remoteCloseWrite`), so processing the already-buffered tail is not bounded by
+ * it. The idle listeners only manage the timer, never reading or consuming data,
+ * so they run alongside the byte stream's own handlers. Always call `clear()` in
+ * a `finally`.
  */
 export function streamSignal(
   stream: Stream,
-  options: AbortOptions = {},
+  options: { idleTimeoutMs?: number; signal?: AbortSignal; } = {},
 ): StreamSignal {
   const controller = new AbortController();
   const onClose: EventHandler<StreamCloseEvent> = (event) => {
@@ -169,13 +199,49 @@ export function streamSignal(
     }
   };
   stream.addEventListener("close", onClose);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onMessage: (() => void) | undefined;
+  let onRemoteCloseWrite: (() => void) | undefined;
+  const { idleTimeoutMs } = options;
+  if (idleTimeoutMs != null) {
+    const resetIdle = (): void => {
+      if (timer != null) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(
+        () => controller.abort(new Error("stream idle timeout")),
+        idleTimeoutMs,
+      );
+    };
+    onMessage = resetIdle;
+    onRemoteCloseWrite = (): void => {
+      if (timer != null) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+    };
+    stream.addEventListener("message", onMessage);
+    stream.addEventListener("remoteCloseWrite", onRemoteCloseWrite);
+    resetIdle();
+  }
+
   const signal = anySignal([controller.signal, options.signal]);
 
   return {
     signal,
     clear: () => {
+      if (timer != null) {
+        clearTimeout(timer);
+      }
       signal.clear();
       stream.removeEventListener("close", onClose);
+      if (onMessage != null) {
+        stream.removeEventListener("message", onMessage);
+      }
+      if (onRemoteCloseWrite != null) {
+        stream.removeEventListener("remoteCloseWrite", onRemoteCloseWrite);
+      }
     },
   };
 }

@@ -2,7 +2,6 @@ import { Car, UnixFSExporter } from "@helia/car";
 import { AbortOptions, Libp2p, PeerId, Stream } from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { ByteStream, byteStream, Filter } from "@libp2p/utils";
-import { anySignal } from "any-signal";
 import { IPNSRecord, marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
 import * as varint from "uint8-varint";
@@ -17,6 +16,7 @@ import {
 import { IpnsMultihash, PushInput } from "./interface.ts";
 import {
   DeadlineOptions,
+  deadlineSignal,
   eventPromise,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
@@ -155,12 +155,9 @@ export async function writeCarFile(
     ) {
       // each chunk write gets its own deadline; the gap between chunks (slow
       // blockstore reads) is not bounded
-      const deadline = anySignal([
-        options.signal,
-        AbortSignal.timeout(options.timeoutMs),
-      ]);
+      const deadline = deadlineSignal(options.signal, options.timeoutMs);
       try {
-        await bs.write(data, { signal: deadline });
+        await bs.write(data, { signal: deadline.signal });
       } finally {
         deadline.clear();
       }

@@ -34,6 +34,7 @@ import {
   CODEC_DAG_CBOR,
   CODEC_DAG_PB,
   CODEC_IDENTITY,
+  DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_BLOCK_COUNT,
   DEFAULT_MAX_CAR_BYTES,
   MAX_BLOCK_BYTES,
@@ -254,7 +255,10 @@ export interface Allow {
   ): boolean | Promise<boolean>;
 }
 
-export interface CreateHandlerOptions extends ReadCarFileOptions {}
+export interface CreateHandlerOptions extends ReadCarFileOptions {
+  /** Idle timeout (ms): abort if no bytes arrive for this long while receiving. */
+  idleTimeoutMs?: number;
+}
 
 /**
  * A record received and validated by the handler, ready for the caller to pin
@@ -349,6 +353,54 @@ export async function authenticateDialer(
   return dialerLibp2pKey;
 }
 
+async function readKey(
+  bs: ByteStream<Stream>,
+  log: Logger,
+  signal: AbortSignal,
+): Promise<IpnsMultihash> {
+  try {
+    const name = await readIpnsMultihash(bs, { signal });
+    log("read ipns multihash %t", name.bytes);
+    return name;
+  } catch (e) {
+    log.error("failed while reading ipns key from stream");
+    throw e;
+  }
+}
+
+async function readRecord(
+  bs: ByteStream<Stream>,
+  name: IpnsMultihash,
+  log: Logger,
+  signal: AbortSignal,
+): Promise<IPNSRecord> {
+  try {
+    const record = await readIpnsRecord(bs, name, { signal });
+    log("read ipns record with value %s", record.value);
+    return record;
+  } catch (e) {
+    log.error("failed while reading ipns record from stream");
+    throw e;
+  }
+}
+
+async function importCar(
+  bs: ByteStream<Stream>,
+  importer: Pick<Car, "import">,
+  value: UnixFsCID,
+  log: Logger,
+  options: ReadCarFileOptions,
+): Promise<void> {
+  try {
+    log("importing car stream");
+    await readCarFile(bs, importer, value, options);
+    log("finished importing car stream");
+  } catch (e) {
+    log.error("failed while reading car stream");
+    throw e;
+  }
+}
+
 export const createZzzyncHandler =
   (
     handlerPeerId: PeerId,
@@ -359,22 +411,16 @@ export const createZzzyncHandler =
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
     const log = l.newScope(stream.id);
-    const { signal, clear } = streamSignal(stream);
+    const { signal, clear } = streamSignal(stream, {
+      idleTimeoutMs: options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
+    });
 
     try {
       log("new stream from %s", connection.remotePeer);
 
       const bs = byteStream(stream);
 
-      let name: IpnsMultihash;
-      try {
-        name = await readIpnsMultihash(bs, { signal });
-      } catch (e) {
-        log.error("failed while reading ipns key from stream");
-        throw e;
-      }
-      log("read ipns multihash %t", name.bytes);
-
+      const name = await readKey(bs, log, signal);
       const pinner = await authenticateDialer(
         bs,
         handlerPeerId,
@@ -383,21 +429,13 @@ export const createZzzyncHandler =
         log,
         signal,
       );
-
-      let record: IPNSRecord;
-      try {
-        record = await readIpnsRecord(bs, name, { signal });
-      } catch (e) {
-        log.error("failed while reading ipns record from stream");
-        throw e;
-      }
-      log("read ipns record with value %s", record.value);
+      const record = await readRecord(bs, name, log, signal);
 
       if (!(await allow.record(name, record, { signal }))) {
         const e = new Error("ipns record not allowed");
         log.error(e.message);
-        // abort with the specific reason so the dialer sees it; the outer catch's
-        // abort is then a no-op on the already-aborted stream
+        // abort with the specific reason so the dialer sees it; the outer
+        // catch's abort is then a no-op on the already-aborted stream
         stream.abort(e);
         throw e;
       }
@@ -407,20 +445,11 @@ export const createZzzyncHandler =
         const e = new Error(
           "Failed to parse value. Unsupported codec or hash.",
         );
-        // abort with the specific reason so the dialer sees it; the outer catch's
-        // abort is then a no-op on the already-aborted stream
         stream.abort(e);
         throw e;
       }
 
-      try {
-        log("importing car stream");
-        await readCarFile(bs, importer, value, { ...options, signal });
-        log("finished importing car stream");
-      } catch (e) {
-        log.error("failed while reading car stream");
-        throw e;
-      }
+      await importCar(bs, importer, value, log, { ...options, signal });
 
       await onReceive({ name, record, pinner }, { signal });
       log("handed off received record");
