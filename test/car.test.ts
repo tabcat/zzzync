@@ -156,4 +156,42 @@ describe("readCarFile", () => {
     await expect(runReadCar(car, root.cid, { maxBlockCount: 1 })).rejects
       .toThrow("max block count");
   });
+
+  it("stops feeding the decoder once raw bytes exceed maxByteLength", async () => {
+    // a block under MAX_BLOCK_BYTES but over the configured CAR cap. The point of
+    // the HIGH fix: the budget must cut the source off, not let @ipld/car buffer
+    // the whole declared block before the post-decode caps ever run.
+    const big = await rawBlock(new Uint8Array(1024 * 1024));
+    const root = await dagPbBlock([{ name: "big", cid: big.cid }]);
+    const carBytes = await buildCar([root.cid], [root, big]);
+
+    // feed the CAR in small chunks through a counting source so we can see how
+    // many raw bytes get pulled before readCarFile gives up
+    const chunkSize = 16 * 1024;
+    let off = 0;
+    let pulled = 0;
+    const bs = {
+      read: async () => {
+        if (off >= carBytes.length) return null;
+        const chunk = carBytes.subarray(off, off + chunkSize);
+        off += chunk.length;
+        pulled += chunk.length;
+        return {
+          byteLength: chunk.byteLength,
+          [Symbol.iterator]: () => [chunk][Symbol.iterator](),
+        };
+      },
+    } as unknown as Parameters<typeof readCarFile>[0];
+
+    await expect(
+      readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        maxByteLength: 64 * 1024,
+      }),
+    )
+      .rejects
+      .toThrow("max byte length");
+
+    // with the budget: ~cap + one chunk; without it: the whole ~1MiB CAR
+    expect(pulled).toBeLessThan(128 * 1024);
+  });
 });
