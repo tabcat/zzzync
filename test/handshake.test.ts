@@ -14,6 +14,9 @@ import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
 
 const log = defaultLogger().forComponent("test");
 
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 let handlerPeerId: PeerId;
 let dialerKey: SupportedPrivateKey;
 let dialerIpns: IpnsMultihash;
@@ -168,5 +171,22 @@ describe("handshake", () => {
       .toThrow();
 
     inbound.abort(new Error("test done"));
+  });
+
+  it("resolves at once when the remote already closed its write side", async () => {
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(5000);
+
+    // the handler half-closes before the dialer waits, so the one-shot
+    // remoteCloseWrite fires before awaitHandlerClose attaches its listener
+    await inbound.close();
+    await delay(50);
+
+    // must short-circuit on the already-closed state, not hang to the ack timeout
+    await expect(awaitHandlerClose(outbound, { signal, timeoutMs: 400, log }))
+      .resolves
+      .toBeUndefined();
+
+    outbound.abort(new Error("test done"));
   });
 });
