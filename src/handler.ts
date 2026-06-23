@@ -37,6 +37,7 @@ import {
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_BLOCK_COUNT,
   DEFAULT_MAX_CAR_BYTES,
+  DEFAULT_MAX_STREAM_MS,
   MAX_BLOCK_BYTES,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
@@ -292,6 +293,8 @@ export interface Allow {
 export interface CreateHandlerOptions extends ReadCarFileOptions {
   /** Idle timeout (ms): abort if no bytes arrive for this long while receiving. */
   idleTimeoutMs?: number;
+  /** Total deadline (ms): abort the stream after this wall-clock cap regardless of activity (bounds slow-drip). */
+  maxStreamMs?: number;
 }
 
 /**
@@ -400,6 +403,7 @@ export const createZzzyncHandler =
     const { signal, clear } = streamSignal(
       stream,
       options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
+      options.maxStreamMs ?? DEFAULT_MAX_STREAM_MS,
     );
 
     try {

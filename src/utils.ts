@@ -179,17 +179,20 @@ export interface StreamSignal {
 }
 
 /**
- * Tie an AbortSignal to a handler stream's lifetime: it aborts if the stream
- * closes with an error, or if no `message` (incoming bytes) arrives for
- * `idleTimeoutMs`. The idle timer resets on each `message` and stops once the
- * remote closes its write side (`remoteCloseWrite`), so processing the
- * already-buffered tail is not bounded by it. The listeners only manage the
- * timer, never reading or consuming data, so they run alongside the byte
+ * Tie an AbortSignal to a handler stream's lifetime. It aborts if the stream
+ * closes with an error, if no `message` (incoming bytes) arrives for
+ * `idleTimeoutMs`, or after a hard `maxStreamMs` wall-clock deadline. The idle
+ * timer resets on each `message`; the deadline does not, so a slow-drip dialer
+ * cannot keep resetting the idle timer to hold the stream open. Both timers stop
+ * once the remote closes its write side (`remoteCloseWrite`), so processing the
+ * already-buffered tail is not bounded by either. The listeners only manage the
+ * timers, never reading or consuming data, so they run alongside the byte
  * stream's own handlers. Always call `clear()` in a `finally`.
  */
 export function streamSignal(
   stream: Stream,
   idleTimeoutMs: number,
+  maxStreamMs: number,
 ): StreamSignal {
   const controller = new AbortController();
   const onClose: EventHandler<StreamCloseEvent> = (event) => {
@@ -208,13 +211,27 @@ export function streamSignal(
       idleTimeoutMs,
     );
   };
-  const onMessage = resetIdle;
-  const onRemoteCloseWrite = (): void => {
+
+  // a single wall-clock deadline that is NOT reset by incoming messages, so a
+  // slow-drip dialer cannot keep resetting the idle timer to hold the stream open
+  let deadline: ReturnType<typeof setTimeout> | undefined = setTimeout(
+    () => controller.abort(new Error("stream deadline exceeded")),
+    maxStreamMs,
+  );
+
+  const stopTimers = (): void => {
     if (timer != null) {
       clearTimeout(timer);
       timer = undefined;
     }
+    if (deadline != null) {
+      clearTimeout(deadline);
+      deadline = undefined;
+    }
   };
+
+  const onMessage = resetIdle;
+  const onRemoteCloseWrite = stopTimers;
 
   stream.addEventListener("close", onClose);
   stream.addEventListener("message", onMessage);
@@ -224,9 +241,7 @@ export function streamSignal(
   return {
     signal: controller.signal,
     clear: () => {
-      if (timer != null) {
-        clearTimeout(timer);
-      }
+      stopTimers();
       stream.removeEventListener("close", onClose);
       stream.removeEventListener("message", onMessage);
       stream.removeEventListener("remoteCloseWrite", onRemoteCloseWrite);

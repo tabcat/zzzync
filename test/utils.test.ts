@@ -1,6 +1,7 @@
 import * as dagCbor from "@ipld/dag-cbor";
 import * as dagPb from "@ipld/dag-pb";
 import { generateKeyPair } from "@libp2p/crypto/keys";
+import type { Stream } from "@libp2p/interface";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
@@ -12,6 +13,7 @@ import {
   getHasher,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
+  streamSignal,
 } from "../src/utils.ts";
 
 let dagPbCidStr: string;
@@ -112,5 +114,47 @@ describe("contenthash", () => {
     expect(contenthash(ed25519Key.publicKey)).not.toBe(
       contenthash(secp256k1Key.publicKey),
     );
+  });
+});
+
+describe("streamSignal", () => {
+  const delay = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  // minimal stand-in exposing only the event surface streamSignal touches
+  function mockStream() {
+    const listeners: Record<string, Set<(ev: unknown) => void>> = {};
+    return {
+      addEventListener(type: string, handler: (ev: unknown) => void): void {
+        (listeners[type] ??= new Set()).add(handler);
+      },
+      removeEventListener(type: string, handler: (ev: unknown) => void): void {
+        listeners[type]?.delete(handler);
+      },
+      dispatch(type: string, ev: unknown = {}): void {
+        listeners[type]?.forEach((handler) => handler(ev));
+      },
+    };
+  }
+
+  it("aborts on the total deadline even while messages reset the idle timer", async () => {
+    const stream = mockStream();
+    // idle 1000ms (kept reset, never fires here), total deadline 100ms
+    const { signal, clear } = streamSignal(
+      stream as unknown as Stream,
+      1000,
+      100,
+    );
+    const trickle = setInterval(() => stream.dispatch("message"), 20);
+    try {
+      await delay(180);
+      expect(signal.aborted).toBe(true);
+      expect((signal.reason as Error | undefined)?.message).toContain(
+        "deadline",
+      );
+    } finally {
+      clearInterval(trickle);
+      clear();
+    }
   });
 });
