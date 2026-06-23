@@ -173,7 +173,15 @@ export const awaitHandlerClose = (
   options: DeadlineOptions,
 ): Promise<void> =>
   withDeadline(
-    (deadline) => eventPromise(stream, "remoteCloseWrite", deadline),
+    async (deadline) => {
+      // remoteCloseWrite is a one-shot event: if the handler already closed its
+      // write side before we attach a listener (a fast push), the event is gone,
+      // so check the level state first to avoid stalling until the ack deadline
+      if (stream.remoteWriteStatus === "closed") {
+        return;
+      }
+      await eventPromise(stream, "remoteCloseWrite", deadline);
+    },
     "remote closed write",
     "failed while waiting for remote to close write",
     options,
