@@ -194,4 +194,19 @@ describe("readCarFile", () => {
     // with the budget: ~cap + one chunk; without it: the whole ~1MiB CAR
     expect(pulled).toBeLessThan(128 * 1024);
   });
+
+  it("rejects a block whose bytes do not match its CID", async () => {
+    // @ipld/car only parses CAR structure, it does not verify blocks, so this is
+    // purely zzzync's create() hash check (keep it create(), not createUnsafe())
+    const child = await rawBlock(new Uint8Array([1, 2, 3]));
+    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
+    // deliver the child's CID with tampered bytes that do not hash to it
+    const car = await buildCar([root.cid], [root, {
+      cid: child.cid,
+      bytes: new Uint8Array([9, 9, 9]),
+    }]);
+    await expect(runReadCar(car, root.cid)).rejects.toThrow(
+      "hash does not match",
+    );
+  });
 });

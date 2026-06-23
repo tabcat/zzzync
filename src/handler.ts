@@ -236,6 +236,9 @@ export async function readCarFile(
 
       const codec = getCodec(cid.code);
       const hasher = getHasher(cid.multihash.code);
+      // @ipld/car only parses CAR structure, it does not verify blocks, so this
+      // is the integrity gate: create() re-hashes the bytes and throws if they do
+      // not match the claimed CID. Keep it create(), never createUnsafe().
       const block = await create({ bytes, cid, codec, hasher });
 
       wanted.delete(key);
