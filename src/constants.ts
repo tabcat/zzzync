@@ -23,7 +23,7 @@ export const MAX_BLOCK_BYTES = 2 * 1024 * 1024;
 /** Default cap on the number of blocks in a received CAR. */
 export const DEFAULT_MAX_BLOCK_COUNT = 10_000;
 /** Default per-step deadline (ms) for each dialer read/write step. */
-export const DEFAULT_WRITE_TIMEOUT_MS = 5_000;
+export const DEFAULT_WRITE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) the dialer waits for the handler to close. */
 export const DEFAULT_ACK_TIMEOUT_MS = 15_000;
 /** Default handler idle timeout (ms): abort if no bytes arrive for this long. */

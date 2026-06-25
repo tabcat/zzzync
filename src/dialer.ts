@@ -171,7 +171,13 @@ export async function writeCarFile(
 export const closeWrite = (
   stream: Stream,
   options: DeadlineOptions,
-): Promise<void> => stream.close({ signal: options.signal });
+): Promise<void> =>
+  withDeadline(
+    (deadline) => stream.close({ signal: deadline }),
+    "closed write",
+    "failed while closing write",
+    options,
+  );
 
 export const awaitHandlerClose = (
   stream: Stream,
