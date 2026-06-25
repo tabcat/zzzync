@@ -77,8 +77,9 @@ export async function readVarint(
     byte = await readByte(bs, options);
     varintBytes.push(byte);
 
-    // max varint size is 10 bytes
-    if (varintBytes.length === 10) {
+    // uint8-varint decodes at most 8 bytes (56 bits); a 9th continuation byte
+    // makes varint.decode throw, so stop here and let it validate the rest
+    if (varintBytes.length === 8) {
       break;
     }
   }
