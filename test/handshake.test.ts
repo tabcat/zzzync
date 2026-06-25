@@ -1,12 +1,16 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
-import type { PeerId, Stream } from "@libp2p/interface";
+import type { AbortOptions, PeerId, Stream } from "@libp2p/interface";
 import { defaultLogger } from "@libp2p/logger";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
 import { byteStream, streamPair } from "@libp2p/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createSign } from "../src/challenge.ts";
 import type { Sign, SupportedPrivateKey } from "../src/challenge.ts";
-import { authenticateToHandler, awaitHandlerClose } from "../src/dialer.ts";
+import {
+  authenticateToHandler,
+  awaitHandlerClose,
+  closeWrite,
+} from "../src/dialer.ts";
 import { authenticateDialer, readIpnsMultihash } from "../src/handler.ts";
 import type { Allow } from "../src/handler.ts";
 import type { IpnsMultihash, Libp2pKey } from "../src/interface.ts";
@@ -188,5 +192,31 @@ describe("handshake", () => {
       .toBeUndefined();
 
     outbound.abort(new Error("test done"));
+  });
+
+  it("aborts the close on its deadline when the write side never drains", async () => {
+    // streamPair has no backpressure, so its close() never blocks; model a
+    // remote that stopped reading directly. close() honors its signal, mirroring
+    // abstract-stream's `await pEvent(this, 'drain', { signal })`.
+    const stuck = {
+      close: (opts?: AbortOptions) =>
+        new Promise<void>((_, reject) => {
+          opts?.signal?.addEventListener("abort", () =>
+            reject(opts.signal?.reason ?? new Error("aborted")));
+        }),
+    } as unknown as Stream;
+
+    const start = Date.now();
+    // generous caller backstop; the 50ms per-step deadline must fire well before
+    await expect(
+      closeWrite(stuck, {
+        signal: AbortSignal.timeout(2000),
+        timeoutMs: 50,
+        log,
+      }),
+    )
+      .rejects
+      .toThrow();
+    expect(Date.now() - start).toBeLessThan(500);
   });
 });

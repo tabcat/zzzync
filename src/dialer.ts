@@ -168,6 +168,11 @@ export async function writeCarFile(
   }
 }
 
+export const closeWrite = (
+  stream: Stream,
+  options: DeadlineOptions,
+): Promise<void> => stream.close({ signal: options.signal });
+
 export const awaitHandlerClose = (
   stream: Stream,
   options: DeadlineOptions,
@@ -229,7 +234,7 @@ export async function zzzync(
     }
 
     await writeCarFile(bs, exporter, cid, deadlineOptions);
-    await stream.close({ signal: options.signal });
+    await closeWrite(stream, deadlineOptions);
 
     await awaitHandlerClose(stream, {
       signal: options.signal,
