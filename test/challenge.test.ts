@@ -1,5 +1,6 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
+import { secp256k1 as secp } from "@noble/curves/secp256k1.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildChallenge,
@@ -143,6 +144,44 @@ describe("challenge", () => {
       const sig = await createSign(other)(challenge);
 
       expect(await verifyChallenge(sk.publicKey, challenge, sig)).toBe(false);
+    });
+
+    it("rejects a high-S (malleated) secp256k1 signature", async () => {
+      const secpKey =
+        (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
+      const peerId = peerIdFromPrivateKey(secpKey);
+      const ipnsMh = publicKeyAsIpnsMultihash(secpKey.publicKey)!;
+      const challenge = buildChallenge(
+        peerId,
+        ipnsMh,
+        generateNonce(),
+        generateNonce(),
+      );
+
+      // createSign emits a low-S compact sig (noble normalizes s on sign)
+      const lowS = await createSign(secpKey)(challenge);
+      expect(await verifyChallenge(secpKey.publicKey, challenge, lowS)).toBe(
+        true,
+      );
+
+      // malleate to the high-S twin: same r, s -> n - s. Still a valid (r, s)
+      // for the same message+key, just the non-canonical encoding.
+      const sig = secp.Signature.fromBytes(lowS, "compact");
+      const highS = new secp.Signature(sig.r, secp.Point.Fn.neg(sig.s));
+      expect(highS.hasHighS()).toBe(true); // sanity: we built a high-S sig
+
+      // verifyChallenge adds no explicit low-S guard; this asserts the malleable
+      // twin is rejected anyway, because @noble (via @libp2p/crypto) verifies
+      // low-S only by default. If that upstream default ever changes, this fails
+      // loudly instead of silently accepting malleable challenge responses.
+      expect(
+        await verifyChallenge(
+          secpKey.publicKey,
+          challenge,
+          highS.toBytes("compact"),
+        ),
+      )
+        .toBe(false);
     });
   });
 });
