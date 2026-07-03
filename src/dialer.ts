@@ -122,8 +122,8 @@ export async function authenticateToHandler(
   handlerPeerId: PeerId,
   dialerIpns: IpnsMultihash,
   sign: Sign,
+  auth: (() => Uint8Array | Promise<Uint8Array>) | undefined,
   options: DeadlineOptions,
-  auth?: () => Uint8Array | Promise<Uint8Array>,
 ): Promise<void> {
   await writeKey(bs, dialerIpns, options);
   await writeAuth(bs, auth, options);
@@ -249,8 +249,8 @@ export async function zzzync(
       handlerPeerId,
       dialerIpns,
       sign,
-      deadlineOptions,
       options.auth,
+      deadlineOptions,
     );
     await writeRecord(bs, record, deadlineOptions);
 

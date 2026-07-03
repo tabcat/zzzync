@@ -30,7 +30,7 @@ describe("readAuth", () => {
     const [outbound, inbound] = await streamPair();
     const [, result] = await Promise.all([
       writeFrame(outbound, new Uint8Array(0)),
-      readAuth(byteStream(inbound), DEFAULT_MAX_AUTH_FRAME_BYTES),
+      readAuth(byteStream(inbound), { maxBytes: DEFAULT_MAX_AUTH_FRAME_BYTES }),
     ]);
     expect(result).toBeUndefined();
   });
@@ -40,7 +40,7 @@ describe("readAuth", () => {
     const payload = new Uint8Array([1, 2, 3, 4]);
     const [, result] = await Promise.all([
       writeFrame(outbound, payload),
-      readAuth(byteStream(inbound), DEFAULT_MAX_AUTH_FRAME_BYTES),
+      readAuth(byteStream(inbound), { maxBytes: DEFAULT_MAX_AUTH_FRAME_BYTES }),
     ]);
     expect(result).toEqual(payload);
   });
@@ -50,7 +50,9 @@ describe("readAuth", () => {
     await byteStream(outbound).write(
       new Uint8ArrayList(varint.encode(DEFAULT_MAX_AUTH_FRAME_BYTES + 1)),
     );
-    await expect(readAuth(byteStream(inbound), DEFAULT_MAX_AUTH_FRAME_BYTES))
+    await expect(
+      readAuth(byteStream(inbound), { maxBytes: DEFAULT_MAX_AUTH_FRAME_BYTES }),
+    )
       .rejects
       .toThrow("auth frame exceeds max size");
   });
@@ -89,8 +91,8 @@ async function runHandshake(
       handlerPeerId,
       dialerIpns,
       createSign(dialerKey),
-      { signal, timeoutMs: 5000, log },
       auth,
+      { signal, timeoutMs: 5000, log },
     ),
     (async () => {
       const bs = byteStream(inbound);

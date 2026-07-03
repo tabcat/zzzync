@@ -41,7 +41,7 @@ async function runDialer(
   timeoutMs = 5000,
 ): Promise<void> {
   const bs = byteStream(outbound);
-  await authenticateToHandler(bs, handlerPeerId, dialerIpns, sign, {
+  await authenticateToHandler(bs, handlerPeerId, dialerIpns, sign, undefined, {
     signal,
     timeoutMs,
     log,
@@ -133,6 +133,7 @@ describe("handshake", () => {
           handlerPeerId,
           secpIpns,
           createSign(secpKey),
+          undefined,
           { signal, timeoutMs: 5000, log },
         );
       })(),

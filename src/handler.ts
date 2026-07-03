@@ -90,16 +90,19 @@ export async function readVarint(
   return varint.decode(new Uint8Array(varintBytes));
 }
 
+export interface MaxByteOptions extends AbortOptions {
+  maxBytes: number;
+}
+
 export async function readAuth(
   bs: ByteStream<Stream>,
-  maxBytes: number,
-  options: AbortOptions = {},
+  options: MaxByteOptions,
 ): Promise<Uint8Array | undefined> {
   const length = await readVarint(bs, options);
   if (length === 0) {
     return undefined;
   }
-  if (length > maxBytes) {
+  if (length > options.maxBytes) {
     throw new Error("auth frame exceeds max size");
   }
   return (await bs.read({ bytes: length, signal: options.signal })).subarray();
@@ -408,6 +411,12 @@ export type OnReceive = (
   options?: AbortOptions,
 ) => Promise<void>;
 
+export interface AuthenticateDialerOptions {
+  maxAuthBytes?: number;
+  /** Deadline (ms) for the raced `allow.multihash` call. */
+  raceTimeoutMs?: number;
+}
+
 /**
  * Run the challenge/response handshake for an already-read dialer IPNS key: the
  * dialer must sign the handler's nonce to prove ownership of the key. Throws if
@@ -421,8 +430,7 @@ export async function authenticateDialer(
   allow: Allow,
   log: Logger,
   signal: AbortSignal,
-  raceTimeoutMs: number = DEFAULT_RACE_TIMEOUT_MS,
-  maxAuthFrameBytes: number = DEFAULT_MAX_AUTH_FRAME_BYTES,
+  options?: AuthenticateDialerOptions,
 ): Promise<Libp2pKey> {
   const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
 
@@ -435,7 +443,9 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
-  const auth = await readAuth(bs, maxAuthFrameBytes, { signal });
+  const maxBytes = options?.maxAuthBytes ?? DEFAULT_MAX_AUTH_FRAME_BYTES;
+  const raceTimeoutMs = options?.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
+  const auth = await readAuth(bs, { signal, maxBytes });
 
   const permitted = await raceDeadline(
     (deadline) => allow.multihash(dialerPublicKey, { signal: deadline, auth }),
@@ -520,8 +530,7 @@ export const createZzzyncHandler =
         allow,
         log,
         signal,
-        raceTimeoutMs,
-        options.maxAuthFrameBytes,
+        { maxAuthBytes: options.maxAuthFrameBytes, raceTimeoutMs },
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
