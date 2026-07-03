@@ -89,6 +89,21 @@ export async function readVarint(
   return varint.decode(new Uint8Array(varintBytes));
 }
 
+export async function readAuth(
+  bs: ByteStream<Stream>,
+  maxBytes: number,
+  options: AbortOptions = {},
+): Promise<Uint8Array | undefined> {
+  const length = await readVarint(bs, options);
+  if (length === 0) {
+    return undefined;
+  }
+  if (length > maxBytes) {
+    throw new Error("auth frame exceeds max size");
+  }
+  return (await bs.read({ bytes: length, signal: options.signal })).subarray();
+}
+
 export async function readIpnsMultihash(
   bs: ByteStream<Stream>,
   log: Logger,
