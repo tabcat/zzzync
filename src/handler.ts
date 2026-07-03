@@ -36,6 +36,7 @@ import {
   CODEC_IDENTITY,
   DEFAULT_HANDSHAKE_TIMEOUT_MS,
   DEFAULT_IDLE_TIMEOUT_MS,
+  DEFAULT_MAX_AUTH_FRAME_BYTES,
   DEFAULT_MAX_STREAM_MS,
   DEFAULT_MIN_BYTES_PER_SECOND,
   DEFAULT_RACE_TIMEOUT_MS,
@@ -320,11 +321,16 @@ export async function readCarFile(
   }
 }
 
+export interface AllowOptions extends AbortOptions {
+  /** The dialer's optional auth frame (a delegation-chain CAR), read after its ipns key. */
+  auth?: Uint8Array;
+}
+
 export interface Allow {
   /** Whether the dialer's key may push at all. */
   multihash(
     dialerPublicKey: SupportedPrivateKey["publicKey"],
-    options?: AbortOptions,
+    options?: AllowOptions,
   ): boolean | Promise<boolean>;
   /**
    * Whether to accept `record` for `name`. The authoritative downgrade guard:
@@ -372,6 +378,8 @@ export interface CreateHandlerOptions
    * stream, while the callback itself keeps running.
    */
   raceTimeoutMs?: number;
+  /** Max bytes for the dialer's optional auth frame. Defaults to DEFAULT_MAX_AUTH_FRAME_BYTES. */
+  maxAuthFrameBytes?: number;
 }
 
 /**
@@ -414,6 +422,7 @@ export async function authenticateDialer(
   log: Logger,
   signal: AbortSignal,
   raceTimeoutMs: number = DEFAULT_RACE_TIMEOUT_MS,
+  maxAuthFrameBytes: number = DEFAULT_MAX_AUTH_FRAME_BYTES,
 ): Promise<Libp2pKey> {
   const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
 
@@ -426,8 +435,10 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
+  const auth = await readAuth(bs, maxAuthFrameBytes, { signal });
+
   const permitted = await raceDeadline(
-    (deadline) => allow.multihash(dialerPublicKey, { signal: deadline }),
+    (deadline) => allow.multihash(dialerPublicKey, { signal: deadline, auth }),
     raceTimeoutMs,
     "allow.multihash exceeded its deadline",
     signal,
@@ -510,6 +521,7 @@ export const createZzzyncHandler =
         log,
         signal,
         raceTimeoutMs,
+        options.maxAuthFrameBytes,
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 

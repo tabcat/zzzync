@@ -31,6 +31,8 @@ export interface DialOptions extends AbortOptions {
   writeTimeoutMs?: number;
   /** Deadline (ms) waiting for the handler to close its write side after the CAR. */
   ackTimeoutMs?: number;
+  /** Produces the optional auth frame (a delegation-chain CAR) sent after the ipns key. */
+  auth?: () => Uint8Array | Promise<Uint8Array>;
 }
 
 async function writeVarintPrefixed(
@@ -53,6 +55,21 @@ const writeKey = (
     (deadline) => bs.write(dialerIpns.bytes, { signal: deadline }),
     "wrote ipns key",
     "failed while writing ipns key",
+    options,
+  );
+
+const writeAuth = (
+  bs: ByteStream<Stream>,
+  auth: (() => Uint8Array | Promise<Uint8Array>) | undefined,
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    async (deadline) => {
+      const bytes = auth != null ? await auth() : new Uint8Array(0);
+      await writeVarintPrefixed(bs, bytes, { signal: deadline });
+    },
+    "wrote auth frame",
+    "failed while writing auth frame",
     options,
   );
 
@@ -106,8 +123,10 @@ export async function authenticateToHandler(
   dialerIpns: IpnsMultihash,
   sign: Sign,
   options: DeadlineOptions,
+  auth?: () => Uint8Array | Promise<Uint8Array>,
 ): Promise<void> {
   await writeKey(bs, dialerIpns, options);
+  await writeAuth(bs, auth, options);
   const handlerNonce = await readHandlerNonce(bs, options);
   await respondToChallenge(
     bs,
@@ -231,6 +250,7 @@ export async function zzzync(
       dialerIpns,
       sign,
       deadlineOptions,
+      options.auth,
     );
     await writeRecord(bs, record, deadlineOptions);
 
