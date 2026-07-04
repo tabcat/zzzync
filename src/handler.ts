@@ -90,22 +90,19 @@ export async function readVarint(
   return varint.decode(new Uint8Array(varintBytes));
 }
 
-export interface MaxByteOptions extends AbortOptions {
-  maxBytes: number;
-}
-
 export async function readAuth(
   bs: ByteStream<Stream>,
-  options: MaxByteOptions,
+  maxBytes: number,
+  options?: AbortOptions,
 ): Promise<Uint8Array | undefined> {
   const length = await readVarint(bs, options);
   if (length === 0) {
     return undefined;
   }
-  if (length > options.maxBytes) {
+  if (length > maxBytes) {
     throw new Error("auth frame exceeds max size");
   }
-  return (await bs.read({ bytes: length, signal: options.signal })).subarray();
+  return (await bs.read({ bytes: length, signal: options?.signal })).subarray();
 }
 
 export async function readIpnsMultihash(
@@ -411,7 +408,7 @@ export type OnReceive = (
   options?: AbortOptions,
 ) => Promise<void>;
 
-export interface AuthenticateDialerOptions {
+export interface AuthenticateDialerOptions extends AbortOptions {
   maxAuthBytes?: number;
   /** Deadline (ms) for the raced `allow.multihash` call. */
   raceTimeoutMs?: number;
@@ -429,7 +426,6 @@ export async function authenticateDialer(
   dialerIpns: IpnsMultihash,
   allow: Allow,
   log: Logger,
-  signal: AbortSignal,
   options?: AuthenticateDialerOptions,
 ): Promise<Libp2pKey> {
   const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
@@ -445,13 +441,13 @@ export async function authenticateDialer(
 
   const maxBytes = options?.maxAuthBytes ?? DEFAULT_MAX_AUTH_FRAME_BYTES;
   const raceTimeoutMs = options?.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
-  const auth = await readAuth(bs, { signal, maxBytes });
+  const auth = await readAuth(bs, maxBytes, { signal: options?.signal });
 
   const permitted = await raceDeadline(
     (deadline) => allow.multihash(dialerPublicKey, { signal: deadline, auth }),
     raceTimeoutMs,
     "allow.multihash exceeded its deadline",
-    signal,
+    options?.signal,
   );
   if (!permitted) {
     const error = new Error("ipns key not allowed");
@@ -464,7 +460,7 @@ export async function authenticateDialer(
   let handlerNonce: Uint8Array;
   try {
     handlerNonce = generateNonce();
-    await writeChallengeNonce(bs, handlerNonce, { signal });
+    await writeChallengeNonce(bs, handlerNonce, { signal: options?.signal });
   } catch (e) {
     log.error("failed while writing challenge nonce");
     throw e;
@@ -472,14 +468,18 @@ export async function authenticateDialer(
 
   let valid: boolean;
   try {
-    const [dialerNonce, sig] = await readChallengeResponse(bs, { signal });
+    const [dialerNonce, sig] = await readChallengeResponse(bs, {
+      signal: options?.signal,
+    });
     const challenge = buildChallenge(
       handlerPeerId,
       dialerIpns,
       handlerNonce,
       dialerNonce,
     );
-    valid = await verifyChallenge(dialerPublicKey, challenge, sig, { signal });
+    valid = await verifyChallenge(dialerPublicKey, challenge, sig, {
+      signal: options?.signal,
+    });
   } catch (e) {
     log.error("failed while validating challenge response");
     throw e;
@@ -529,8 +529,7 @@ export const createZzzyncHandler =
         name,
         allow,
         log,
-        signal,
-        { maxAuthBytes: options.maxAuthFrameBytes, raceTimeoutMs },
+        { signal, maxAuthBytes: options.maxAuthFrameBytes, raceTimeoutMs },
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 

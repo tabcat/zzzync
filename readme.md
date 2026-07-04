@@ -14,6 +14,8 @@ sequenceDiagram
 
   D->>H: open /zzzync/push/1.0.0
   D->>H: IPNS key
+  D->>H: auth frame (optional; varint length, 0 = none)
+  Note over H: frame handed to allow.multihash to validate
   H->>D: challenge nonce
   D->>H: dialer nonce + signature
   Note over H: signature proves the dialer holds the key
@@ -25,7 +27,7 @@ sequenceDiagram
 
 A publisher proves it holds an IPNS key, then streams a signed IPNS record and a CAR of its content to a handler. The handler verifies the signature and the content, then hands the record to your application to pin and serve.
 
-After the IPNS key and before the challenge nonce, the dialer sends an optional auth frame: a varint-prefixed byte payload (a delegation-chain CAR, for example). A varint of `0` means no frame. The handler passes the frame bytes (or `undefined` if absent) to `allow.multihash` via `options.auth` so the application can validate the delegation. On the dialer side, pass `auth?: () => Uint8Array | Promise<Uint8Array>` to `dialZzzync`. On the handler side, the frame is byte-capped (default `DEFAULT_MAX_AUTH_FRAME_BYTES`); override via `CreateHandlerOptions.maxAuthFrameBytes`.
+The dialer can pass an optional auth frame (a delegation-chain CAR, for example) via `dialZzzync`'s `auth` option; the handler byte-caps it (default `DEFAULT_MAX_AUTH_FRAME_BYTES`, override via `CreateHandlerOptions.maxAuthFrameBytes`) before handing it to `allow.multihash`.
 
 The result is a durable, verifiable copy that stays available even while the publisher is offline.
 

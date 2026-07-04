@@ -65,7 +65,7 @@ async function runHandler(
     dialerIpns,
     allow,
     log,
-    signal,
+    { signal },
   );
   return { dialerIpns, dialerLibp2pKey };
 }
@@ -140,14 +140,9 @@ describe("handshake", () => {
       (async () => {
         const bs = byteStream(inbound);
         const ipns = await readIpnsMultihash(bs, log, { signal });
-        return authenticateDialer(
-          bs,
-          handlerPeerId,
-          ipns,
-          allowAll,
-          log,
+        return authenticateDialer(bs, handlerPeerId, ipns, allowAll, log, {
           signal,
-        );
+        });
       })(),
     ]);
 
