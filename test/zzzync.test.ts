@@ -33,7 +33,7 @@ let contentCid: CID;
 let result: PushInput;
 
 beforeAll(async () => {
-  helia = await createHelia({ start: false });
+  helia = await createHelia();
   const fs = unixfs(helia);
   contentCid = await fs.addBytes(
     new TextEncoder().encode("zzzync test content"),
