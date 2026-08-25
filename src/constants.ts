@@ -28,5 +28,5 @@ export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 30_000;
 export const DEFAULT_MIN_BYTES_PER_SECOND = 1024;
 /** Default window (ms) the throughput floor is sampled over. */
 export const DEFAULT_RATE_WINDOW_MS = 5_000;
-/** Default handler total deadline (ms): abort a stream after this wall-clock cap regardless of activity, bounding slow-drip. */
-export const DEFAULT_MAX_STREAM_MS = 5 * 60 * 1000;
+/** Default handler backstop (ms): abort a stream after this wall-clock cap regardless of phase or activity. Slow-drip is handled by the throughput floor, so this only has to stop a stream running forever. */
+export const DEFAULT_MAX_STREAM_MS = 60 * 60 * 1000;
