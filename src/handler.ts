@@ -35,8 +35,6 @@ import {
   CODEC_DAG_PB,
   CODEC_IDENTITY,
   DEFAULT_IDLE_TIMEOUT_MS,
-  DEFAULT_MAX_BLOCK_COUNT,
-  DEFAULT_MAX_CAR_BYTES,
   DEFAULT_MAX_STREAM_MS,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
@@ -163,14 +161,26 @@ export async function readIpnsRecord(
   }
 }
 
+/**
+ * Size limits for a received CAR. The CAR format specifies no maximum of any
+ * kind (CARv1 states there is no constraint in the header regarding total
+ * length, and its varints are unbounded), so every cap here is policy an
+ * application chooses rather than anything the format implies.
+ */
 export interface ReadCarFileOptions extends AbortOptions {
+  /**
+   * Total raw bytes accepted, CAR framing included. Unset means zzzync does not
+   * cap the total, leaving the stream bounded only by the handler's idle and
+   * max-stream deadlines.
+   */
   maxByteLength?: number;
+  /** Blocks accepted. Unset means zzzync does not cap the count. */
   maxBlockCount?: number;
   /**
    * Largest CAR section (block bytes plus their CID) @ipld/car will accept. It
    * is checked against the section's declared length before the body is read,
-   * so an over-cap claim costs nothing. Left unset, @ipld/car's own default
-   * applies, which is looser than DEFAULT_MAX_CAR_BYTES and so never fires.
+   * so an over-cap claim costs nothing. Unset leaves @ipld/car's own default.
+   * Must be a non-negative safe integer; @ipld/car rejects Infinity.
    */
   maxCarSectionSize?: number;
   /**
@@ -190,8 +200,7 @@ export async function readCarFile(
   log: Logger,
   options: ReadCarFileOptions = {},
 ): Promise<void> {
-  const maxByteLength = options.maxByteLength ?? DEFAULT_MAX_CAR_BYTES;
-  const maxBlockCount = options.maxBlockCount ?? DEFAULT_MAX_BLOCK_COUNT;
+  const { maxByteLength, maxBlockCount } = options;
 
   const blocks = async function*() {
     // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize/maxCarHeaderSize
@@ -210,7 +219,7 @@ export async function readCarFile(
           if (byteList == null) break;
 
           pulled += byteList.byteLength;
-          if (pulled > maxByteLength) {
+          if (maxByteLength != null && pulled > maxByteLength) {
             throw new Error("CAR file exceeded max byte length");
           }
 
@@ -240,7 +249,7 @@ export async function readCarFile(
     let blockCount = 0;
 
     for await (const { cid, bytes } of car) {
-      if (++blockCount > maxBlockCount) {
+      if (maxBlockCount != null && ++blockCount > maxBlockCount) {
         throw new Error("CAR file exceeded max block count");
       }
 

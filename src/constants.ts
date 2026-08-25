@@ -16,10 +16,6 @@ export const ZZZYNC_PUSH_PROTOCOL_ID = `${ZZZYNC_PUSH}/${ZZZYNC_PUSH_VERSION}`;
 export const MAX_IPNS_RECORD_SIZE = 10 * 1024;
 /** Max bytes for an identity-wrapped IPNS public key multihash digest. */
 export const MAX_IPNS_KEY_BYTES = 64;
-/** Default total CAR size cap for a received push. */
-export const DEFAULT_MAX_CAR_BYTES = 5 * 1024 * 1024;
-/** Default cap on the number of blocks in a received CAR. */
-export const DEFAULT_MAX_BLOCK_COUNT = 10_000;
 /** Default per-step deadline (ms) for each dialer read/write step. */
 export const DEFAULT_WRITE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) the dialer waits for the handler to close. */
