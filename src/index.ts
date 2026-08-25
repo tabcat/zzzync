@@ -10,6 +10,11 @@
  * is a durable, verifiable copy that stays available even while the publisher is
  * offline.
  *
+ * The CAR format sets no maximum of any kind, so every size limit is the
+ * application's to choose. Leave them unset and zzzync caps nothing, and a
+ * transfer is bounded only by the handler's idle timeout, its throughput floor
+ * and its backstop deadline.
+ *
  * @example Receive pushes (handler)
  *
  * ```ts
@@ -27,6 +32,13 @@
  *   async ({ name, record, pinner }) => {
  *     // record is signature-verified and its CAR fully validated;
  *     // pin the content, persist the record, then serve and announce it
+ *   },
+ *   {
+ *     // size limits are yours to pick; unset means zzzync does not cap
+ *     maxByteLength: 5 * 1024 * 1024,
+ *     maxBlockCount: 10_000,
+ *     maxCarSectionSize: 2 * 1024 * 1024,
+ *     maxCarHeaderSize: 1024,
  *   },
  * )
  *

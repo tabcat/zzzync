@@ -250,8 +250,9 @@ export function streamSignal(
     );
   };
 
-  // a single wall-clock deadline that is NOT reset by incoming messages, so a
-  // slow-drip dialer cannot keep resetting the idle timer to hold the stream open
+  // an absolute backstop that is NOT reset by incoming messages. Slow-drip is
+  // the throughput floor's job now, so this only has to stop a stream running
+  // forever, and can be generous enough not to cap transfer size by accident.
   let deadline: ReturnType<typeof setTimeout> | undefined = setTimeout(
     () => controller.abort(new Error("stream deadline exceeded")),
     maxStreamMs,
