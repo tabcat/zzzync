@@ -15,7 +15,7 @@ importers:
         specifier: ^6.0.5
         version: 6.0.5
       '@ipld/car':
-        specifier: github:tabcat/js-car#feat/car-limits-combined
+        specifier: github:tabcat/js-car#a6a133ec3f45a6c6718024b14bfabdc9f7dd56d0
         version: https://codeload.github.com/tabcat/js-car/tar.gz/a6a133ec3f45a6c6718024b14bfabdc9f7dd56d0
       '@ipld/dag-cbor':
         specifier: ^10.0.2
