@@ -160,7 +160,7 @@ describe("readCarFile", () => {
   });
 
   it("stops feeding the decoder once raw bytes exceed maxByteLength", async () => {
-    // a block under MAX_BLOCK_BYTES but over the configured CAR cap. The point of
+    // a block under the CAR section cap but over the configured CAR cap. The point of
     // the HIGH fix: the budget must cut the source off, not let @ipld/car buffer
     // the whole declared block before the post-decode caps ever run.
     const big = await rawBlock(new Uint8Array(1024 * 1024));

@@ -38,7 +38,6 @@ import {
   DEFAULT_MAX_BLOCK_COUNT,
   DEFAULT_MAX_CAR_BYTES,
   DEFAULT_MAX_STREAM_MS,
-  MAX_BLOCK_BYTES,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
   ZZZYNC,
@@ -241,9 +240,6 @@ export async function readCarFile(
     let blockCount = 0;
 
     for await (const { cid, bytes } of car) {
-      if (bytes.byteLength > MAX_BLOCK_BYTES) {
-        throw new Error("block exceeded max byte length");
-      }
       if (++blockCount > maxBlockCount) {
         throw new Error("CAR file exceeded max block count");
       }

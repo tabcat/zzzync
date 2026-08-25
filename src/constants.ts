@@ -18,8 +18,6 @@ export const MAX_IPNS_RECORD_SIZE = 10 * 1024;
 export const MAX_IPNS_KEY_BYTES = 64;
 /** Default total CAR size cap for a received push. */
 export const DEFAULT_MAX_CAR_BYTES = 5 * 1024 * 1024;
-/** Max size of a single block in a received CAR. */
-export const MAX_BLOCK_BYTES = 2 * 1024 * 1024;
 /** Default cap on the number of blocks in a received CAR. */
 export const DEFAULT_MAX_BLOCK_COUNT = 10_000;
 /** Default per-step deadline (ms) for each dialer read/write step. */
