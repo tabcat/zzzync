@@ -85,7 +85,7 @@
   },
   "dependencies": {
     "@helia/car": "^6.0.5",
-    "@ipld/car": "^5.4.7",
+    "@ipld/car": "github:tabcat/js-car#feat/car-limits-combined",
     "@ipld/dag-cbor": "^10.0.2",
     "@ipld/dag-pb": "^4.1.7",
     "@libp2p/crypto": "^5.1.23",

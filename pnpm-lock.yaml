@@ -15,8 +15,8 @@ importers:
         specifier: ^6.0.5
         version: 6.0.5
       '@ipld/car':
-        specifier: ^5.4.7
-        version: 5.4.7
+        specifier: github:tabcat/js-car#feat/car-limits-combined
+        version: https://codeload.github.com/tabcat/js-car/tar.gz/aa5937a6edea2c50ed6cdd5296d5efef36f3f752
       '@ipld/dag-cbor':
         specifier: ^10.0.2
         version: 10.0.2
@@ -562,6 +562,11 @@ packages:
 
   '@ipld/car@5.4.7':
     resolution: {integrity: sha512-fohzeOYlm0vM1kGn48zcyDunamXSJaeM5xt0Fmkp5YJkZzgZyjLbb0DcDK6TDgZWo54btkXNACaXUw2H86Elag==}
+    engines: {node: '>=16.0.0', npm: '>=7.0.0'}
+
+  '@ipld/car@https://codeload.github.com/tabcat/js-car/tar.gz/aa5937a6edea2c50ed6cdd5296d5efef36f3f752':
+    resolution: {tarball: https://codeload.github.com/tabcat/js-car/tar.gz/aa5937a6edea2c50ed6cdd5296d5efef36f3f752}
+    version: 5.4.7
     engines: {node: '>=16.0.0', npm: '>=7.0.0'}
 
   '@ipld/dag-cbor@10.0.2':
@@ -3009,11 +3014,6 @@ packages:
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
 
-  yaml@2.8.3:
-    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
-    engines: {node: '>= 14.6'}
-    hasBin: true
-
   yaml@2.9.0:
     resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
     engines: {node: '>= 14.6'}
@@ -3604,6 +3604,13 @@ snapshots:
       race-signal: 2.0.0
 
   '@ipld/car@5.4.7':
+    dependencies:
+      '@ipld/dag-cbor': 10.0.2
+      cborg: 6.1.1
+      multiformats: 14.0.5
+      varint: 6.0.0
+
+  '@ipld/car@https://codeload.github.com/tabcat/js-car/tar.gz/aa5937a6edea2c50ed6cdd5296d5efef36f3f752':
     dependencies:
       '@ipld/dag-cbor': 10.0.2
       cborg: 6.1.1
@@ -5196,6 +5203,10 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
+  fdir@6.5.0(picomatch@4.0.7):
+    optionalDependencies:
+      picomatch: 4.0.7
+
   fill-range@7.1.1:
     dependencies:
       to-regex-range: 5.0.1
@@ -5882,7 +5893,7 @@ snapshots:
       metro-cache: 0.83.6
       metro-core: 0.83.6
       metro-runtime: 0.83.6
-      yaml: 2.8.3
+      yaml: 2.9.0
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -6680,8 +6691,8 @@ snapshots:
   vite@7.3.1(@types/node@26.3.0)(terser@5.46.1)(yaml@2.9.0):
     dependencies:
       esbuild: 0.27.2
-      fdir: 6.5.0(picomatch@4.0.3)
-      picomatch: 4.0.3
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
       postcss: 8.5.6
       rollup: 4.55.3
       tinyglobby: 0.2.15
@@ -6791,8 +6802,6 @@ snapshots:
   y18n@5.0.8: {}
 
   yallist@3.1.1: {}
-
-  yaml@2.8.3: {}
 
   yaml@2.9.0: {}
 
