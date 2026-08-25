@@ -21,6 +21,7 @@ import {
   getHasher,
   parsedRecordValue,
   publicKeyAsIpnsMultihash,
+  raceDeadline,
   streamSignal,
 } from "../src/utils.ts";
 
@@ -415,5 +416,76 @@ describe("streamSignal", () => {
       )
         .toThrow(new RegExp(field));
     }
+  });
+});
+
+describe("raceDeadline", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("returns the value when the op finishes in time", async () => {
+    const p = raceDeadline(async () => "ok", 1000, "too slow");
+    await vi.advanceTimersByTimeAsync(10);
+    await expect(p).resolves.toBe("ok");
+  });
+
+  it("bounds an op that ignores the signal entirely", async () => {
+    // the point of racing rather than awaiting: a callback that never looks at
+    // the signal, which is the mistake a consumer actually makes
+    const p = raceDeadline(
+      () => new Promise<string>(() => {}),
+      100,
+      "too slow",
+    );
+    const assertion = expect(p).rejects.toThrow("too slow");
+    await vi.advanceTimersByTimeAsync(150);
+    await assertion;
+  });
+
+  it("propagates the op's own rejection unchanged", async () => {
+    const p = raceDeadline(
+      async () => {
+        throw new Error("denied");
+      },
+      1000,
+      "too slow",
+    );
+    await vi.advanceTimersByTimeAsync(10);
+    await expect(p).rejects.toThrow("denied");
+  });
+
+  it("hands the op a signal that aborts on the deadline", async () => {
+    let seen: AbortSignal | undefined;
+    const p = raceDeadline(
+      (signal) => {
+        seen = signal;
+        return new Promise<string>(() => {});
+      },
+      100,
+      "too slow",
+    );
+    const assertion = expect(p).rejects.toThrow("too slow");
+    await vi.advanceTimersByTimeAsync(150);
+    await assertion;
+    expect(seen?.aborted).toBe(true);
+  });
+
+  it("does not leave a late rejection unhandled", async () => {
+    let boom: (e: Error) => void = () => {};
+    const p = raceDeadline(
+      () => new Promise<string>((_, reject) => (boom = reject)),
+      100,
+      "too slow",
+    );
+    const assertion = expect(p).rejects.toThrow("too slow");
+    await vi.advanceTimersByTimeAsync(150);
+    await assertion;
+    // the losing branch rejects after the race is settled; nothing should crash
+    boom(new Error("late"));
+    await vi.advanceTimersByTimeAsync(10);
   });
 });
