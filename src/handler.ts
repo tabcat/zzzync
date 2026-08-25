@@ -167,6 +167,18 @@ export async function readIpnsRecord(
 export interface ReadCarFileOptions extends AbortOptions {
   maxByteLength?: number;
   maxBlockCount?: number;
+  /**
+   * Largest CAR section (block bytes plus their CID) @ipld/car will accept. It
+   * is checked against the section's declared length before the body is read,
+   * so an over-cap claim costs nothing. Left unset, @ipld/car's own default
+   * applies, which is looser than DEFAULT_MAX_CAR_BYTES and so never fires.
+   */
+  maxSectionSize?: number;
+  /**
+   * Largest CAR header @ipld/car will accept, checked the same way. A one-root
+   * header is around 58 bytes, so this can be far tighter than the default.
+   */
+  maxHeaderSize?: number;
 }
 
 /** Canonical (v1, base32) CID key so codec differences are preserved. */
@@ -183,12 +195,13 @@ export async function readCarFile(
   const maxBlockCount = options.maxBlockCount ?? DEFAULT_MAX_BLOCK_COUNT;
 
   const blocks = async function*() {
-    // Bound the raw bytes fed to the CAR decoder. @ipld/car buffers a whole
-    // section (a block or the header) of its declared length before yielding it,
-    // and the per-block/total caps below only see a block once it is fully
-    // materialized; without this budget an attacker-declared length would be
-    // buffered in full first (a memory DoS). Counting raw bytes also makes
-    // maxByteLength cover CAR framing, not just decoded block payload.
+    // Bound the raw bytes fed to the CAR decoder. maxSectionSize/maxHeaderSize
+    // below cap any single declared length before its body is read, but nothing
+    // in @ipld/car bounds the total, and the per-block/total caps further down
+    // only see a block once it is fully materialized. This budget is also the
+    // only thing that bounds bytes which never finish a section at all, and
+    // counting raw bytes makes maxByteLength cover CAR framing, not just
+    // decoded block payload.
     let pulled = 0;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
@@ -205,6 +218,10 @@ export async function readCarFile(
           yield* byteList;
         }
       })(),
+      {
+        maxAllowedSectionSize: options.maxSectionSize,
+        maxAllowedHeaderSize: options.maxHeaderSize,
+      },
     );
 
     const [root] = await car.getRoots();
