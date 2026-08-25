@@ -160,10 +160,13 @@ describe("streamSignal", () => {
     stream.dispatch("message", { data: new Uint8Array(bytes) });
   }
 
+  // every knob is required now, so `base` is a complete no-floor config
   const base = {
     idleTimeoutMs: 10_000,
     handshakeTimeoutMs: 10_000,
     maxStreamMs: 10_000,
+    minBytesPerSecond: 0,
+    rateWindowMs: 100,
   };
   // 1000 B/s over 100ms windows = 100 bytes required per window
   const floor = { minBytesPerSecond: 1000, rateWindowMs: 100 };
@@ -367,11 +370,11 @@ describe("streamSignal", () => {
     expect(signal.aborted).toBe(false);
   });
 
-  it("applies no floor when minBytesPerSecond is unset", async () => {
+  it("applies no floor when minBytesPerSecond is 0", async () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      { ...base, rateWindowMs: 100 },
+      base,
     );
     try {
       beginTransfer();

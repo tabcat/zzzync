@@ -19,7 +19,6 @@ import {
   CODEC_DAG_PB,
   CODEC_RAW,
   type CODEC_SHA2_256,
-  DEFAULT_RATE_WINDOW_MS,
   IPFS_PREFIX,
 } from "./constants.ts";
 import type { IpnsMultihash, UnixFsCID } from "./interface.ts";
@@ -208,11 +207,11 @@ export interface StreamSignalOptions {
   maxStreamMs: number;
   /**
    * Bytes per second a transfer must sustain once `beginTransfer` is called.
-   * Unset means no floor.
+   * `0` is how you ask for no floor at all.
    */
-  minBytesPerSecond?: number;
+  minBytesPerSecond: number;
   /** Window the floor is sampled over. */
-  rateWindowMs?: number;
+  rateWindowMs: number;
 }
 
 /**
@@ -241,9 +240,13 @@ export function streamSignal(
   stream: Stream,
   options: StreamSignalOptions,
 ): StreamSignal {
-  const { idleTimeoutMs, handshakeTimeoutMs, maxStreamMs, minBytesPerSecond } =
-    options;
-  const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
+  const {
+    idleTimeoutMs,
+    handshakeTimeoutMs,
+    maxStreamMs,
+    minBytesPerSecond,
+    rateWindowMs,
+  } = options;
 
   // fail at construction rather than aborting a stream much later, or silently
   // never aborting one
@@ -251,10 +254,7 @@ export function streamSignal(
   checkDuration("handshakeTimeoutMs", handshakeTimeoutMs);
   checkDuration("maxStreamMs", maxStreamMs);
   checkDuration("rateWindowMs", rateWindowMs);
-  if (
-    minBytesPerSecond != null
-    && (!Number.isFinite(minBytesPerSecond) || minBytesPerSecond < 0)
-  ) {
+  if (!Number.isFinite(minBytesPerSecond) || minBytesPerSecond < 0) {
     throw new TypeError(
       `minBytesPerSecond must be a non-negative finite number, got ${minBytesPerSecond}`,
     );
@@ -332,9 +332,9 @@ export function streamSignal(
       handshake = undefined;
     }
 
-    // 0 is a way of saying "no floor"; arming one would spin a timer that can
-    // never abort, since windowBytes is never below 0
-    if (minBytesPerSecond == null || minBytesPerSecond === 0) {
+    // 0 asks for no floor; arming one would spin a timer that can never abort,
+    // since windowBytes is never below 0
+    if (minBytesPerSecond === 0) {
       return;
     }
 

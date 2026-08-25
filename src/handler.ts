@@ -38,6 +38,7 @@ import {
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_STREAM_MS,
   DEFAULT_MIN_BYTES_PER_SECOND,
+  DEFAULT_RATE_WINDOW_MS,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
   ZZZYNC,
@@ -331,12 +332,17 @@ export interface CreateHandlerOptions
   /**
    * Bytes/sec a CAR transfer must sustain once the record is accepted.
    *
-   * These three have to agree, or the size cap is unreachable:
-   * `maxByteLength / minBytesPerSecond <= maxStreamMs`. At the defaults a
-   * floor-compliant transfer delivers at most 1024 * 3600 bytes, so any
-   * `maxByteLength` above ~3.5MiB needs a higher floor, a longer backstop, or
-   * both. Nothing enforces this; a violating config simply cuts a slow transfer
-   * off at the backstop with bytes still owed.
+   * This interacts with the other two limits. What a transfer can actually
+   * deliver is:
+   *
+   * ```
+   * effective cap = min(maxByteLength, minBytesPerSecond * maxStreamMs)
+   * ```
+   *
+   * At the defaults that second term is 1024 * 3600, so a 5MiB
+   * `maxByteLength` is really 3.52MiB and the declared number is not the one
+   * in force. Raise the floor or the backstop to make the cap reachable. This
+   * is not enforced: a caller may well intend the backstop to bind first.
    */
   minBytesPerSecond?: number;
   /** Window (ms) the throughput floor is sampled over. */
@@ -453,7 +459,7 @@ export const createZzzyncHandler =
       maxStreamMs: options.maxStreamMs ?? DEFAULT_MAX_STREAM_MS,
       minBytesPerSecond: options.minBytesPerSecond
         ?? DEFAULT_MIN_BYTES_PER_SECOND,
-      rateWindowMs: options.rateWindowMs,
+      rateWindowMs: options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS,
     });
 
     try {
