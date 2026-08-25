@@ -7,9 +7,11 @@ import * as Block from "multiformats/block";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
+import * as varint from "uint8-varint";
 import { concat } from "uint8arrays";
 import { describe, expect, it } from "vitest";
 import { readCarFile } from "../src/handler.ts";
+import type { ReadCarFileOptions } from "../src/handler.ts";
 import type { UnixFsCID } from "../src/interface.ts";
 
 const log = defaultLogger().forComponent("test");
@@ -55,7 +57,7 @@ async function buildCar(
 async function runReadCar(
   carBytes: Uint8Array,
   expectedRoot: CID,
-  options: { maxByteLength?: number; maxBlockCount?: number; } = {},
+  options: ReadCarFileOptions = {},
 ): Promise<void> {
   const [outbound, inbound] = await streamPair();
   const writing = (async () => {
@@ -208,5 +210,105 @@ describe("readCarFile", () => {
     await expect(runReadCar(car, root.cid)).rejects.toThrow(
       "hash does not match",
     );
+  });
+
+  // --- size limits passed through to @ipld/car ---------------------------------
+
+  // The framed header of a real CAR: its varint length prefix plus that many bytes.
+  function headerOf(car: Uint8Array): Uint8Array {
+    const length = varint.decode(car);
+    return car.subarray(0, varint.encodingLength(length) + length);
+  }
+
+  // A source that reports how many raw bytes readCarFile actually pulled, so a
+  // test can tell "rejected the declared length" from "buffered it first".
+  function countingSource(bytes: Uint8Array) {
+    let off = 0;
+    const state = { pulled: 0 };
+    const bs = {
+      read: async () => {
+        if (off >= bytes.length) return null;
+        const chunk = bytes.subarray(off, off + 16 * 1024);
+        off += chunk.length;
+        state.pulled += chunk.length;
+        return {
+          byteLength: chunk.byteLength,
+          [Symbol.iterator]: () => [chunk][Symbol.iterator](),
+        };
+      },
+    } as unknown as Parameters<typeof readCarFile>[0];
+    return { bs, state };
+  }
+
+  it("rejects an over-cap section from its declared length, before allocating it", async () => {
+    const child = await rawBlock(new Uint8Array([1, 2, 3]));
+    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
+    const car = await buildCar([root.cid], [root, child]);
+
+    // a section claiming 4MiB, followed by almost none of it. 4MiB is under
+    // @ipld/car's own 8MiB default, so only the configured cap can reject this,
+    // and rejecting on the varint alone is the point: the bytes are never sent.
+    const forged = concat([
+      headerOf(car),
+      varint.encode(4 * 1024 * 1024),
+      new Uint8Array(32),
+    ]);
+    const { bs, state } = countingSource(forged);
+
+    await expect(
+      readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        maxSectionSize: 2 * 1024 * 1024,
+      }),
+    )
+      .rejects
+      .toThrow(/maxAllowedSectionSize/);
+
+    expect(state.pulled).toBeLessThan(1024);
+  });
+
+  it("rejects an over-cap header from its declared length, before allocating it", async () => {
+    const child = await rawBlock(new Uint8Array([1, 2, 3]));
+    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
+
+    // 2MiB is under @ipld/car's own 32MiB default, so only the configured cap
+    // can reject it, and it must do so from the varint alone
+    const forged = concat([varint.encode(2 * 1024 * 1024), new Uint8Array(32)]);
+    const { bs, state } = countingSource(forged);
+
+    await expect(
+      readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        maxHeaderSize: 1024,
+      }),
+    )
+      .rejects
+      .toThrow(/maxAllowedHeaderSize/);
+
+    expect(state.pulled).toBeLessThan(1024);
+  });
+
+  it("applies a configured maxSectionSize to a real over-cap block", async () => {
+    const big = await rawBlock(new Uint8Array(64 * 1024));
+    const root = await dagPbBlock([{ name: "big", cid: big.cid }]);
+    const car = await buildCar([root.cid], [root, big]);
+
+    await expect(runReadCar(car, root.cid, { maxSectionSize: 1024 })).rejects
+      .toThrow(/maxAllowedSectionSize/);
+  });
+
+  it("applies a configured maxHeaderSize to a real header", async () => {
+    const child = await rawBlock(new Uint8Array([1, 2, 3]));
+    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
+    const car = await buildCar([root.cid], [root, child]);
+
+    // a real 1-root header is ~58 bytes, so 8 rejects it without forging anything
+    await expect(runReadCar(car, root.cid, { maxHeaderSize: 8 })).rejects
+      .toThrow(/maxAllowedHeaderSize/);
+  });
+
+  it("leaves the caps to @ipld/car defaults when unset", async () => {
+    const child = await rawBlock(new Uint8Array([1, 2, 3]));
+    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
+    const car = await buildCar([root.cid], [root, child]);
+    await expect(runReadCar(car, root.cid)).resolves.toBeUndefined();
   });
 });
