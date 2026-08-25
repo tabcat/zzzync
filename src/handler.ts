@@ -34,8 +34,10 @@ import {
   CODEC_DAG_CBOR,
   CODEC_DAG_PB,
   CODEC_IDENTITY,
+  DEFAULT_HANDSHAKE_TIMEOUT_MS,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_STREAM_MS,
+  DEFAULT_MIN_BYTES_PER_SECOND,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
   ZZZYNC,
@@ -316,8 +318,14 @@ export interface Allow {
 export interface CreateHandlerOptions extends ReadCarFileOptions {
   /** Idle timeout (ms): abort if no bytes arrive for this long while receiving. */
   idleTimeoutMs?: number;
-  /** Total deadline (ms): abort the stream after this wall-clock cap regardless of activity (bounds slow-drip). */
+  /** Wall-clock cap (ms) on the handshake, whose data is bounded. */
+  handshakeTimeoutMs?: number;
+  /** Absolute backstop (ms) for the whole stream, regardless of phase or activity. */
   maxStreamMs?: number;
+  /** Bytes/sec a CAR transfer must sustain once the handshake is done. */
+  minBytesPerSecond?: number;
+  /** Window (ms) the throughput floor is sampled over. */
+  rateWindowMs?: number;
 }
 
 /**
@@ -423,11 +431,15 @@ export const createZzzyncHandler =
   ): StreamHandler =>
   async (stream: Stream, connection: Connection): Promise<void> => {
     const log = l.newScope(stream.id);
-    const { signal, clear } = streamSignal(
-      stream,
-      options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
-      options.maxStreamMs ?? DEFAULT_MAX_STREAM_MS,
-    );
+    const { signal, beginTransfer, clear } = streamSignal(stream, {
+      idleTimeoutMs: options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
+      handshakeTimeoutMs: options.handshakeTimeoutMs
+        ?? DEFAULT_HANDSHAKE_TIMEOUT_MS,
+      maxStreamMs: options.maxStreamMs ?? DEFAULT_MAX_STREAM_MS,
+      minBytesPerSecond: options.minBytesPerSecond
+        ?? DEFAULT_MIN_BYTES_PER_SECOND,
+      rateWindowMs: options.rateWindowMs,
+    });
 
     try {
       log("new stream from %s", connection.remotePeer);
@@ -444,6 +456,10 @@ export const createZzzyncHandler =
         signal,
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
+
+      // handshake over: retire its deadline and start holding the CAR to the
+      // throughput floor
+      beginTransfer();
 
       if (!(await allow.record(name, record, { signal }))) {
         const e = new Error("ipns record not allowed");

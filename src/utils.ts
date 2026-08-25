@@ -6,6 +6,7 @@ import type {
   PublicKey,
   Stream,
   StreamCloseEvent,
+  StreamMessageEvent,
 } from "@libp2p/interface";
 import { anySignal } from "any-signal";
 import type { BlockCodec, MultihashHasher } from "multiformats";
@@ -18,6 +19,7 @@ import {
   CODEC_DAG_PB,
   CODEC_RAW,
   type CODEC_SHA2_256,
+  DEFAULT_RATE_WINDOW_MS,
   IPFS_PREFIX,
 } from "./constants.ts";
 import type { IpnsMultihash, UnixFsCID } from "./interface.ts";
@@ -171,29 +173,65 @@ export async function withDeadline<T>(
   }
 }
 
+/** Consecutive under-floor windows tolerated before aborting, so a single congested window is not read as an attack. */
+const STARVED_WINDOWS_BEFORE_ABORT = 2;
+
 export interface StreamSignal {
-  /** Aborts on idle timeout or stream error-close. */
+  /** Aborts on idle, handshake deadline, throughput floor, or stream error-close. */
   signal: AbortSignal;
-  /** Detach listeners and cancel the timer; call in `finally`. */
+  /**
+   * Leave the handshake behind: retire its wall-clock deadline and start
+   * enforcing the throughput floor, if one was configured.
+   */
+  beginTransfer: () => void;
+  /** Detach listeners and cancel every timer; call in `finally`. */
   clear: () => void;
 }
 
+export interface StreamSignalOptions {
+  /** Abort if no bytes arrive at all for this long. Applies to the whole stream. */
+  idleTimeoutMs: number;
+  /** Wall-clock cap on the handshake, retired by `beginTransfer`. */
+  handshakeTimeoutMs: number;
+  /** Absolute backstop for the whole stream, regardless of phase or activity. */
+  maxStreamMs: number;
+  /**
+   * Bytes per second a transfer must sustain once `beginTransfer` is called.
+   * Unset means no floor.
+   */
+  minBytesPerSecond?: number;
+  /** Window the floor is sampled over. */
+  rateWindowMs?: number;
+}
+
 /**
- * Tie an AbortSignal to a handler stream's lifetime. It aborts if the stream
- * closes with an error, if no `message` (incoming bytes) arrives for
- * `idleTimeoutMs`, or after a hard `maxStreamMs` wall-clock deadline. The idle
- * timer resets on each `message`; the deadline does not, so a slow-drip dialer
- * cannot keep resetting the idle timer to hold the stream open. Both timers stop
- * once the remote closes its write side (`remoteCloseWrite`), so processing the
- * already-buffered tail is not bounded by either. The listeners only manage the
- * timers, never reading or consuming data, so they run alongside the byte
- * stream's own handlers. Always call `clear()` in a `finally`.
+ * Tie an AbortSignal to a handler stream's lifetime, in two phases.
+ *
+ * Throughout: abort if the stream closes with an error, if no `message`
+ * arrives for `idleTimeoutMs`, or after `maxStreamMs` as an absolute backstop.
+ *
+ * The handshake carries bounded, latency-bound data, so it gets a wall-clock
+ * cap (`handshakeTimeoutMs`). The CAR that follows is unbounded bulk transfer,
+ * where a wall-clock cap cannot tell "slow" from "large", so `beginTransfer`
+ * swaps that cap for a `minBytesPerSecond` floor. The floor is what stops a
+ * dialer dripping one byte per idle window to hold a stream open indefinitely:
+ * the idle timer resets on any byte, but the floor makes occupying a stream
+ * cost bandwidth in proportion to how long it is held. Two consecutive
+ * under-floor windows are required, so ordinary congestion is not an abort.
+ *
+ * Both timers stop once the remote closes its write side, so processing the
+ * buffered tail is unbounded by either. The listeners only manage timers, never
+ * reading or consuming data, so they run alongside the byte stream's own
+ * handlers. Always call `clear()` in a `finally`.
  */
 export function streamSignal(
   stream: Stream,
-  idleTimeoutMs: number,
-  maxStreamMs: number,
+  options: StreamSignalOptions,
 ): StreamSignal {
+  const { idleTimeoutMs, handshakeTimeoutMs, maxStreamMs, minBytesPerSecond } =
+    options;
+  const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
+
   const controller = new AbortController();
   const onClose: EventHandler<StreamCloseEvent> = (event) => {
     if (event.error != null) {
@@ -219,6 +257,15 @@ export function streamSignal(
     maxStreamMs,
   );
 
+  let handshake: ReturnType<typeof setTimeout> | undefined = setTimeout(
+    () => controller.abort(new Error("handshake deadline exceeded")),
+    handshakeTimeoutMs,
+  );
+
+  let windowBytes = 0;
+  let starvedWindows = 0;
+  let rate: ReturnType<typeof setInterval> | undefined;
+
   const stopTimers = (): void => {
     if (timer != null) {
       clearTimeout(timer);
@@ -228,9 +275,43 @@ export function streamSignal(
       clearTimeout(deadline);
       deadline = undefined;
     }
+    if (handshake != null) {
+      clearTimeout(handshake);
+      handshake = undefined;
+    }
+    if (rate != null) {
+      clearInterval(rate);
+      rate = undefined;
+    }
   };
 
-  const onMessage = resetIdle;
+  const beginTransfer = (): void => {
+    if (handshake != null) {
+      clearTimeout(handshake);
+      handshake = undefined;
+    }
+
+    if (minBytesPerSecond == null || rate != null) {
+      return;
+    }
+
+    const required = (minBytesPerSecond * rateWindowMs) / 1000;
+    windowBytes = 0;
+    starvedWindows = 0;
+    rate = setInterval(() => {
+      starvedWindows = windowBytes < required ? starvedWindows + 1 : 0;
+      windowBytes = 0;
+
+      if (starvedWindows >= STARVED_WINDOWS_BEFORE_ABORT) {
+        controller.abort(new Error("stream throughput below minimum"));
+      }
+    }, rateWindowMs);
+  };
+
+  const onMessage: EventHandler<StreamMessageEvent> = (event) => {
+    windowBytes += event.data?.byteLength ?? 0;
+    resetIdle();
+  };
   const onRemoteCloseWrite = stopTimers;
 
   stream.addEventListener("close", onClose);
@@ -240,6 +321,7 @@ export function streamSignal(
 
   return {
     signal: controller.signal,
+    beginTransfer,
     clear: () => {
       stopTimers();
       stream.removeEventListener("close", onClose);
