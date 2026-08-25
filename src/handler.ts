@@ -328,7 +328,16 @@ export interface CreateHandlerOptions
   handshakeTimeoutMs?: number;
   /** Wall-clock backstop (ms) for the receive phase, not reset by activity. Cleared once the remote closes its write side. */
   maxStreamMs?: number;
-  /** Bytes/sec a CAR transfer must sustain once the handshake is done. */
+  /**
+   * Bytes/sec a CAR transfer must sustain once the record is accepted.
+   *
+   * These three have to agree, or the size cap is unreachable:
+   * `maxByteLength / minBytesPerSecond <= maxStreamMs`. At the defaults a
+   * floor-compliant transfer delivers at most 1024 * 3600 bytes, so any
+   * `maxByteLength` above ~3.5MiB needs a higher floor, a longer backstop, or
+   * both. Nothing enforces this; a violating config simply cuts a slow transfer
+   * off at the backstop with bytes still owed.
+   */
   minBytesPerSecond?: number;
   /** Window (ms) the throughput floor is sampled over. */
   rateWindowMs?: number;
@@ -463,11 +472,6 @@ export const createZzzyncHandler =
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
-      // handshake over: retire its deadline and hold everything from here to the
-      // throughput floor. That covers allow.record and onReceive as well as the
-      // CAR, so a slow application callback aborts as "throughput below minimum"
-      beginTransfer();
-
       if (!(await allow.record(name, record, { signal }))) {
         const e = new Error("ipns record not allowed");
         log.error(e.message);
@@ -476,6 +480,14 @@ export const createZzzyncHandler =
         stream.abort(e);
         throw e;
       }
+
+      // Only now retire the handshake deadline and arm the throughput floor.
+      // allow.record runs above it deliberately: it is an application callback
+      // doing bounded work with no bytes arriving, so a wall-clock cap fits it
+      // and a throughput floor does not. Under the floor, a delegation-chain
+      // check or a cold cache would abort as "throughput below minimum" for a
+      // reason that has nothing to do with throughput.
+      beginTransfer();
 
       const value = parsedRecordValue(record.value);
       if (value == null) {

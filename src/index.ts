@@ -37,6 +37,9 @@
  *   {
  *     // size limits are yours to pick; unset means zzzync does not cap
  *     maxByteLength: 5 * 1024 * 1024,
+ *     // 5MiB needs at least 1456 B/s to land inside the 1h backstop, so the
+ *     // default 1KiB/s floor would cut it off; 2KiB/s finishes in ~43min
+ *     minBytesPerSecond: 2048,
  *     maxBlockCount: 10_000,
  *     maxCarSectionSize: 2 * 1024 * 1024,
  *     maxCarHeaderSize: 1024,
