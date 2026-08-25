@@ -176,8 +176,19 @@ export async function withDeadline<T>(
 /** Consecutive under-floor windows tolerated before aborting, so a single congested window is not read as an attack. */
 const STARVED_WINDOWS_BEFORE_ABORT = 2;
 
+/** Past this, setTimeout truncates and fires immediately, turning a long deadline into an instant abort. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
+function checkDuration(name: string, value: number): void {
+  if (!Number.isInteger(value) || value <= 0 || value > MAX_TIMER_MS) {
+    throw new TypeError(
+      `${name} must be a positive integer no greater than ${MAX_TIMER_MS}, got ${value}`,
+    );
+  }
+}
+
 export interface StreamSignal {
-  /** Aborts on idle, handshake deadline, throughput floor, or stream error-close. */
+  /** Aborts on idle, handshake deadline, throughput floor, backstop deadline, or stream error-close. */
   signal: AbortSignal;
   /**
    * Leave the handshake behind: retire its wall-clock deadline and start
@@ -189,11 +200,11 @@ export interface StreamSignal {
 }
 
 export interface StreamSignalOptions {
-  /** Abort if no bytes arrive at all for this long. Applies to the whole stream. */
+  /** Abort if no bytes arrive at all for this long. Applies to both phases. */
   idleTimeoutMs: number;
   /** Wall-clock cap on the handshake, retired by `beginTransfer`. */
   handshakeTimeoutMs: number;
-  /** Absolute backstop for the whole stream, regardless of phase or activity. */
+  /** Wall-clock backstop for the receive phase, not reset by activity. Cleared once the remote closes its write side. */
   maxStreamMs: number;
   /**
    * Bytes per second a transfer must sustain once `beginTransfer` is called.
@@ -219,10 +230,12 @@ export interface StreamSignalOptions {
  * cost bandwidth in proportion to how long it is held. Two consecutive
  * under-floor windows are required, so ordinary congestion is not an abort.
  *
- * Both timers stop once the remote closes its write side, so processing the
- * buffered tail is unbounded by either. The listeners only manage timers, never
- * reading or consuming data, so they run alongside the byte stream's own
- * handlers. Always call `clear()` in a `finally`.
+ * Every timer stops once the remote closes its write side, so processing the
+ * buffered tail is unbounded by all of them, including `maxStreamMs`: work after
+ * that point, `onReceive` included, carries no deadline from here. The listeners
+ * only manage timers and count bytes, never reading or consuming from the
+ * stream, so they run alongside the byte stream's own handlers. Always call
+ * `clear()` in a `finally`.
  */
 export function streamSignal(
   stream: Stream,
@@ -232,10 +245,30 @@ export function streamSignal(
     options;
   const rateWindowMs = options.rateWindowMs ?? DEFAULT_RATE_WINDOW_MS;
 
+  // fail at construction rather than aborting a stream much later, or silently
+  // never aborting one
+  checkDuration("idleTimeoutMs", idleTimeoutMs);
+  checkDuration("handshakeTimeoutMs", handshakeTimeoutMs);
+  checkDuration("maxStreamMs", maxStreamMs);
+  checkDuration("rateWindowMs", rateWindowMs);
+  if (
+    minBytesPerSecond != null
+    && (!Number.isFinite(minBytesPerSecond) || minBytesPerSecond < 0)
+  ) {
+    throw new TypeError(
+      `minBytesPerSecond must be a non-negative finite number, got ${minBytesPerSecond}`,
+    );
+  }
+
+  // handshake -> transfer -> stopped, one way. Guards beginTransfer against
+  // reviving timers that stopTimers deliberately retired.
+  let phase: "handshake" | "transfer" | "stopped" = "handshake";
   const controller = new AbortController();
   const onClose: EventHandler<StreamCloseEvent> = (event) => {
     if (event.error != null) {
-      controller.abort();
+      // pass the reason through: this is the only record of WHY a remote
+      // stream died, and it is the forensic surface for untrusted peers
+      controller.abort(event.error);
     }
   };
 
@@ -250,9 +283,10 @@ export function streamSignal(
     );
   };
 
-  // an absolute backstop that is NOT reset by incoming messages. Slow-drip is
-  // the throughput floor's job now, so this only has to stop a stream running
-  // forever, and can be generous enough not to cap transfer size by accident.
+  // a backstop that is NOT reset by incoming messages. When a throughput floor
+  // is configured it owns slow-drip, leaving this to stop a stream running
+  // forever, generous enough not to cap transfer size by accident. With no
+  // floor configured this is once again the only slow-drip bound.
   let deadline: ReturnType<typeof setTimeout> | undefined = setTimeout(
     () => controller.abort(new Error("stream deadline exceeded")),
     maxStreamMs,
@@ -268,6 +302,7 @@ export function streamSignal(
   let rate: ReturnType<typeof setInterval> | undefined;
 
   const stopTimers = (): void => {
+    phase = "stopped";
     if (timer != null) {
       clearTimeout(timer);
       timer = undefined;
@@ -287,12 +322,19 @@ export function streamSignal(
   };
 
   const beginTransfer = (): void => {
+    if (phase !== "handshake") {
+      return;
+    }
+    phase = "transfer";
+
     if (handshake != null) {
       clearTimeout(handshake);
       handshake = undefined;
     }
 
-    if (minBytesPerSecond == null || rate != null) {
+    // 0 is a way of saying "no floor"; arming one would spin a timer that can
+    // never abort, since windowBytes is never below 0
+    if (minBytesPerSecond == null || minBytesPerSecond === 0) {
       return;
     }
 
@@ -305,12 +347,16 @@ export function streamSignal(
 
       if (starvedWindows >= STARVED_WINDOWS_BEFORE_ABORT) {
         controller.abort(new Error("stream throughput below minimum"));
+        if (rate != null) {
+          clearInterval(rate);
+          rate = undefined;
+        }
       }
     }, rateWindowMs);
   };
 
   const onMessage: EventHandler<StreamMessageEvent> = (event) => {
-    windowBytes += event.data?.byteLength ?? 0;
+    windowBytes += event.data.byteLength;
     resetIdle();
   };
   const onRemoteCloseWrite = stopTimers;

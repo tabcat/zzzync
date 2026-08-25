@@ -280,6 +280,98 @@ describe("streamSignal", () => {
     }
   });
 
+  it("does not arm the floor after the remote closed its write side", async () => {
+    const stream = mockStream();
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      {
+        ...base,
+        maxStreamMs: 10_000,
+        minBytesPerSecond: 1000,
+        rateWindowMs: 30,
+      },
+    );
+    try {
+      // the dialer writes record, CAR and closeWrite back to back, so on a fast
+      // local dial this can land before the handler reaches beginTransfer. The
+      // buffered tail owes no further bytes and must not be held to the floor.
+      stream.dispatch("remoteCloseWrite");
+      beginTransfer();
+      await delay(150);
+      expect(signal.aborted).toBe(false);
+    } finally {
+      clear();
+    }
+  });
+
+  it("does not arm the floor after clear", async () => {
+    const stream = mockStream();
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      {
+        ...base,
+        maxStreamMs: 10_000,
+        minBytesPerSecond: 1000,
+        rateWindowMs: 30,
+      },
+    );
+    clear();
+    beginTransfer();
+    await delay(150);
+    // clear() has already detached the listeners, so a timer armed here would
+    // be unstoppable
+    expect(signal.aborted).toBe(false);
+  });
+
+  it("ignores a second beginTransfer", async () => {
+    const stream = mockStream();
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      {
+        ...base,
+        maxStreamMs: 10_000,
+        minBytesPerSecond: 1000,
+        rateWindowMs: 40,
+      },
+    );
+    const trickle = setInterval(() => send(stream, 200), 15);
+    try {
+      beginTransfer();
+      await delay(50);
+      beginTransfer();
+      await delay(150);
+      expect(signal.aborted).toBe(false);
+    } finally {
+      clearInterval(trickle);
+      clear();
+    }
+  });
+
+  it("rejects a rate window that would disable the floor it was given", () => {
+    const stream = mockStream();
+    expect(() =>
+      streamSignal(stream as unknown as Stream, {
+        ...base,
+        minBytesPerSecond: 1000,
+        rateWindowMs: 0,
+      })
+    )
+      .toThrow(/rateWindowMs/);
+  });
+
+  it("rejects a deadline past the timer range instead of firing at once", () => {
+    const stream = mockStream();
+    // setTimeout truncates past 2^31-1 ms and fires immediately, turning a
+    // generous backstop into an instant abort
+    expect(() =>
+      streamSignal(stream as unknown as Stream, {
+        ...base,
+        maxStreamMs: 30 * 24 * 60 * 60 * 1000,
+      })
+    )
+      .toThrow(/maxStreamMs/);
+  });
+
   it("applies no floor when minBytesPerSecond is unset", async () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(

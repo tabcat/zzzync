@@ -11,9 +11,10 @@
  * offline.
  *
  * The CAR format sets no maximum of any kind, so every size limit is the
- * application's to choose. Leave them unset and zzzync caps nothing, and a
- * transfer is bounded only by the handler's idle timeout, its throughput floor
- * and its backstop deadline.
+ * application's to choose. Leave them unset and zzzync caps nothing itself,
+ * though each section and the header still fall under `@ipld/car`'s own
+ * defaults; only the total is uncapped, bounded then by the handler's idle
+ * timeout, its throughput floor and its backstop deadline.
  *
  * @example Receive pushes (handler)
  *

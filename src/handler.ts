@@ -172,8 +172,10 @@ export async function readIpnsRecord(
 export interface ReadCarFileOptions extends AbortOptions {
   /**
    * Total raw bytes accepted, CAR framing included. Unset means zzzync does not
-   * cap the total, leaving the stream bounded only by the handler's idle and
-   * max-stream deadlines.
+   * cap the total; the stream is then bounded by whatever the caller wires up,
+   * which under `createZzzyncHandler` is the idle timeout, the throughput floor
+   * and the `maxStreamMs` backstop. Note the transport buffers at most 4MiB of
+   * unconsumed bytes regardless, and overruns that.
    */
   maxByteLength?: number;
   /** Blocks accepted. Unset means zzzync does not cap the count. */
@@ -205,13 +207,14 @@ export async function readCarFile(
   const { maxByteLength, maxBlockCount } = options;
 
   const blocks = async function*() {
-    // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize/maxCarHeaderSize
-    // below cap any single declared length before its body is read, but nothing
-    // in @ipld/car bounds the total, and the per-block/total caps further down
-    // only see a block once it is fully materialized. This budget is also the
-    // only thing that bounds bytes which never finish a section at all, and
-    // counting raw bytes makes maxByteLength cover CAR framing, not just
-    // decoded block payload.
+    // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize and
+    // maxCarHeaderSize cap any single declared length before its body is read,
+    // but nothing in @ipld/car bounds the total, and maxBlockCount further down
+    // only counts a block once it is fully materialized. This budget is what
+    // bounds the total across all sections, plus bytes the decoder skips or
+    // never parses as a section at all (a CARv2 pragma seeks past dataOffset),
+    // and counting raw bytes makes maxByteLength cover CAR framing rather than
+    // just decoded block payload.
     let pulled = 0;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
@@ -251,7 +254,8 @@ export async function readCarFile(
     let blockCount = 0;
 
     for await (const { cid, bytes } of car) {
-      if (maxBlockCount != null && ++blockCount > maxBlockCount) {
+      blockCount++;
+      if (maxBlockCount != null && blockCount > maxBlockCount) {
         throw new Error("CAR file exceeded max block count");
       }
 
@@ -315,12 +319,14 @@ export interface Allow {
   ): boolean | Promise<boolean>;
 }
 
-export interface CreateHandlerOptions extends ReadCarFileOptions {
+export interface CreateHandlerOptions
+  extends Omit<ReadCarFileOptions, "signal">
+{
   /** Idle timeout (ms): abort if no bytes arrive for this long while receiving. */
   idleTimeoutMs?: number;
   /** Wall-clock cap (ms) on the handshake, whose data is bounded. */
   handshakeTimeoutMs?: number;
-  /** Absolute backstop (ms) for the whole stream, regardless of phase or activity. */
+  /** Wall-clock backstop (ms) for the receive phase, not reset by activity. Cleared once the remote closes its write side. */
   maxStreamMs?: number;
   /** Bytes/sec a CAR transfer must sustain once the handshake is done. */
   minBytesPerSecond?: number;
@@ -457,8 +463,9 @@ export const createZzzyncHandler =
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
-      // handshake over: retire its deadline and start holding the CAR to the
-      // throughput floor
+      // handshake over: retire its deadline and hold everything from here to the
+      // throughput floor. That covers allow.record and onReceive as well as the
+      // CAR, so a slow application callback aborts as "throughput below minimum"
       beginTransfer();
 
       if (!(await allow.record(name, record, { signal }))) {
