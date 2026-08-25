@@ -257,7 +257,7 @@ describe("readCarFile", () => {
 
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
-        maxSectionSize: 2 * 1024 * 1024,
+        maxCarSectionSize: 2 * 1024 * 1024,
       }),
     )
       .rejects
@@ -277,7 +277,7 @@ describe("readCarFile", () => {
 
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
-        maxHeaderSize: 1024,
+        maxCarHeaderSize: 1024,
       }),
     )
       .rejects
@@ -286,22 +286,22 @@ describe("readCarFile", () => {
     expect(state.pulled).toBeLessThan(1024);
   });
 
-  it("applies a configured maxSectionSize to a real over-cap block", async () => {
+  it("applies a configured maxCarSectionSize to a real over-cap block", async () => {
     const big = await rawBlock(new Uint8Array(64 * 1024));
     const root = await dagPbBlock([{ name: "big", cid: big.cid }]);
     const car = await buildCar([root.cid], [root, big]);
 
-    await expect(runReadCar(car, root.cid, { maxSectionSize: 1024 })).rejects
+    await expect(runReadCar(car, root.cid, { maxCarSectionSize: 1024 })).rejects
       .toThrow(/maxAllowedSectionSize/);
   });
 
-  it("applies a configured maxHeaderSize to a real header", async () => {
+  it("applies a configured maxCarHeaderSize to a real header", async () => {
     const child = await rawBlock(new Uint8Array([1, 2, 3]));
     const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
     const car = await buildCar([root.cid], [root, child]);
 
     // a real 1-root header is ~58 bytes, so 8 rejects it without forging anything
-    await expect(runReadCar(car, root.cid, { maxHeaderSize: 8 })).rejects
+    await expect(runReadCar(car, root.cid, { maxCarHeaderSize: 8 })).rejects
       .toThrow(/maxAllowedHeaderSize/);
   });
 

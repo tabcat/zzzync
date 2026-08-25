@@ -173,12 +173,12 @@ export interface ReadCarFileOptions extends AbortOptions {
    * so an over-cap claim costs nothing. Left unset, @ipld/car's own default
    * applies, which is looser than DEFAULT_MAX_CAR_BYTES and so never fires.
    */
-  maxSectionSize?: number;
+  maxCarSectionSize?: number;
   /**
    * Largest CAR header @ipld/car will accept, checked the same way. A one-root
    * header is around 58 bytes, so this can be far tighter than the default.
    */
-  maxHeaderSize?: number;
+  maxCarHeaderSize?: number;
 }
 
 /** Canonical (v1, base32) CID key so codec differences are preserved. */
@@ -195,7 +195,7 @@ export async function readCarFile(
   const maxBlockCount = options.maxBlockCount ?? DEFAULT_MAX_BLOCK_COUNT;
 
   const blocks = async function*() {
-    // Bound the raw bytes fed to the CAR decoder. maxSectionSize/maxHeaderSize
+    // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize/maxCarHeaderSize
     // below cap any single declared length before its body is read, but nothing
     // in @ipld/car bounds the total, and the per-block/total caps further down
     // only see a block once it is fully materialized. This budget is also the
@@ -219,8 +219,8 @@ export async function readCarFile(
         }
       })(),
       {
-        maxAllowedSectionSize: options.maxSectionSize,
-        maxAllowedHeaderSize: options.maxHeaderSize,
+        maxAllowedSectionSize: options.maxCarSectionSize,
+        maxAllowedHeaderSize: options.maxCarHeaderSize,
       },
     );
 
