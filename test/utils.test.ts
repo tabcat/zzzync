@@ -454,8 +454,10 @@ describe("raceDeadline", () => {
       1000,
       "too slow",
     );
+    // attach before advancing, or the rejection sits unhandled in between
+    const assertion = expect(p).rejects.toThrow("denied");
     await vi.advanceTimersByTimeAsync(10);
-    await expect(p).rejects.toThrow("denied");
+    await assertion;
   });
 
   it("hands the op a signal that aborts on the deadline", async () => {

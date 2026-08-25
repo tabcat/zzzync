@@ -38,6 +38,7 @@ import {
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_STREAM_MS,
   DEFAULT_MIN_BYTES_PER_SECOND,
+  DEFAULT_RACE_TIMEOUT_MS,
   DEFAULT_RATE_WINDOW_MS,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
@@ -50,6 +51,7 @@ import {
   getCodec,
   getHasher,
   parsedRecordValue,
+  raceDeadline,
   streamSignal,
 } from "./utils.ts";
 
@@ -347,6 +349,14 @@ export interface CreateHandlerOptions
   minBytesPerSecond?: number;
   /** Window (ms) the throughput floor is sampled over. */
   rateWindowMs?: number;
+  /**
+   * Deadline (ms) for each application callback: `allow.multihash`,
+   * `allow.record` and `onReceive`. They are raced rather than awaited, so this
+   * holds whether or not the callback honours the signal it is handed. A hang
+   * guard rather than a latency budget: it bounds the handler and frees the
+   * stream, while the callback itself keeps running.
+   */
+  raceTimeoutMs?: number;
 }
 
 /**
@@ -388,6 +398,7 @@ export async function authenticateDialer(
   allow: Allow,
   log: Logger,
   signal: AbortSignal,
+  raceTimeoutMs: number = DEFAULT_RACE_TIMEOUT_MS,
 ): Promise<Libp2pKey> {
   const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
 
@@ -400,7 +411,13 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
-  if (!(await allow.multihash(dialerPublicKey, { signal }))) {
+  const permitted = await raceDeadline(
+    (deadline) => allow.multihash(dialerPublicKey, { signal: deadline }),
+    raceTimeoutMs,
+    "allow.multihash exceeded its deadline",
+    signal,
+  );
+  if (!permitted) {
     const error = new Error("ipns key not allowed");
     log.error(error.message);
     throw error;
@@ -467,6 +484,8 @@ export const createZzzyncHandler =
 
       const bs = byteStream(stream);
 
+      const raceTimeoutMs = options.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
+
       const name = await readIpnsMultihash(bs, log, { signal });
       const pinner = await authenticateDialer(
         bs,
@@ -475,10 +494,17 @@ export const createZzzyncHandler =
         allow,
         log,
         signal,
+        raceTimeoutMs,
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
-      if (!(await allow.record(name, record, { signal }))) {
+      const accepted = await raceDeadline(
+        (deadline) => allow.record(name, record, { signal: deadline }),
+        raceTimeoutMs,
+        "allow.record exceeded its deadline",
+        signal,
+      );
+      if (!accepted) {
         const e = new Error("ipns record not allowed");
         log.error(e.message);
         // abort with the specific reason so the dialer sees it; the outer
@@ -506,7 +532,12 @@ export const createZzzyncHandler =
 
       await readCarFile(bs, importer, value, log, { ...options, signal });
 
-      await onReceive({ name, record, pinner }, { signal });
+      await raceDeadline(
+        (deadline) => onReceive({ name, record, pinner }, { signal: deadline }),
+        raceTimeoutMs,
+        "onReceive exceeded its deadline",
+        signal,
+      );
       log("handed off received record");
 
       await stream.close({ signal });

@@ -186,6 +186,64 @@ function checkDuration(name: string, value: number): void {
   }
 }
 
+/**
+ * Run `op` under a deadline that does not depend on `op` cooperating.
+ *
+ * `withDeadline` hands a signal in and awaits the result, so it bounds only
+ * code that honours the signal. That is right for zzzync's own reads and
+ * writes and wrong for an application callback, where forgetting to thread the
+ * signal is an ordinary mistake and the cost is a handler that never returns.
+ * This races instead, so the deadline holds either way.
+ *
+ * `op` still receives a signal and should honour it, since a cooperative abort
+ * stops the work. Racing only bounds the caller: a losing `op` keeps running,
+ * and its result is discarded.
+ */
+export async function raceDeadline<T>(
+  op: (signal: AbortSignal) => T | Promise<T>,
+  timeoutMs: number,
+  message: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const deadline = deadlineSignal(signal, timeoutMs);
+  const timedOut = Symbol("timedOut");
+
+  // settle `op` into a value either way, so the losing branch of the race can
+  // never surface as an unhandled rejection
+  const work: Promise<{ value: T; } | { error: unknown; }> = (async () => {
+    try {
+      return { value: await op(deadline.signal) };
+    } catch (error) {
+      return { error };
+    }
+  })();
+
+  try {
+    const outcome = await Promise.race([
+      work,
+      new Promise<typeof timedOut>((resolve) => {
+        if (deadline.signal.aborted) {
+          resolve(timedOut);
+          return;
+        }
+        deadline.signal.addEventListener("abort", () => resolve(timedOut), {
+          once: true,
+        });
+      }),
+    ]);
+
+    if (outcome === timedOut) {
+      throw new Error(message);
+    }
+    if ("error" in outcome) {
+      throw outcome.error;
+    }
+    return outcome.value;
+  } finally {
+    deadline.clear();
+  }
+}
+
 export interface StreamSignal {
   /** Aborts on idle, handshake deadline, throughput floor, backstop deadline, or stream error-close. */
   signal: AbortSignal;
