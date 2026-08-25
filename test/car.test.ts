@@ -228,7 +228,7 @@ describe("readCarFile", () => {
     const bs = {
       read: async () => {
         if (off >= bytes.length) return null;
-        const chunk = bytes.subarray(off, off + 16 * 1024);
+        const chunk = bytes.subarray(off, off + 256);
         off += chunk.length;
         state.pulled += chunk.length;
         return {
@@ -248,10 +248,12 @@ describe("readCarFile", () => {
     // a section claiming 4MiB, followed by almost none of it. 4MiB is under
     // @ipld/car's own 8MiB default, so only the configured cap can reject this,
     // and rejecting on the varint alone is the point: the bytes are never sent.
+    // padded well past the 1KiB assertion so the byte counter actually
+    // discriminates: buffering the declared body would blow through it
     const forged = concat([
       headerOf(car),
       varint.encode(4 * 1024 * 1024),
-      new Uint8Array(32),
+      new Uint8Array(64 * 1024),
     ]);
     const { bs, state } = countingSource(forged);
 
@@ -272,7 +274,10 @@ describe("readCarFile", () => {
 
     // 2MiB is under @ipld/car's own 32MiB default, so only the configured cap
     // can reject it, and it must do so from the varint alone
-    const forged = concat([varint.encode(2 * 1024 * 1024), new Uint8Array(32)]);
+    const forged = concat([
+      varint.encode(2 * 1024 * 1024),
+      new Uint8Array(64 * 1024),
+    ]);
     const { bs, state } = countingSource(forged);
 
     await expect(
@@ -305,10 +310,53 @@ describe("readCarFile", () => {
       .toThrow(/maxAllowedHeaderSize/);
   });
 
-  it("leaves the caps to @ipld/car defaults when unset", async () => {
+  it("still applies @ipld/car's own section cap when unset", async () => {
     const child = await rawBlock(new Uint8Array([1, 2, 3]));
     const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
     const car = await buildCar([root.cid], [root, child]);
+
+    // unset means zzzync caps nothing, but @ipld/car still defaults to 8MiB per
+    // section, which is the guarantee that replaced the old hard MAX_BLOCK_BYTES
+    const forged = concat([
+      headerOf(car),
+      varint.encode(9 * 1024 * 1024),
+      new Uint8Array(1024),
+    ]);
+    const { bs } = countingSource(forged);
+
+    await expect(readCarFile(bs, drain, root.cid as UnixFsCID, log, {})).rejects
+      .toThrow(/maxAllowedSectionSize/);
+  });
+
+  it("does not cap total bytes when maxByteLength is unset", async () => {
+    // six 1MiB blocks is over the 5MiB total that used to be the default, so
+    // this fails the moment anyone reinstates one
+    const blocks = await Promise.all(Array.from({ length: 6 }, (_, i) => {
+      // distinct bytes per block, or they share a CID and the dedup guard
+      // rejects the second as unreferenced
+      const bytes = new Uint8Array(1024 * 1024);
+      bytes[0] = i;
+      return rawBlock(bytes);
+    }));
+    const root = await dagPbBlock(
+      blocks.map((b, i) => ({ name: `b${i}`, cid: b.cid })),
+    );
+    const car = await buildCar([root.cid], [root, ...blocks]);
+    await expect(runReadCar(car, root.cid)).resolves.toBeUndefined();
+  });
+
+  it("does not cap block count when maxBlockCount is unset", async () => {
+    // past the 10_000 that used to be the default
+    const blocks = await Promise.all(
+      Array.from({ length: 10_051 }, (_, i) =>
+        rawBlock(
+          new Uint8Array([i & 0xff, (i >> 8) & 0xff, (i >> 16) & 0xff]),
+        )),
+    );
+    const root = await dagPbBlock(
+      blocks.map((b, i) => ({ name: `b${i}`, cid: b.cid })),
+    );
+    const car = await buildCar([root.cid], [root, ...blocks]);
     await expect(runReadCar(car, root.cid)).resolves.toBeUndefined();
   });
 });

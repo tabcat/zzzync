@@ -5,7 +5,15 @@ import type { Stream } from "@libp2p/interface";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
-import { beforeAll, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { CODEC_DAG_PB, IPFS_PREFIX } from "../src/constants.ts";
 import {
   contenthash,
@@ -118,8 +126,18 @@ describe("contenthash", () => {
 });
 
 describe("streamSignal", () => {
-  const delay = (ms: number): Promise<void> =>
-    new Promise((resolve) => setTimeout(resolve, ms));
+  // pure timer logic over a synchronous mock, so fake timers make every window
+  // boundary exact instead of racing the scheduler
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const tick = async (ms: number): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(ms);
+  };
 
   // minimal stand-in exposing only the event surface streamSignal touches
   function mockStream() {
@@ -143,48 +161,46 @@ describe("streamSignal", () => {
   }
 
   const base = {
-    idleTimeoutMs: 1000,
-    handshakeTimeoutMs: 1000,
-    maxStreamMs: 1000,
+    idleTimeoutMs: 10_000,
+    handshakeTimeoutMs: 10_000,
+    maxStreamMs: 10_000,
   };
+  // 1000 B/s over 100ms windows = 100 bytes required per window
+  const floor = { minBytesPerSecond: 1000, rateWindowMs: 100 };
 
-  it("aborts on the total deadline even while messages reset the idle timer", async () => {
+  it("aborts on the backstop deadline even while messages reset the idle timer", async () => {
     const stream = mockStream();
     const { signal, clear } = streamSignal(stream as unknown as Stream, {
       ...base,
-      maxStreamMs: 100,
+      maxStreamMs: 500,
     });
-    const trickle = setInterval(() => send(stream, 1), 20);
     try {
-      await delay(180);
+      for (let i = 0; i < 10; i++) {
+        send(stream, 1);
+        await tick(60);
+      }
       expect(signal.aborted).toBe(true);
       expect((signal.reason as Error | undefined)?.message).toContain(
-        "deadline",
+        "stream deadline",
       );
     } finally {
-      clearInterval(trickle);
       clear();
     }
   });
 
   it("aborts a handshake that outlives its own deadline", async () => {
     const stream = mockStream();
-    // the handshake is bounded data, so it gets a wall-clock cap of its own,
-    // well inside the total deadline
     const { signal, clear } = streamSignal(stream as unknown as Stream, {
       ...base,
-      handshakeTimeoutMs: 60,
-      maxStreamMs: 10_000,
+      handshakeTimeoutMs: 300,
     });
-    const trickle = setInterval(() => send(stream, 1), 15);
     try {
-      await delay(140);
+      await tick(400);
       expect(signal.aborted).toBe(true);
       expect((signal.reason as Error | undefined)?.message).toContain(
         "handshake",
       );
     } finally {
-      clearInterval(trickle);
       clear();
     }
   });
@@ -193,43 +209,52 @@ describe("streamSignal", () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      { ...base, handshakeTimeoutMs: 60, maxStreamMs: 10_000 },
+      { ...base, handshakeTimeoutMs: 300 },
     );
-    const trickle = setInterval(() => send(stream, 1), 15);
     try {
       beginTransfer();
-      await delay(140);
+      await tick(400);
       expect(signal.aborted).toBe(false);
     } finally {
-      clearInterval(trickle);
+      clear();
+    }
+  });
+
+  it("keeps the idle timer running through the transfer phase", async () => {
+    const stream = mockStream();
+    // no floor: the idle timer is then the only bound on the transfer phase
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      { ...base, idleTimeoutMs: 200 },
+    );
+    try {
+      beginTransfer();
+      await tick(300);
+      expect(signal.aborted).toBe(true);
+      expect((signal.reason as Error | undefined)?.message).toContain("idle");
+    } finally {
       clear();
     }
   });
 
   it("aborts a transfer whose throughput stays under the floor", async () => {
     const stream = mockStream();
-    // 1000 B/s over 50ms windows = 50 bytes required per window
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 50,
-      },
+      { ...base, ...floor },
     );
-    // enough to hold the idle timer open, nowhere near the floor: the drip
-    // this whole mechanism exists to catch
-    const trickle = setInterval(() => send(stream, 2), 20);
     try {
       beginTransfer();
-      await delay(300);
+      // 20 bytes per window against 100 required: the drip this exists to catch
+      for (let i = 0; i < 4; i++) {
+        send(stream, 20);
+        await tick(100);
+      }
       expect(signal.aborted).toBe(true);
       expect((signal.reason as Error | undefined)?.message).toContain(
         "throughput",
       );
     } finally {
-      clearInterval(trickle);
       clear();
     }
   });
@@ -238,42 +263,57 @@ describe("streamSignal", () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 50,
-      },
+      { ...base, ...floor },
     );
-    const trickle = setInterval(() => send(stream, 200), 20);
     try {
       beginTransfer();
-      await delay(300);
+      for (let i = 0; i < 6; i++) {
+        send(stream, 500);
+        await tick(100);
+      }
       expect(signal.aborted).toBe(false);
     } finally {
-      clearInterval(trickle);
       clear();
     }
   });
 
-  it("tolerates a single under-floor window", async () => {
+  it("requires the under-floor windows to be consecutive, not cumulative", async () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 50,
-      },
+      { ...base, ...floor },
     );
     try {
       beginTransfer();
-      // one starved window, then back above the floor: congestion should not
-      // look like an attack
-      await delay(60);
+      // starve, recover, starve: a healthy transfer with two separated blips
+      // must survive, or the count is cumulative rather than consecutive
+      await tick(100);
       send(stream, 500);
-      await delay(60);
+      await tick(100);
+      await tick(100);
+      expect(signal.aborted).toBe(false);
+      // and a third window with no recovery is the one that ends it
+      await tick(100);
+      expect(signal.aborted).toBe(true);
+    } finally {
+      clear();
+    }
+  });
+
+  it("retires the floor once the remote closes its write side", async () => {
+    const stream = mockStream();
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      { ...base, ...floor },
+    );
+    try {
+      // the production ordering: transfer begins, the dialer sends its CAR and
+      // closes write, then the handler's own import and onReceive run on with
+      // no further bytes owed and must not be held to the floor
+      beginTransfer();
+      send(stream, 500);
+      stream.dispatch("remoteCloseWrite");
+      await tick(1000);
       expect(signal.aborted).toBe(false);
     } finally {
       clear();
@@ -284,20 +324,14 @@ describe("streamSignal", () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 30,
-      },
+      { ...base, ...floor },
     );
     try {
-      // the dialer writes record, CAR and closeWrite back to back, so on a fast
-      // local dial this can land before the handler reaches beginTransfer. The
-      // buffered tail owes no further bytes and must not be held to the floor.
+      // the reverse ordering, reachable when a small CAR and its FIN land while
+      // the handler is still verifying signatures
       stream.dispatch("remoteCloseWrite");
       beginTransfer();
-      await delay(150);
+      await tick(1000);
       expect(signal.aborted).toBe(false);
     } finally {
       clear();
@@ -308,41 +342,45 @@ describe("streamSignal", () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 30,
-      },
+      { ...base, ...floor },
     );
     clear();
     beginTransfer();
-    await delay(150);
+    await tick(1000);
     // clear() has already detached the listeners, so a timer armed here would
     // be unstoppable
     expect(signal.aborted).toBe(false);
   });
 
-  it("ignores a second beginTransfer", async () => {
+  it("ignores a second beginTransfer instead of orphaning the first timer", async () => {
     const stream = mockStream();
     const { signal, beginTransfer, clear } = streamSignal(
       stream as unknown as Stream,
-      {
-        ...base,
-        maxStreamMs: 10_000,
-        minBytesPerSecond: 1000,
-        rateWindowMs: 40,
-      },
+      { ...base, ...floor },
     );
-    const trickle = setInterval(() => send(stream, 200), 15);
+    beginTransfer();
+    beginTransfer();
+    // if the second call armed its own interval, clear() would only stop one of
+    // them and the survivor would abort with nothing arriving
+    clear();
+    await tick(1000);
+    expect(signal.aborted).toBe(false);
+  });
+
+  it("applies no floor when minBytesPerSecond is unset", async () => {
+    const stream = mockStream();
+    const { signal, beginTransfer, clear } = streamSignal(
+      stream as unknown as Stream,
+      { ...base, rateWindowMs: 100 },
+    );
     try {
       beginTransfer();
-      await delay(50);
-      beginTransfer();
-      await delay(150);
+      for (let i = 0; i < 6; i++) {
+        send(stream, 1);
+        await tick(100);
+      }
       expect(signal.aborted).toBe(false);
     } finally {
-      clearInterval(trickle);
       clear();
     }
   });
@@ -363,29 +401,16 @@ describe("streamSignal", () => {
     const stream = mockStream();
     // setTimeout truncates past 2^31-1 ms and fires immediately, turning a
     // generous backstop into an instant abort
-    expect(() =>
-      streamSignal(stream as unknown as Stream, {
-        ...base,
-        maxStreamMs: 30 * 24 * 60 * 60 * 1000,
-      })
-    )
-      .toThrow(/maxStreamMs/);
-  });
-
-  it("applies no floor when minBytesPerSecond is unset", async () => {
-    const stream = mockStream();
-    const { signal, beginTransfer, clear } = streamSignal(
-      stream as unknown as Stream,
-      { ...base, maxStreamMs: 10_000, rateWindowMs: 50 },
-    );
-    const trickle = setInterval(() => send(stream, 1), 20);
-    try {
-      beginTransfer();
-      await delay(300);
-      expect(signal.aborted).toBe(false);
-    } finally {
-      clearInterval(trickle);
-      clear();
+    for (
+      const field of ["idleTimeoutMs", "handshakeTimeoutMs", "maxStreamMs"]
+    ) {
+      expect(() =>
+        streamSignal(stream as unknown as Stream, {
+          ...base,
+          [field]: 30 * 24 * 60 * 60 * 1000,
+        })
+      )
+        .toThrow(new RegExp(field));
     }
   });
 });
