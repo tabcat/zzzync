@@ -33,6 +33,12 @@ export interface DialOptions extends AbortOptions {
   ackTimeoutMs?: number;
   /** Produces the optional auth frame (a delegation-chain CAR) sent after the ipns key. */
   auth?: () => Uint8Array | Promise<Uint8Array>;
+  /**
+   * Called after each CAR chunk is written, with the running total of bytes
+   * sent so far. There is deliberately no total: the CAR is streamed straight
+   * from the exporter, so its size is not known until the last chunk.
+   */
+  onProgress?: (sent: number) => void;
 }
 
 async function writeVarintPrefixed(
@@ -155,7 +161,7 @@ export async function writeCarFile(
   bs: ByteStream<Stream>,
   exporter: Pick<Car, "export">,
   cid: CID,
-  options: DeadlineOptions,
+  options: DeadlineOptions & { onProgress?: (sent: number) => void; },
 ): Promise<void> {
   try {
     const references = new Set<string>();
@@ -163,6 +169,7 @@ export async function writeCarFile(
       add: (bytes) => references.add(bytes.toString()),
       has: (bytes) => references.has(bytes.toString()),
     };
+    let sent = 0;
     for await (
       const data of exporter.export(cid, {
         blockFilter, // dedupe
@@ -176,6 +183,8 @@ export async function writeCarFile(
       const deadline = deadlineSignal(options.signal, options.timeoutMs);
       try {
         await bs.write(data, { signal: deadline.signal });
+        sent += data.byteLength;
+        options.onProgress?.(sent);
       } finally {
         deadline.clear();
       }
@@ -259,7 +268,10 @@ export async function zzzync(
       throw new Error("Unable to parse record value");
     }
 
-    await writeCarFile(bs, exporter, cid, deadlineOptions);
+    await writeCarFile(bs, exporter, cid, {
+      ...deadlineOptions,
+      onProgress: options.onProgress,
+    });
     await closeWrite(stream, deadlineOptions);
 
     await awaitHandlerClose(stream, {
@@ -288,10 +300,14 @@ export async function dialZzzync(
   sign: Sign,
   options: DialOptions = {},
 ): Promise<void> {
+  // libp2p's DialProtocolOptions has its own `onProgress`, a ProgressEvent
+  // listener for connection and stream setup. Ours reports CAR bytes and would
+  // collide, so it stays out of the dial and is handed to zzzync() below.
+  const { onProgress: _onProgress, ...dialOptions } = options;
   const stream = await libp2p.dialProtocol(
     peerId,
     ZZZYNC_PUSH_PROTOCOL_ID,
-    options,
+    dialOptions,
   );
   await zzzync(stream, peerId, exporter, result, sign, options);
 }
