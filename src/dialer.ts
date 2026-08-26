@@ -37,6 +37,10 @@ export interface DialOptions extends AbortOptions {
    * Called after each CAR chunk is written, with the running total of bytes
    * sent so far. There is deliberately no total: the CAR is streamed straight
    * from the exporter, so its size is not known until the last chunk.
+   *
+   * `sent` counts bytes handed to the stream, not bytes the handler has
+   * acknowledged, so a push can report its full size and still fail. A throw
+   * from this callback is logged and swallowed rather than failing the push.
    */
   onProgress?: (sent: number) => void;
 }
@@ -184,14 +188,24 @@ export async function writeCarFile(
       try {
         await bs.write(data, { signal: deadline.signal });
         sent += data.byteLength;
-        options.onProgress?.(sent);
+        if (options.onProgress != null) {
+          // a progress reporter must not be able to fail the transfer it is
+          // reporting on: a CLI writing to a closed stdout (`upload | head`)
+          // raises EPIPE, which would otherwise abort a push whose bytes had
+          // already been written
+          try {
+            options.onProgress(sent);
+          } catch (err) {
+            options.log.error("onProgress threw, continuing - %e", err);
+          }
+        }
       } finally {
         deadline.clear();
       }
     }
     options.log("wrote car file");
   } catch (e) {
-    options.log.error("failed while writing car file");
+    options.log.error("failed while writing car file - %e", e);
     throw e;
   }
 }
