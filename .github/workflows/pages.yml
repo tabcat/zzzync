@@ -5,7 +5,7 @@ on:
     workflows: ["ci"]
     branches: [master]  # Ensure it only triggers for pushes to master
     types:
-      - completed  # Runs only if Workflow A completes successfully
+      - completed  # fires on ANY conclusion; the job gates on success below
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -24,6 +24,11 @@ concurrency:
 
 jobs:
   docs:
+    # workflow_run fires on failure too, so deploying has to check the
+    # conclusion itself. workflow_dispatch has no workflow_run payload.
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+      || github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -41,7 +46,7 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm api-docs
       - name: Setup Pages
         uses: actions/configure-pages@v5
