@@ -24,6 +24,10 @@
       "types": "./dist/src/challenge.d.ts",
       "import": "./dist/src/challenge.js"
     },
+    "./libp2p-fetch/ipns": {
+      "types": "./dist/src/libp2p-fetch/ipns.d.ts",
+      "import": "./dist/src/libp2p-fetch/ipns.js"
+    },
     "./utils": {
       "types": "./dist/src/utils.d.ts",
       "import": "./dist/src/utils.js"
@@ -89,11 +93,14 @@
     "@ipld/dag-cbor": "^10.0.2",
     "@ipld/dag-pb": "^4.1.7",
     "@libp2p/crypto": "^5.1.23",
+    "@libp2p/fetch": "^4.1.12",
     "@libp2p/interface": "^3.3.0",
+    "@libp2p/kad-dht": "^16.4.4",
     "@libp2p/logger": "^6.2.13",
     "@libp2p/utils": "^7.4.0",
     "@noble/curves": "^2.3.0",
     "any-signal": "^4.2.0",
+    "interface-datastore": "^10.0.1",
     "ipns": "^11.0.1",
     "multiformats": "^14.0.5",
     "uint8-varint": "^3.0.0",
