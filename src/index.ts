@@ -114,6 +114,7 @@ export { createZzzyncHandler, registerZzzyncHandler } from "./handler.ts";
 export type {
   Allow,
   AllowOptions,
+  AuthOptions,
   CarLimits,
   CreateHandlerOptions,
   OnReceive,

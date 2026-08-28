@@ -203,15 +203,24 @@ export async function readIpnsRecord(
  */
 export interface CarLimits {
   /**
-   * Total raw bytes accepted, CAR framing included. Note the transport buffers
-   * at most 4MiB of unconsumed bytes regardless, and overruns that.
+   * Total raw bytes accepted, CAR framing included. `Infinity` is accepted
+   * here. Note the transport buffers at most 4MiB of unconsumed bytes
+   * regardless, and overruns that.
    */
   maxByteLength: number;
-  /** Blocks accepted. */
+  /** Blocks accepted. `Infinity` is accepted here. */
   maxBlockCount: number;
-  /** Largest CAR section: block bytes plus their CID. */
+  /**
+   * Largest CAR section: block bytes plus their CID. Goes to @ipld/car, which
+   * requires a non-negative safe integer and throws a TypeError on `Infinity`.
+   * To not cap this, pass its own default of 8 * 1024 * 1024.
+   */
   maxCarSectionSize: number;
-  /** Largest CAR header. A one-root header is around 58 bytes. */
+  /**
+   * Largest CAR header. A one-root header is around 58 bytes. Same @ipld/car
+   * restriction as `maxCarSectionSize`: no `Infinity`. To not cap this, pass
+   * its own default of 32 * 1024 * 1024.
+   */
   maxCarHeaderSize: number;
 }
 
@@ -353,18 +362,9 @@ export interface Allow {
  * The timing fields come from `StreamSignalOptions` rather than being restated,
  * made partial because each has a DEFAULT_ constant behind it.
  */
-export interface CreateHandlerOptions extends Partial<StreamSignalOptions> {
-  /**
-   * Deadline (ms) for each application callback: `allow.multihash`,
-   * `allow.record` and `onReceive`. They are raced rather than awaited, so this
-   * holds whether or not the callback honours the signal it is handed. A hang
-   * guard rather than a latency budget: it bounds the handler and frees the
-   * stream, while the callback itself keeps running.
-   */
-  raceTimeoutMs?: number;
-  /** Max bytes for the dialer's optional auth frame. Defaults to DEFAULT_MAX_AUTH_FRAME_BYTES. */
-  maxAuthFrameBytes?: number;
-}
+export interface CreateHandlerOptions
+  extends Partial<StreamSignalOptions>, AuthOptions
+{}
 
 /**
  * A record received and validated by the handler, ready for the caller to pin
@@ -392,11 +392,23 @@ export type OnReceive = (
   options?: AbortOptions,
 ) => Promise<void>;
 
-export interface AuthenticateDialerOptions extends AbortOptions {
-  maxAuthBytes?: number;
-  /** Deadline (ms) for the raced `allow.multihash` call. */
+/**
+ * Config the handshake needs, which a handler carries too. Defined once so the
+ * two cannot drift: they previously held the same auth-frame cap under
+ * different names and translated between them by hand.
+ */
+export interface AuthOptions {
+  /** Max bytes for the dialer's optional auth frame. Defaults to DEFAULT_MAX_AUTH_FRAME_BYTES. */
+  maxAuthFrameBytes?: number;
+  /**
+   * Deadline (ms) for each raced application callback. Through
+   * `authenticateDialer` alone that is `allow.multihash`; through a handler it
+   * is `allow.record` and `onReceive` as well.
+   */
   raceTimeoutMs?: number;
 }
+
+export interface AuthenticateDialerOptions extends AbortOptions, AuthOptions {}
 
 /**
  * Run the challenge/response handshake for an already-read dialer IPNS key: the
@@ -423,7 +435,7 @@ export async function authenticateDialer(
   }
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
-  const maxBytes = options?.maxAuthBytes ?? DEFAULT_MAX_AUTH_FRAME_BYTES;
+  const maxBytes = options?.maxAuthFrameBytes ?? DEFAULT_MAX_AUTH_FRAME_BYTES;
   const raceTimeoutMs = options?.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
   const auth = await readAuth(bs, maxBytes, { signal: options?.signal });
 
@@ -514,7 +526,7 @@ export const createZzzyncHandler =
         name,
         allow,
         log,
-        { signal, maxAuthBytes: options.maxAuthFrameBytes, raceTimeoutMs },
+        { signal, maxAuthFrameBytes: options.maxAuthFrameBytes, raceTimeoutMs },
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
