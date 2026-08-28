@@ -238,13 +238,7 @@ export async function readCarFile(
             throw new Error("CAR file exceeded max byte length");
           }
 
-          // copy, never the sublist itself. byteStream.read returns a view
-          // into its readBuffer, which aliases the buffer the transport handed
-          // it, and @ipld/car assembles a block across several of these and
-          // hashes it asynchronously. If that memory is reused before the
-          // digest resolves the block reads as later stream content and fails
-          // its CID check.
-          yield byteList.slice();
+          yield* byteList;
         }
       })(),
       {

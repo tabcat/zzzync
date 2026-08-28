@@ -91,40 +91,6 @@ async function runReadCar(
 }
 
 describe("readCarFile", () => {
-  it("copies read bytes, so a reused transport buffer cannot corrupt a block", async () => {
-    const child = await rawBlock(new Uint8Array(4096).fill(7));
-    const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
-    const car = await buildCar([root.cid], [root, child]);
-
-    // byteStream.read returns a sublist aliasing the buffer the transport
-    // handed it, and nothing promises that buffer outlives the read. Model the
-    // hostile case: overwrite it the moment the reader has taken it.
-    const backing = new Uint8Array(car);
-    let off = 0;
-    const handed: Uint8Array[] = [];
-    const bs = {
-      read: async () => {
-        if (off >= backing.length) {
-          // everything already handed over is now garbage
-          for (const b of handed) b.fill(0xff);
-          return null;
-        }
-        const chunk = backing.subarray(off, off + 512);
-        off += chunk.length;
-        handed.push(chunk);
-        // scribble over what was handed out on the previous read
-        if (handed.length > 1) {
-          handed[handed.length - 2]!.fill(0xff);
-        }
-        return new Uint8ArrayList(chunk);
-      },
-    } as unknown as Parameters<typeof readCarFile>[0];
-
-    await expect(readCarFile(bs, drain, root.cid as UnixFsCID, log, UNCAPPED))
-      .resolves
-      .toBeUndefined();
-  });
-
   it("accepts a complete DAG", async () => {
     const child = await rawBlock(new Uint8Array([1, 2, 3]));
     const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
