@@ -40,9 +40,9 @@ describe("writeCarFile onProgress", () => {
     // an ecosystem-shaped ProgressEvent, not a bare number, so a caller can
     // multiplex it with libp2p's own dial events off one callback
     expect(events.map((e) => e.type)).toEqual([
-      "zzzync:dialer:car:sent",
-      "zzzync:dialer:car:sent",
-      "zzzync:dialer:car:sent",
+      "zzzync:dialer:car:chunk",
+      "zzzync:dialer:car:chunk",
+      "zzzync:dialer:car:chunk",
     ]);
     expect(events.map((e) => e.detail.sent)).toEqual([10, 35, 42]);
   });

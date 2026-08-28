@@ -39,15 +39,18 @@ export const DIALER_NAMESPACE = `${ZZZYNC}:dialer`;
 const l = logger(DIALER_NAMESPACE);
 
 /**
- * Emitted after each CAR chunk is written, carrying the running total of bytes
- * sent. There is deliberately no total: the CAR streams straight from the
+ * Fires once per CAR chunk, NOT on completion. `detail.sent` is the running
+ * total of bytes written so far, so a listener that treats this as "the CAR has
+ * been sent" would act on the first chunk rather than the last.
+ *
+ * There is deliberately no overall total: the CAR streams straight from the
  * exporter, so its size is unknown until the last chunk.
  *
  * `sent` counts bytes handed to the stream, not bytes the handler has
  * acknowledged, so a push can report its full size and still fail.
  */
 export type ZzzyncDialProgressEvents = ProgressEvent<
-  "zzzync:dialer:car:sent",
+  "zzzync:dialer:car:chunk",
   { sent: number; }
 >;
 
@@ -222,7 +225,7 @@ export async function writeCarFile(
           // already been written
           try {
             options.onProgress(
-              new CustomProgressEvent("zzzync:dialer:car:sent", { sent }),
+              new CustomProgressEvent("zzzync:dialer:car:chunk", { sent }),
             );
           } catch (err) {
             options.log.error("onProgress threw, continuing - %e", err);
