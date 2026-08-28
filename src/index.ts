@@ -71,13 +71,80 @@
  * )
  * ```
  */
-export * from "./constants.ts";
-export { dialZzzync, zzzync } from "./dialer.ts";
+import * as c from "./constants.ts";
+
+/**
+ * Protocol identifiers, wire caps, and the defaults behind every optional
+ * timing and size knob. Grouped rather than spread across two dozen top-level
+ * exports, since almost nothing here is reached individually.
+ */
+export const constants = {
+  ZZZYNC: c.ZZZYNC,
+  ZZZYNC_PUSH: c.ZZZYNC_PUSH,
+  ZZZYNC_PUSH_VERSION: c.ZZZYNC_PUSH_VERSION,
+  ZZZYNC_PUSH_PROTOCOL_ID: c.ZZZYNC_PUSH_PROTOCOL_ID,
+
+  IPFS_PREFIX: c.IPFS_PREFIX,
+  IPNS_PREFIX: c.IPNS_PREFIX,
+
+  CID_VERSION_1: c.CID_VERSION_1,
+  CODEC_IDENTITY: c.CODEC_IDENTITY,
+  CODEC_SHA2_256: c.CODEC_SHA2_256,
+  CODEC_RAW: c.CODEC_RAW,
+  CODEC_DAG_PB: c.CODEC_DAG_PB,
+  CODEC_DAG_CBOR: c.CODEC_DAG_CBOR,
+  CODEC_LIBP2P_KEY: c.CODEC_LIBP2P_KEY,
+
+  MAX_IPNS_RECORD_SIZE: c.MAX_IPNS_RECORD_SIZE,
+  MAX_IPNS_KEY_BYTES: c.MAX_IPNS_KEY_BYTES,
+
+  DEFAULT_MAX_AUTH_FRAME_BYTES: c.DEFAULT_MAX_AUTH_FRAME_BYTES,
+  DEFAULT_WRITE_TIMEOUT_MS: c.DEFAULT_WRITE_TIMEOUT_MS,
+  DEFAULT_ACK_TIMEOUT_MS: c.DEFAULT_ACK_TIMEOUT_MS,
+  DEFAULT_IDLE_TIMEOUT_MS: c.DEFAULT_IDLE_TIMEOUT_MS,
+  DEFAULT_HANDSHAKE_TIMEOUT_MS: c.DEFAULT_HANDSHAKE_TIMEOUT_MS,
+  DEFAULT_RACE_TIMEOUT_MS: c.DEFAULT_RACE_TIMEOUT_MS,
+  DEFAULT_MIN_BYTES_PER_SECOND: c.DEFAULT_MIN_BYTES_PER_SECOND,
+  DEFAULT_RATE_WINDOW_MS: c.DEFAULT_RATE_WINDOW_MS,
+  DEFAULT_MAX_STREAM_MS: c.DEFAULT_MAX_STREAM_MS,
+} as const;
+
+// receive a push
 export { createZzzyncHandler, registerZzzyncHandler } from "./handler.ts";
 export type {
   Allow,
+  AllowOptions,
   CreateHandlerOptions,
   OnReceive,
+  ReadCarFileOptions,
   ReceivedRecord,
 } from "./handler.ts";
+
+// send one
+export { dialZzzync, zzzync } from "./dialer.ts";
+export type {
+  DialOptions,
+  DialProgressEvents,
+  ZzzyncDialProgressEvents,
+} from "./dialer.ts";
+
+// prove ownership of an ipns key
+export { createSign, generateNonce, verifyChallenge } from "./challenge.ts";
+export type { Sign, SupportedPrivateKey } from "./challenge.ts";
+
+// serve and fetch ipns records over the libp2p fetch protocol
+export {
+  createIpnsRecordLookup,
+  fetchIpnsRecord,
+  registerFetchIpnsLookup,
+} from "./libp2p-fetch/ipns.ts";
+export type { IpnsRecordLookupComponents } from "./libp2p-fetch/ipns.ts";
+
+// ipns and CID helpers a consumer needs to talk about names and values
+export {
+  contenthash,
+  parsedRecordValue,
+  publicKeyAsIpnsMultihash,
+} from "./utils.ts";
+
 export * from "./interface.ts";

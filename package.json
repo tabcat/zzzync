@@ -1,7 +1,8 @@
 {
   "name": "@tabcat/zzzync",
+  "packageManager": "pnpm@11.24.0",
   "version": "6.0.0",
-  "description": "sync with peers that have gone to sleep 😴",
+  "description": "sync with peers that have gone to sleep \ud83d\ude34",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -11,34 +12,6 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
-    },
-    "./handler": {
-      "types": "./dist/src/handler.d.ts",
-      "import": "./dist/src/handler.js"
-    },
-    "./dialer": {
-      "types": "./dist/src/dialer.d.ts",
-      "import": "./dist/src/dialer.js"
-    },
-    "./challenge": {
-      "types": "./dist/src/challenge.d.ts",
-      "import": "./dist/src/challenge.js"
-    },
-    "./libp2p-fetch/ipns": {
-      "types": "./dist/src/libp2p-fetch/ipns.d.ts",
-      "import": "./dist/src/libp2p-fetch/ipns.js"
-    },
-    "./utils": {
-      "types": "./dist/src/utils.d.ts",
-      "import": "./dist/src/utils.js"
-    },
-    "./constants": {
-      "types": "./dist/src/constants.d.ts",
-      "import": "./dist/src/constants.js"
-    },
-    "./interface": {
-      "types": "./dist/src/interface.d.ts",
-      "import": "./dist/src/interface.js"
     }
   },
   "keywords": [
