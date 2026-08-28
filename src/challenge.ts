@@ -1,4 +1,3 @@
-import { randomBytes } from "@libp2p/crypto";
 import {
   AbortOptions,
   Ed25519PrivateKey,
@@ -15,7 +14,8 @@ export type SupportedPrivateKey = Ed25519PrivateKey | Secp256k1PrivateKey;
 
 export type Sign = SupportedPrivateKey["sign"];
 
-export const generateNonce = () => randomBytes(32);
+export const generateNonce = (): Uint8Array =>
+  crypto.getRandomValues(new Uint8Array(32));
 
 export const createSign =
   (sk: SupportedPrivateKey): Sign =>
