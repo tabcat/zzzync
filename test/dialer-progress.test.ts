@@ -5,7 +5,7 @@ import { byteStream, streamPair } from "@libp2p/utils";
 import { CID } from "multiformats/cid";
 import type { ProgressEvent } from "progress-events";
 import { describe, expect, it } from "vitest";
-import type { ZzzyncDialProgressEvents } from "../src/dialer.ts";
+import type { ZzzyncCarSentEvent } from "../src/dialer.ts";
 import { writeCarFile } from "../src/dialer.ts";
 
 const log = defaultLogger().forComponent("test");
@@ -28,7 +28,7 @@ describe("writeCarFile onProgress", () => {
       for await (const _ of inbound) { /* drain */ }
     })();
 
-    const events: ZzzyncDialProgressEvents[] = [];
+    const events: ZzzyncCarSentEvent[] = [];
     await writeCarFile(byteStream(outbound as Stream), exporter, ROOT, {
       timeoutMs: 5000,
       log,
@@ -40,9 +40,9 @@ describe("writeCarFile onProgress", () => {
     // an ecosystem-shaped ProgressEvent, not a bare number, so a caller can
     // multiplex it with libp2p's own dial events off one callback
     expect(events.map((e) => e.type)).toEqual([
-      "zzzync:dialer:car:progress",
-      "zzzync:dialer:car:progress",
-      "zzzync:dialer:car:progress",
+      "zzzync:dialer:car:sent",
+      "zzzync:dialer:car:sent",
+      "zzzync:dialer:car:sent",
     ]);
     expect(events.map((e) => e.detail.sent)).toEqual([10, 35, 42]);
   });

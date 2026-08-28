@@ -46,8 +46,8 @@ const l = logger(DIALER_NAMESPACE);
  * `sent` counts bytes handed to the stream, not bytes the handler has
  * acknowledged, so a push can report its full size and still fail.
  */
-export type ZzzyncDialProgressEvents = ProgressEvent<
-  "zzzync:dialer:car:progress",
+export type ZzzyncCarSentEvent = ProgressEvent<
+  "zzzync:dialer:car:sent",
   { sent: number; }
 >;
 
@@ -57,7 +57,7 @@ export type ZzzyncDialProgressEvents = ProgressEvent<
  * sees both.
  */
 export type DialProgressEvents =
-  | ZzzyncDialProgressEvents
+  | ZzzyncCarSentEvent
   | OpenConnectionProgressEvents
   | NewStreamProgressEvents;
 
@@ -192,7 +192,7 @@ export async function writeCarFile(
   bs: ByteStream<Stream>,
   exporter: Pick<Car, "export">,
   cid: CID,
-  options: DeadlineOptions & ProgressOptions<ZzzyncDialProgressEvents>,
+  options: DeadlineOptions & ProgressOptions<ZzzyncCarSentEvent>,
 ): Promise<void> {
   try {
     const references = new Set<string>();
@@ -222,7 +222,7 @@ export async function writeCarFile(
           // already been written
           try {
             options.onProgress(
-              new CustomProgressEvent("zzzync:dialer:car:progress", { sent }),
+              new CustomProgressEvent("zzzync:dialer:car:sent", { sent }),
             );
           } catch (err) {
             options.log.error("onProgress threw, continuing - %e", err);
