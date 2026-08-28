@@ -1,9 +1,21 @@
 import { Car, UnixFSExporter } from "@helia/car";
-import { AbortOptions, Libp2p, PeerId, Stream } from "@libp2p/interface";
+import {
+  AbortOptions,
+  Libp2p,
+  NewStreamProgressEvents,
+  OpenConnectionProgressEvents,
+  PeerId,
+  Stream,
+} from "@libp2p/interface";
 import { logger } from "@libp2p/logger";
 import { ByteStream, byteStream, Filter } from "@libp2p/utils";
 import { IPNSRecord, marshalIPNSRecord } from "ipns";
 import { CID } from "multiformats/cid";
+import {
+  CustomProgressEvent,
+  ProgressEvent,
+  ProgressOptions,
+} from "progress-events";
 import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, Sign } from "./challenge.ts";
@@ -26,23 +38,38 @@ import {
 export const DIALER_NAMESPACE = `${ZZZYNC}:dialer`;
 const l = logger(DIALER_NAMESPACE);
 
-export interface DialOptions extends AbortOptions {
+/**
+ * Emitted after each CAR chunk is written, carrying the running total of bytes
+ * sent. There is deliberately no total: the CAR streams straight from the
+ * exporter, so its size is unknown until the last chunk.
+ *
+ * `sent` counts bytes handed to the stream, not bytes the handler has
+ * acknowledged, so a push can report its full size and still fail.
+ */
+export type ZzzyncDialProgressEvents = ProgressEvent<
+  "zzzync:dialer:car:progress",
+  { sent: number; }
+>;
+
+/**
+ * Progress events a `dialZzzync` caller can receive: zzzync's own, plus the
+ * connection and stream-setup events libp2p raises while dialing. One callback
+ * sees both.
+ */
+export type DialProgressEvents =
+  | ZzzyncDialProgressEvents
+  | OpenConnectionProgressEvents
+  | NewStreamProgressEvents;
+
+export interface DialOptions
+  extends AbortOptions, ProgressOptions<DialProgressEvents>
+{
   /** Per-step deadline (ms) for each read/write step: handshake, record, CAR chunk. */
   writeTimeoutMs?: number;
   /** Deadline (ms) waiting for the handler to close its write side after the CAR. */
   ackTimeoutMs?: number;
   /** Produces the optional auth frame (a delegation-chain CAR) sent after the ipns key. */
   auth?: () => Uint8Array | Promise<Uint8Array>;
-  /**
-   * Called after each CAR chunk is written, with the running total of bytes
-   * sent so far. There is deliberately no total: the CAR is streamed straight
-   * from the exporter, so its size is not known until the last chunk.
-   *
-   * `sent` counts bytes handed to the stream, not bytes the handler has
-   * acknowledged, so a push can report its full size and still fail. A throw
-   * from this callback is logged and swallowed rather than failing the push.
-   */
-  onProgress?: (sent: number) => void;
 }
 
 async function writeVarintPrefixed(
@@ -165,7 +192,7 @@ export async function writeCarFile(
   bs: ByteStream<Stream>,
   exporter: Pick<Car, "export">,
   cid: CID,
-  options: DeadlineOptions & { onProgress?: (sent: number) => void; },
+  options: DeadlineOptions & ProgressOptions<ZzzyncDialProgressEvents>,
 ): Promise<void> {
   try {
     const references = new Set<string>();
@@ -194,7 +221,9 @@ export async function writeCarFile(
           // raises EPIPE, which would otherwise abort a push whose bytes had
           // already been written
           try {
-            options.onProgress(sent);
+            options.onProgress(
+              new CustomProgressEvent("zzzync:dialer:car:progress", { sent }),
+            );
           } catch (err) {
             options.log.error("onProgress threw, continuing - %e", err);
           }
@@ -314,14 +343,13 @@ export async function dialZzzync(
   sign: Sign,
   options: DialOptions = {},
 ): Promise<void> {
-  // libp2p's DialProtocolOptions has its own `onProgress`, a ProgressEvent
-  // listener for connection and stream setup. Ours reports CAR bytes and would
-  // collide, so it stays out of the dial and is handed to zzzync() below.
-  const { onProgress: _onProgress, ...dialOptions } = options;
+  // both sides speak ProgressEvent now, so the caller's listener goes to the
+  // dial as well: it sees libp2p's connection and stream-setup events and
+  // zzzync's CAR progress through one callback
   const stream = await libp2p.dialProtocol(
     peerId,
     ZZZYNC_PUSH_PROTOCOL_ID,
-    dialOptions,
+    options,
   );
   await zzzync(stream, peerId, exporter, result, sign, options);
 }

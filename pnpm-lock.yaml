@@ -56,6 +56,9 @@ importers:
       multiformats:
         specifier: ^14.0.5
         version: 14.0.5
+      progress-events:
+        specifier: ^1.1.0
+        version: 1.1.0
       uint8-varint:
         specifier: ^3.0.0
         version: 3.0.0

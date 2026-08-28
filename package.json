@@ -103,6 +103,7 @@
     "interface-datastore": "^10.0.1",
     "ipns": "^11.0.1",
     "multiformats": "^14.0.5",
+    "progress-events": "^1.1.0",
     "uint8-varint": "^3.0.0",
     "uint8arraylist": "^3.0.2",
     "uint8arrays": "^6.1.1"
