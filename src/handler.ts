@@ -184,12 +184,6 @@ export async function readIpnsRecord(
 }
 
 /**
- * Size limits for a received CAR. The CAR format specifies no maximum of any
- * kind (CARv1 states there is no constraint in the header regarding total
- * length, and its varints are unbounded), so every cap here is policy an
- * application chooses rather than anything the format implies.
- */
-/**
  * Size limits for a received CAR. Every field is required: the CAR format
  * specifies no maximum of any kind, so there is no default zzzync could pick
  * that would not be invented. Pass `Infinity` for a cap you genuinely do not
@@ -203,12 +197,10 @@ export async function readIpnsRecord(
  */
 export interface CarLimits {
   /**
-   * Total raw bytes accepted, CAR framing included. `Infinity` is accepted
-   * here. Note the transport buffers at most 4MiB of unconsumed bytes
-   * regardless, and overruns that.
+   * Total raw bytes accepted, CAR framing included.
    */
   maxByteLength: number;
-  /** Blocks accepted. `Infinity` is accepted here. */
+  /** Total CAR blocks accepted. */
   maxBlockCount: number;
   /**
    * Largest CAR section: block bytes plus their CID. Goes to @ipld/car, which
@@ -238,14 +230,6 @@ export async function readCarFile(
   const { maxByteLength, maxBlockCount } = limits;
 
   const blocks = async function*() {
-    // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize and
-    // maxCarHeaderSize cap any single declared length before its body is read,
-    // but nothing in @ipld/car bounds the total, and maxBlockCount further down
-    // only counts a block once it is fully materialized. This budget is what
-    // bounds the total across all sections, plus bytes the decoder skips or
-    // never parses as a section at all (a CARv2 pragma seeks past dataOffset),
-    // and counting raw bytes makes maxByteLength cover CAR framing rather than
-    // just decoded block payload.
     let pulled = 0;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
@@ -356,11 +340,7 @@ export interface Allow {
 }
 
 /**
- * Timing for a handler. Size limits are a separate required argument, not an
- * option, so they cannot be omitted by accident.
- *
- * The timing fields come from `StreamSignalOptions` rather than being restated,
- * made partial because each has a DEFAULT_ constant behind it.
+ * Timing constraints for a handler.
  */
 export interface CreateHandlerOptions
   extends Partial<StreamSignalOptions>, AuthOptions
