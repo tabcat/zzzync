@@ -32,12 +32,12 @@ importers:
       '@libp2p/interface':
         specifier: ^3.3.0
         version: 3.3.0
-      '@libp2p/kad-dht':
-        specifier: ^16.4.4
-        version: 16.4.4
       '@libp2p/logger':
         specifier: ^6.2.13
         version: 6.2.13
+      '@libp2p/record':
+        specifier: ^4.0.15
+        version: 4.0.15
       '@libp2p/utils':
         specifier: ^7.4.0
         version: 7.4.0
@@ -577,7 +577,7 @@ packages:
     engines: {node: '>=16.0.0', npm: '>=7.0.0'}
 
   '@ipld/car@https://codeload.github.com/tabcat/js-car/tar.gz/a6a133ec3f45a6c6718024b14bfabdc9f7dd56d0':
-    resolution: {tarball: https://codeload.github.com/tabcat/js-car/tar.gz/a6a133ec3f45a6c6718024b14bfabdc9f7dd56d0}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/tabcat/js-car/tar.gz/a6a133ec3f45a6c6718024b14bfabdc9f7dd56d0}
     version: 6.0.0-limits.1
     engines: {node: '>=16.0.0', npm: '>=7.0.0'}
 

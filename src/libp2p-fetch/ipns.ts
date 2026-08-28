@@ -1,6 +1,6 @@
 import type { Fetch, LookupFunction } from "@libp2p/fetch";
 import type { AbortOptions, PeerId } from "@libp2p/interface";
-import { Record } from "@libp2p/kad-dht";
+import { Libp2pRecord as Record } from "@libp2p/record";
 import { type Datastore, Key } from "interface-datastore";
 import type { IPNSRecord } from "ipns";
 import { multihashToIPNSRoutingKey, unmarshalIPNSRecord } from "ipns";

@@ -56,7 +56,7 @@
   },
   "homepage": "https://tabcat.github.io/zzzync",
   "scripts": {
-    "prepublishOnly": "pnpm install && pnpm build",
+    "prepublishOnly": "pnpm install --frozen-lockfile && pnpm build",
     "lint": "dprint check",
     "format": "dprint fmt",
     "build": "rm -rf dist && tsc",
@@ -95,8 +95,8 @@
     "@libp2p/crypto": "^5.1.23",
     "@libp2p/fetch": "^4.1.12",
     "@libp2p/interface": "^3.3.0",
-    "@libp2p/kad-dht": "^16.4.4",
     "@libp2p/logger": "^6.2.13",
+    "@libp2p/record": "^4.0.15",
     "@libp2p/utils": "^7.4.0",
     "@noble/curves": "^2.3.0",
     "any-signal": "^4.2.0",

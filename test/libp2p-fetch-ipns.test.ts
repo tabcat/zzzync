@@ -1,6 +1,6 @@
 import { generateKeyPair } from "@libp2p/crypto/keys";
-import { Record } from "@libp2p/kad-dht";
 import { peerIdFromPrivateKey } from "@libp2p/peer-id";
+import { Libp2pRecord as Record } from "@libp2p/record";
 import type { Datastore } from "interface-datastore";
 import { Key } from "interface-datastore";
 import {
