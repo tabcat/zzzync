@@ -25,7 +25,7 @@ export const DEFAULT_ACK_TIMEOUT_MS = 15_000;
 /** Default handler idle timeout (ms): abort if no bytes arrive for this long. */
 export const DEFAULT_IDLE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) for each application callback (allow.multihash, allow.record, onReceive). A hang guard, not a latency budget: it bounds the handler, not the callback, which keeps running. */
-export const DEFAULT_RACE_TIMEOUT_MS = 30_000;
+export const DEFAULT_CALLBACK_TIMEOUT_MS = 30_000;
 /** Default handler handshake deadline (ms): the handshake carries bounded, latency-bound data, so it gets a wall-clock cap of its own. */
 export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 30_000;
 /** Default minimum bytes/sec a CAR transfer must sustain; makes holding a stream cost bandwidth in proportion to the time held. */

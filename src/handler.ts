@@ -34,12 +34,12 @@ import {
   CODEC_DAG_CBOR,
   CODEC_DAG_PB,
   CODEC_IDENTITY,
+  DEFAULT_CALLBACK_TIMEOUT_MS,
   DEFAULT_HANDSHAKE_TIMEOUT_MS,
   DEFAULT_IDLE_TIMEOUT_MS,
   DEFAULT_MAX_AUTH_FRAME_BYTES,
   DEFAULT_MAX_STREAM_MS,
   DEFAULT_MIN_BYTES_PER_SECOND,
-  DEFAULT_RACE_TIMEOUT_MS,
   DEFAULT_RATE_WINDOW_MS,
   MAX_IPNS_KEY_BYTES,
   MAX_IPNS_RECORD_SIZE,
@@ -401,11 +401,16 @@ export interface AuthOptions {
   /** Max bytes for the dialer's optional auth frame. Defaults to DEFAULT_MAX_AUTH_FRAME_BYTES. */
   maxAuthFrameBytes?: number;
   /**
-   * Deadline (ms) for each raced application callback. Through
-   * `authenticateDialer` alone that is `allow.multihash`; through a handler it
-   * is `allow.record` and `onReceive` as well.
+   * Deadline (ms) applied to each application callback: `allow.multihash`,
+   * `allow.record` and `onReceive`. Through `authenticateDialer` alone only
+   * `allow.multihash` is reached.
+   *
+   * The callbacks are raced rather than awaited, so this holds whether or not
+   * one honours the signal it is handed. It is a hang guard rather than a
+   * latency budget: it frees the handler and the stream, while a losing
+   * callback keeps running and its result is discarded.
    */
-  raceTimeoutMs?: number;
+  callbackTimeoutMs?: number;
 }
 
 export interface AuthenticateDialerOptions extends AbortOptions, AuthOptions {}
@@ -436,12 +441,13 @@ export async function authenticateDialer(
   const dialerLibp2pKey = dialerPublicKey.toCID();
 
   const maxBytes = options?.maxAuthFrameBytes ?? DEFAULT_MAX_AUTH_FRAME_BYTES;
-  const raceTimeoutMs = options?.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
+  const callbackTimeoutMs = options?.callbackTimeoutMs
+    ?? DEFAULT_CALLBACK_TIMEOUT_MS;
   const auth = await readAuth(bs, maxBytes, { signal: options?.signal });
 
   const permitted = await raceDeadline(
     (deadline) => allow.multihash(dialerPublicKey, { signal: deadline, auth }),
-    raceTimeoutMs,
+    callbackTimeoutMs,
     "allow.multihash exceeded its deadline",
     options?.signal,
   );
@@ -517,7 +523,8 @@ export const createZzzyncHandler =
 
       const bs = byteStream(stream);
 
-      const raceTimeoutMs = options.raceTimeoutMs ?? DEFAULT_RACE_TIMEOUT_MS;
+      const callbackTimeoutMs = options.callbackTimeoutMs
+        ?? DEFAULT_CALLBACK_TIMEOUT_MS;
 
       const name = await readIpnsMultihash(bs, log, { signal });
       const pinner = await authenticateDialer(
@@ -526,13 +533,17 @@ export const createZzzyncHandler =
         name,
         allow,
         log,
-        { signal, maxAuthFrameBytes: options.maxAuthFrameBytes, raceTimeoutMs },
+        {
+          signal,
+          maxAuthFrameBytes: options.maxAuthFrameBytes,
+          callbackTimeoutMs,
+        },
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
       const accepted = await raceDeadline(
         (deadline) => allow.record(name, record, { signal: deadline }),
-        raceTimeoutMs,
+        callbackTimeoutMs,
         "allow.record exceeded its deadline",
         signal,
       );
@@ -566,7 +577,7 @@ export const createZzzyncHandler =
 
       await raceDeadline(
         (deadline) => onReceive({ name, record, pinner }, { signal: deadline }),
-        raceTimeoutMs,
+        callbackTimeoutMs,
         "onReceive exceeded its deadline",
         signal,
       );
