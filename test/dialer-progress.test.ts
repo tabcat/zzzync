@@ -5,7 +5,7 @@ import { byteStream, streamPair } from "@libp2p/utils";
 import { CID } from "multiformats/cid";
 import type { ProgressEvent } from "progress-events";
 import { describe, expect, it } from "vitest";
-import type { ZzzyncCarSentEvent } from "../src/dialer.ts";
+import type { ZzzyncDialProgressEvents } from "../src/dialer.ts";
 import { writeCarFile } from "../src/dialer.ts";
 
 const log = defaultLogger().forComponent("test");
@@ -28,7 +28,7 @@ describe("writeCarFile onProgress", () => {
       for await (const _ of inbound) { /* drain */ }
     })();
 
-    const events: ZzzyncCarSentEvent[] = [];
+    const events: ZzzyncDialProgressEvents[] = [];
     await writeCarFile(byteStream(outbound as Stream), exporter, ROOT, {
       timeoutMs: 5000,
       log,
