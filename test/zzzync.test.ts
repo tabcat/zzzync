@@ -22,7 +22,21 @@ import { createSign } from "../src/challenge.ts";
 import type { SupportedPrivateKey } from "../src/challenge.ts";
 import { zzzync } from "../src/dialer.ts";
 import { createZzzyncHandler } from "../src/handler.ts";
-import type { Allow, CreateHandlerOptions, OnReceive } from "../src/handler.ts";
+import type {
+  Allow,
+  CarLimits,
+  CreateHandlerOptions,
+  OnReceive,
+} from "../src/handler.ts";
+
+// the protocol tests are not about size caps; @ipld/car rejects Infinity for
+// its two, so those take its own defaults
+const UNCAPPED: CarLimits = {
+  maxByteLength: Infinity,
+  maxBlockCount: Infinity,
+  maxCarSectionSize: 8 * 1024 * 1024,
+  maxCarHeaderSize: 32 * 1024 * 1024,
+};
 import type { PushInput } from "../src/interface.ts";
 
 // shared fixtures
@@ -79,6 +93,7 @@ function makeHandler(allow: Allow = allowAll, options?: CreateHandlerOptions) {
     handlerPeerId,
     mockImporter,
     allow,
+    UNCAPPED,
     onReceive as unknown as OnReceive,
     options,
   );

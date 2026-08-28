@@ -11,7 +11,16 @@ import * as varint from "uint8-varint";
 import { concat } from "uint8arrays";
 import { describe, expect, it } from "vitest";
 import { readCarFile } from "../src/handler.ts";
-import type { ReadCarFileOptions } from "../src/handler.ts";
+import type { CarLimits } from "../src/handler.ts";
+
+// tests exercise one cap at a time, so the rest sit wide open. @ipld/car
+// rejects Infinity for its two, so those use its own defaults instead.
+const UNCAPPED: CarLimits = {
+  maxByteLength: Infinity,
+  maxBlockCount: Infinity,
+  maxCarSectionSize: 8 * 1024 * 1024,
+  maxCarHeaderSize: 32 * 1024 * 1024,
+};
 import type { UnixFsCID } from "../src/interface.ts";
 
 const log = defaultLogger().forComponent("test");
@@ -57,7 +66,7 @@ async function buildCar(
 async function runReadCar(
   carBytes: Uint8Array,
   expectedRoot: CID,
-  options: ReadCarFileOptions = {},
+  limits: Partial<CarLimits> = {},
 ): Promise<void> {
   const [outbound, inbound] = await streamPair();
   const writing = (async () => {
@@ -73,7 +82,7 @@ async function runReadCar(
       drain,
       expectedRoot as UnixFsCID,
       log,
-      options,
+      { ...UNCAPPED, ...limits },
     );
   } finally {
     await writing;
@@ -187,6 +196,7 @@ describe("readCarFile", () => {
 
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        ...UNCAPPED,
         maxByteLength: 64 * 1024,
       }),
     )
@@ -259,6 +269,7 @@ describe("readCarFile", () => {
 
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        ...UNCAPPED,
         maxCarSectionSize: 2 * 1024 * 1024,
       }),
     )
@@ -282,6 +293,7 @@ describe("readCarFile", () => {
 
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
+        ...UNCAPPED,
         maxCarHeaderSize: 1024,
       }),
     )
@@ -324,7 +336,8 @@ describe("readCarFile", () => {
     ]);
     const { bs } = countingSource(forged);
 
-    await expect(readCarFile(bs, drain, root.cid as UnixFsCID, log, {})).rejects
+    await expect(readCarFile(bs, drain, root.cid as UnixFsCID, log, UNCAPPED))
+      .rejects
       .toThrow(/maxAllowedSectionSize/);
   });
 

@@ -54,6 +54,7 @@ import {
   parsedRecordValue,
   raceDeadline,
   streamSignal,
+  StreamSignalOptions,
 } from "./utils.ts";
 
 export const HANDLER_NAMESPACE = `${ZZZYNC}:handler`;
@@ -188,29 +189,30 @@ export async function readIpnsRecord(
  * length, and its varints are unbounded), so every cap here is policy an
  * application chooses rather than anything the format implies.
  */
-export interface ReadCarFileOptions extends AbortOptions {
+/**
+ * Size limits for a received CAR. Every field is required: the CAR format
+ * specifies no maximum of any kind, so there is no default zzzync could pick
+ * that would not be invented. Pass `Infinity` for a cap you genuinely do not
+ * want, so that "no limit" is something the call site says rather than
+ * something it inherits by omission.
+ *
+ * `maxCarSectionSize` and `maxCarHeaderSize` go to @ipld/car, which checks them
+ * against a declared length before reading the body, so an over-cap claim costs
+ * nothing. Both must be non-negative safe integers; @ipld/car rejects Infinity,
+ * so use its own generous defaults there rather than trying to disable them.
+ */
+export interface CarLimits {
   /**
-   * Total raw bytes accepted, CAR framing included. Unset means zzzync does not
-   * cap the total; the stream is then bounded by whatever the caller wires up,
-   * which under `createZzzyncHandler` is the idle timeout, the throughput floor
-   * and the `maxStreamMs` backstop. Note the transport buffers at most 4MiB of
-   * unconsumed bytes regardless, and overruns that.
+   * Total raw bytes accepted, CAR framing included. Note the transport buffers
+   * at most 4MiB of unconsumed bytes regardless, and overruns that.
    */
-  maxByteLength?: number;
-  /** Blocks accepted. Unset means zzzync does not cap the count. */
-  maxBlockCount?: number;
-  /**
-   * Largest CAR section (block bytes plus their CID) @ipld/car will accept. It
-   * is checked against the section's declared length before the body is read,
-   * so an over-cap claim costs nothing. Unset leaves @ipld/car's own default.
-   * Must be a non-negative safe integer; @ipld/car rejects Infinity.
-   */
-  maxCarSectionSize?: number;
-  /**
-   * Largest CAR header @ipld/car will accept, checked the same way. A one-root
-   * header is around 58 bytes, so this can be far tighter than the default.
-   */
-  maxCarHeaderSize?: number;
+  maxByteLength: number;
+  /** Blocks accepted. */
+  maxBlockCount: number;
+  /** Largest CAR section: block bytes plus their CID. */
+  maxCarSectionSize: number;
+  /** Largest CAR header. A one-root header is around 58 bytes. */
+  maxCarHeaderSize: number;
 }
 
 /** Canonical (v1, base32) CID key so codec differences are preserved. */
@@ -221,9 +223,10 @@ export async function readCarFile(
   importer: Pick<Car, "import">,
   expectedRoot: UnixFsCID,
   log: Logger,
-  options: ReadCarFileOptions = {},
+  limits: CarLimits,
+  options: AbortOptions = {},
 ): Promise<void> {
-  const { maxByteLength, maxBlockCount } = options;
+  const { maxByteLength, maxBlockCount } = limits;
 
   const blocks = async function*() {
     // Bound the raw bytes fed to the CAR decoder. maxCarSectionSize and
@@ -251,8 +254,8 @@ export async function readCarFile(
         }
       })(),
       {
-        maxAllowedSectionSize: options.maxCarSectionSize,
-        maxAllowedHeaderSize: options.maxCarHeaderSize,
+        maxAllowedSectionSize: limits.maxCarSectionSize,
+        maxAllowedHeaderSize: limits.maxCarHeaderSize,
       },
     );
 
@@ -343,33 +346,14 @@ export interface Allow {
   ): boolean | Promise<boolean>;
 }
 
-export interface CreateHandlerOptions
-  extends Omit<ReadCarFileOptions, "signal">
-{
-  /** Idle timeout (ms): abort if no bytes arrive for this long while receiving. */
-  idleTimeoutMs?: number;
-  /** Wall-clock cap (ms) on the handshake, whose data is bounded. */
-  handshakeTimeoutMs?: number;
-  /** Wall-clock backstop (ms) for the receive phase, not reset by activity. Cleared once the remote closes its write side. */
-  maxStreamMs?: number;
-  /**
-   * Bytes/sec a CAR transfer must sustain once the record is accepted.
-   *
-   * This interacts with the other two limits. What a transfer can actually
-   * deliver is:
-   *
-   * ```
-   * effective cap = min(maxByteLength, minBytesPerSecond * maxStreamMs)
-   * ```
-   *
-   * At the defaults that second term is 1024 * 3600, so a 5MiB
-   * `maxByteLength` is really 3.52MiB and the declared number is not the one
-   * in force. Raise the floor or the backstop to make the cap reachable. This
-   * is not enforced: a caller may well intend the backstop to bind first.
-   */
-  minBytesPerSecond?: number;
-  /** Window (ms) the throughput floor is sampled over. */
-  rateWindowMs?: number;
+/**
+ * Timing for a handler. Size limits are a separate required argument, not an
+ * option, so they cannot be omitted by accident.
+ *
+ * The timing fields come from `StreamSignalOptions` rather than being restated,
+ * made partial because each has a DEFAULT_ constant behind it.
+ */
+export interface CreateHandlerOptions extends Partial<StreamSignalOptions> {
   /**
    * Deadline (ms) for each application callback: `allow.multihash`,
    * `allow.record` and `onReceive`. They are raced rather than awaited, so this
@@ -500,6 +484,7 @@ export const createZzzyncHandler =
     handlerPeerId: PeerId,
     importer: Pick<Car, "import">,
     allow: Allow,
+    limits: CarLimits,
     onReceive: OnReceive,
     options: CreateHandlerOptions = {},
   ): StreamHandler =>
@@ -565,7 +550,7 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      await readCarFile(bs, importer, value, log, { ...options, signal });
+      await readCarFile(bs, importer, value, log, limits, { signal });
 
       await raceDeadline(
         (deadline) => onReceive({ name, record, pinner }, { signal: deadline }),
