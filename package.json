@@ -108,15 +108,6 @@
     "uint8arraylist": "^3.0.2",
     "uint8arrays": "^6.1.1"
   },
-  "pnpm": {
-    "overrides": {
-      "multiformats": "^14.0.5"
-    },
-    "onlyBuiltDependencies": [
-      "dprint",
-      "esbuild"
-    ]
-  },
   "engines": {
     "node": ">=24"
   }

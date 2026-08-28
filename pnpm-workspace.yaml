@@ -1,0 +1,15 @@
+# pnpm 11 no longer reads the "pnpm" field in package.json; these settings live
+# here now, workspace or not. https://pnpm.io/settings
+
+# keep one multiformats in the tree: two majors means two incompatible CID
+# classes, and a fork resolving to a second copy already cost a silent TS2554
+overrides:
+  multiformats: ^14.0.5
+
+# pnpm 11 replaced onlyBuiltDependencies with an explicit per-package decision,
+# and refuses the install outright rather than warning when one is unanswered.
+# Both of these fetch a platform binary in a postinstall and are useless without
+# it: dprint is the linter, esbuild is what vitest transforms with.
+allowBuilds:
+  dprint: true
+  esbuild: true
