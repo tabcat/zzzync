@@ -1,5 +1,6 @@
 import * as dagCbor from "@ipld/dag-cbor";
 import * as dagPb from "@ipld/dag-pb";
+import { publicKeyFromMultihash } from "@libp2p/crypto/keys";
 import type {
   EventHandler,
   Logger,
@@ -14,6 +15,7 @@ import { base36 } from "multiformats/bases/base36";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { sha256 } from "multiformats/hashes/sha2";
+import type { SupportedPrivateKey } from "./challenge.ts";
 import {
   CODEC_DAG_CBOR,
   CODEC_DAG_PB,
@@ -64,11 +66,37 @@ export function getHasher(code: number): MultihashHasher {
   }
 }
 
-export function publicKeyAsIpnsMultihash(
+/** The key types an IPNS name can carry. */
+export type SupportedPublicKey = SupportedPrivateKey["publicKey"];
+
+export function publicKeyToIpnsMultihash(
   publicKey: PublicKey,
 ): IpnsMultihash | null {
   if (publicKey.type === "Ed25519" || publicKey.type === "secp256k1") {
     return publicKey.toMultihash();
+  }
+
+  return null;
+}
+
+/**
+ * The inverse of {@link publicKeyToIpnsMultihash}. Null when the multihash does
+ * not carry a key zzzync supports, which includes anything malformed: a
+ * multihash arriving off the wire is not trusted to be one of ours.
+ */
+export function publicKeyFromIpnsMultihash(
+  multihash: IpnsMultihash,
+): SupportedPublicKey | null {
+  let publicKey: PublicKey;
+
+  try {
+    publicKey = publicKeyFromMultihash(multihash);
+  } catch {
+    return null;
+  }
+
+  if (publicKey.type === "Ed25519" || publicKey.type === "secp256k1") {
+    return publicKey;
   }
 
   return null;

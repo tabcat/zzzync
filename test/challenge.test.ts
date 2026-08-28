@@ -9,7 +9,7 @@ import {
   verifyChallenge,
 } from "../src/challenge.ts";
 import type { SupportedPrivateKey } from "../src/challenge.ts";
-import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
+import { publicKeyToIpnsMultihash } from "../src/utils.ts";
 
 describe("challenge", () => {
   let sk: SupportedPrivateKey;
@@ -33,7 +33,7 @@ describe("challenge", () => {
   describe("buildChallenge", () => {
     it("is deterministic for identical inputs", async () => {
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
       const n1 = generateNonce();
       const n2 = generateNonce();
 
@@ -44,7 +44,7 @@ describe("challenge", () => {
 
     it("differs when nonces differ", async () => {
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
 
       const a = buildChallenge(
         peerId,
@@ -66,7 +66,7 @@ describe("challenge", () => {
   describe("createSign", () => {
     it("produces a 64-byte signature for Ed25519 that verifies", async () => {
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,
@@ -83,7 +83,7 @@ describe("challenge", () => {
     it("produces a compact 64-byte secp256k1 signature that verifies", async () => {
       const secp = (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
       const peerId = peerIdFromPrivateKey(secp);
-      const ipnsMh = publicKeyAsIpnsMultihash(secp.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(secp.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,
@@ -102,7 +102,7 @@ describe("challenge", () => {
     it("a signature from a different key does not verify", async () => {
       const other = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,
@@ -119,7 +119,7 @@ describe("challenge", () => {
   describe("verifyChallenge", () => {
     it("verifies an Ed25519 signature", async () => {
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,
@@ -134,7 +134,7 @@ describe("challenge", () => {
     it("rejects a signature from a different key", async () => {
       const other = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
       const peerId = peerIdFromPrivateKey(sk);
-      const ipnsMh = publicKeyAsIpnsMultihash(sk.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,
@@ -150,7 +150,7 @@ describe("challenge", () => {
       const secpKey =
         (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
       const peerId = peerIdFromPrivateKey(secpKey);
-      const ipnsMh = publicKeyAsIpnsMultihash(secpKey.publicKey)!;
+      const ipnsMh = publicKeyToIpnsMultihash(secpKey.publicKey)!;
       const challenge = buildChallenge(
         peerId,
         ipnsMh,

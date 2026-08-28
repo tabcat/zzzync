@@ -18,18 +18,18 @@ import {
   fetchIpnsRecord,
   registerFetchIpnsLookup,
 } from "../src/libp2p-fetch/ipns.ts";
-import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
+import { publicKeyToIpnsMultihash } from "../src/utils.ts";
 
 // ─── shared fixtures ──────────────────────────────────────────────────────────
 
 let key: Awaited<ReturnType<typeof generateKeyPair>>;
 let marshalled: Uint8Array;
-let ipnsMultihash: NonNullable<ReturnType<typeof publicKeyAsIpnsMultihash>>;
+let ipnsMultihash: NonNullable<ReturnType<typeof publicKeyToIpnsMultihash>>;
 let routingKey: Uint8Array;
 
 beforeAll(async () => {
   key = await generateKeyPair("Ed25519");
-  ipnsMultihash = publicKeyAsIpnsMultihash(key.publicKey)!;
+  ipnsMultihash = publicKeyToIpnsMultihash(key.publicKey)!;
   routingKey = multihashToIPNSRoutingKey(ipnsMultihash);
 
   const record = await createIPNSRecord(

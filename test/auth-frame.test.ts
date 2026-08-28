@@ -17,7 +17,7 @@ import {
 } from "../src/handler.ts";
 import type { Allow } from "../src/handler.ts";
 import type { IpnsMultihash } from "../src/interface.ts";
-import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
+import { publicKeyToIpnsMultihash } from "../src/utils.ts";
 
 async function writeFrame(stream: Stream, payload: Uint8Array): Promise<void> {
   await byteStream(stream).write(
@@ -65,7 +65,7 @@ let dialerIpns: IpnsMultihash;
 beforeAll(async () => {
   handlerPeerId = peerIdFromPrivateKey(await generateKeyPair("Ed25519"));
   dialerKey = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
-  const ipns = publicKeyAsIpnsMultihash(dialerKey.publicKey);
+  const ipns = publicKeyToIpnsMultihash(dialerKey.publicKey);
   if (ipns == null) throw new Error("expected ipns multihash");
   dialerIpns = ipns;
 });

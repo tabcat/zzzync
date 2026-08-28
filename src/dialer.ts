@@ -31,7 +31,7 @@ import {
   deadlineSignal,
   eventPromise,
   parsedRecordValue,
-  publicKeyAsIpnsMultihash,
+  publicKeyToIpnsMultihash,
   withDeadline,
 } from "./utils.ts";
 
@@ -287,7 +287,7 @@ export async function zzzync(
 
   try {
     const { record, publicKey } = result;
-    const dialerIpns = publicKeyAsIpnsMultihash(publicKey);
+    const dialerIpns = publicKeyToIpnsMultihash(publicKey);
     if (dialerIpns == null) {
       throw new Error("unsupported public key");
     }

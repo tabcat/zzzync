@@ -14,7 +14,7 @@ import {
 import { authenticateDialer, readIpnsMultihash } from "../src/handler.ts";
 import type { Allow } from "../src/handler.ts";
 import type { IpnsMultihash, Libp2pKey } from "../src/interface.ts";
-import { publicKeyAsIpnsMultihash } from "../src/utils.ts";
+import { publicKeyToIpnsMultihash } from "../src/utils.ts";
 
 const log = defaultLogger().forComponent("test");
 
@@ -28,7 +28,7 @@ let dialerIpns: IpnsMultihash;
 beforeAll(async () => {
   handlerPeerId = peerIdFromPrivateKey(await generateKeyPair("Ed25519"));
   dialerKey = (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
-  const ipns = publicKeyAsIpnsMultihash(dialerKey.publicKey);
+  const ipns = publicKeyToIpnsMultihash(dialerKey.publicKey);
   if (ipns == null) throw new Error("expected ipns multihash");
   dialerIpns = ipns;
 });
@@ -120,7 +120,7 @@ describe("handshake", () => {
 
   it("authenticates a secp256k1 dialer", async () => {
     const secpKey = (await generateKeyPair("secp256k1")) as SupportedPrivateKey;
-    const secpIpns = publicKeyAsIpnsMultihash(secpKey.publicKey);
+    const secpIpns = publicKeyToIpnsMultihash(secpKey.publicKey);
     if (secpIpns == null) throw new Error("expected ipns multihash");
     const [outbound, inbound] = await streamPair();
     const signal = AbortSignal.timeout(5000);

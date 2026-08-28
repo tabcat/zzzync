@@ -107,8 +107,13 @@ export type { IpnsRecordLookupComponents } from "./libp2p-fetch/ipns.ts";
 export {
   contenthash,
   parsedRecordValue,
-  publicKeyAsIpnsMultihash,
+  publicKeyFromIpnsMultihash,
+  publicKeyToIpnsMultihash,
 } from "./utils.ts";
+
+// publicKeyFromIpnsMultihash returns one, so a consumer cannot name its result
+// without this
+export type { SupportedPublicKey } from "./utils.ts";
 
 export type {
   IpnsMultihash,

@@ -1,6 +1,5 @@
 import { type Car } from "@helia/car";
 import { CarBlockIterator } from "@ipld/car/iterator";
-import { publicKeyFromMultihash } from "@libp2p/crypto/keys";
 import type {
   AbortOptions,
   Connection,
@@ -24,12 +23,7 @@ import { create } from "multiformats/block";
 import type { CID } from "multiformats/cid";
 import * as Digest from "multiformats/hashes/digest";
 import * as varint from "uint8-varint";
-import {
-  buildChallenge,
-  generateNonce,
-  SupportedPrivateKey,
-  verifyChallenge,
-} from "./challenge.ts";
+import { buildChallenge, generateNonce, verifyChallenge } from "./challenge.ts";
 import {
   CODEC_DAG_CBOR,
   CODEC_DAG_PB,
@@ -52,6 +46,7 @@ import {
   getCodec,
   getHasher,
   parsedRecordValue,
+  publicKeyFromIpnsMultihash,
   raceDeadline,
   streamSignal,
   StreamSignalOptions,
@@ -323,9 +318,12 @@ export interface AllowOptions extends AbortOptions {
 }
 
 export interface Allow {
-  /** Whether the dialer's key may push at all. */
+  /**
+   * Whether the dialer's key may push at all. `publicKeyFromIpnsMultihash`
+   * recovers the key itself where the decision needs it.
+   */
   multihash(
-    dialerPublicKey: SupportedPrivateKey["publicKey"],
+    name: IpnsMultihash,
     options?: AllowOptions,
   ): boolean | Promise<boolean>;
   /**
@@ -409,11 +407,9 @@ export async function authenticateDialer(
   log: Logger,
   options?: AuthenticateDialerOptions,
 ): Promise<Libp2pKey> {
-  const dialerPublicKey = publicKeyFromMultihash(dialerIpns);
+  const dialerPublicKey = publicKeyFromIpnsMultihash(dialerIpns);
 
-  if (
-    dialerPublicKey.type !== "Ed25519" && dialerPublicKey.type !== "secp256k1"
-  ) {
+  if (dialerPublicKey == null) {
     const error = new Error("Unsupported Ipns key type");
     log.error(error.message);
     throw error;
@@ -426,7 +422,7 @@ export async function authenticateDialer(
   const auth = await readAuth(bs, maxBytes, { signal: options?.signal });
 
   const permitted = await raceDeadline(
-    (deadline) => allow.multihash(dialerPublicKey, { signal: deadline, auth }),
+    (deadline) => allow.multihash(dialerIpns, { signal: deadline, auth }),
     callbackTimeoutMs,
     "allow.multihash exceeded its deadline",
     options?.signal,

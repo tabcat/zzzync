@@ -38,6 +38,10 @@ const UNCAPPED: CarLimits = {
   maxCarHeaderSize: 32 * 1024 * 1024,
 };
 import type { PushInput } from "../src/interface.ts";
+import {
+  publicKeyFromIpnsMultihash,
+  publicKeyToIpnsMultihash,
+} from "../src/utils.ts";
 
 // shared fixtures
 let helia: Helia;
@@ -125,7 +129,7 @@ describe("zzzync protocol", () => {
     expect(Object.keys(received).sort()).toEqual(["name", "pinner", "record"]);
   });
 
-  it("passes the dialer public key to allow.multihash", async () => {
+  it("passes the dialer's ipns name to allow.multihash", async () => {
     const allow: Allow = {
       multihash: sinon.stub().resolves(true),
       record: () => true,
@@ -145,7 +149,17 @@ describe("zzzync protocol", () => {
 
     const stub = allow.multihash as sinon.SinonStub;
     expect(stub.calledOnce).toBe(true);
-    expect(stub.firstCall.args[0].equals(dialerKey.publicKey)).toBe(true);
+
+    // the same identity allow.record is keyed by, rather than a second
+    // representation the caller has to translate
+    const name = stub.firstCall.args[0];
+    expect(name.bytes).toEqual(
+      publicKeyToIpnsMultihash(dialerKey.publicKey)?.bytes,
+    );
+    // and the key is still reachable from it
+    expect(publicKeyFromIpnsMultihash(name)?.equals(dialerKey.publicKey)).toBe(
+      true,
+    );
   });
 
   it("aborts and does not hand off when the allow function denies", async () => {

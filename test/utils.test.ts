@@ -20,7 +20,7 @@ import {
   getCodec,
   getHasher,
   parsedRecordValue,
-  publicKeyAsIpnsMultihash,
+  publicKeyToIpnsMultihash,
   raceDeadline,
   streamSignal,
 } from "../src/utils.ts";
@@ -97,13 +97,13 @@ describe("getHasher", () => {
   });
 });
 
-describe("publicKeyAsIpnsMultihash", () => {
+describe("publicKeyToIpnsMultihash", () => {
   it("returns a multihash for an Ed25519 key", () => {
-    expect(publicKeyAsIpnsMultihash(ed25519Key.publicKey)).not.toBeNull();
+    expect(publicKeyToIpnsMultihash(ed25519Key.publicKey)).not.toBeNull();
   });
 
   it("returns a multihash for a secp256k1 key", () => {
-    expect(publicKeyAsIpnsMultihash(secp256k1Key.publicKey)).not.toBeNull();
+    expect(publicKeyToIpnsMultihash(secp256k1Key.publicKey)).not.toBeNull();
   });
 });
 
