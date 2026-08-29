@@ -47,10 +47,13 @@ async function dagPbBlock(links: Array<{ name: string; cid: CID; }>) {
   return Block.encode({ value: node, codec: dagPb, hasher: sha256 });
 }
 
-async function buildCar(
+// The write units the CAR encoder emits: the header, then per section a
+// varint, the CID bytes and the block payload, each its own chunk. The same
+// units zzzync's dialer hands to bs.write one at a time.
+async function buildCarChunks(
   roots: CID[],
   blocks: Array<{ cid: CID; bytes: Uint8Array; }>,
-): Promise<Uint8Array> {
+): Promise<Uint8Array[]> {
   const { writer, out } = CarWriter.create(roots);
   const chunks: Uint8Array[] = [];
   const collecting = (async () => {
@@ -61,7 +64,14 @@ async function buildCar(
   }
   await writer.close();
   await collecting;
-  return concat(chunks);
+  return chunks;
+}
+
+async function buildCar(
+  roots: CID[],
+  blocks: Array<{ cid: CID; bytes: Uint8Array; }>,
+): Promise<Uint8Array> {
+  return concat(await buildCarChunks(roots, blocks));
 }
 
 async function runReadCar(
@@ -88,6 +98,72 @@ async function runReadCar(
   } finally {
     await writing;
   }
+}
+
+// Race a flooding writer against an importer whose first block stalls until
+// every chunk is written. This is the regime a real network transport puts the
+// handler in: the remote keeps delivering while the previous block is still
+// being hashed and stored, so bytes pile up between reads. byteStream must
+// hold every byte it accepted or fail the stream loudly; it must never drop
+// buffered bytes and carry on.
+async function runStalledReadCar(
+  chunks: Uint8Array[],
+  expectedRoot: CID,
+  limits: Partial<CarLimits> = {},
+): Promise<void> {
+  const [outbound, inbound] = await streamPair();
+  let writerDone: () => void;
+  const flooded = new Promise<void>((resolve) => {
+    writerDone = resolve;
+  });
+  const writing = (async () => {
+    try {
+      const obs = byteStream(outbound as Stream);
+      for (const chunk of chunks) {
+        await obs.write(chunk);
+      }
+      await (outbound as Stream).close();
+    } catch {
+      /* the stream may abort when readCarFile rejects */
+    } finally {
+      // biome-ignore lint/style/noNonNullAssertion: assigned by the Promise executor above
+      writerDone!();
+    }
+  })();
+  let first = true;
+  const stalling = {
+    import: async ({ blocks }: { blocks: () => AsyncIterable<unknown>; }) => {
+      for await (const _ of blocks()) {
+        if (first) {
+          first = false;
+          await flooded;
+        }
+      }
+    },
+  };
+  try {
+    await readCarFile(
+      byteStream(inbound as Stream),
+      stalling,
+      expectedRoot as UnixFsCID,
+      log,
+      { ...UNCAPPED, ...limits },
+    );
+  } finally {
+    await writing;
+  }
+}
+
+const MiB = 1024 * 1024;
+
+async function mibLeaves(count: number) {
+  const leaves = [];
+  for (let i = 0; i < count; i++) {
+    const data = new Uint8Array(MiB);
+    data.fill(i + 1);
+    leaves.push(await rawBlock(data));
+  }
+  return leaves;
 }
 
 describe("readCarFile", () => {
@@ -206,6 +282,51 @@ describe("readCarFile", () => {
     // with the budget: ~cap + one chunk; without it: the whole ~1MiB CAR
     expect(pulled).toBeLessThan(128 * 1024);
   });
+
+  // --- a slow importer must not corrupt or misreport the stream ----------------
+  //
+  // byteStream's receive buffer silently discards its entire contents when it
+  // overflows between reads (its overflow rejection lands on an already
+  // settled promise). A CAR that outruns a stalled importer then loses a
+  // multi-MiB span mid-stream, and readCarFile sees a misaligned stream: CID
+  // mismatches, unreferenced blocks, or missing blocks, on live daemons over
+  // transports without stream flow control (WebRTC). These tests pin the
+  // required behavior: the real limit error for an over-budget push, a clean
+  // import for one within budget, no matter how far the writer runs ahead.
+
+  it(
+    "rejects an over-budget CAR with the byte-length error even when the writer floods a stalled importer",
+    async () => {
+      const leaves = await mibLeaves(8);
+      const root = await dagPbBlock(
+        leaves.map((l, i) => ({ name: `leaf${i}`, cid: l.cid })),
+      );
+      const chunks = await buildCarChunks([root.cid], [root, ...leaves]);
+      await expect(
+        runStalledReadCar(chunks, root.cid, { maxByteLength: 5 * MiB }),
+      )
+        .rejects
+        .toThrow("max byte length");
+    },
+    30_000,
+  );
+
+  it(
+    "imports an in-budget CAR intact even when the writer floods a stalled importer",
+    async () => {
+      const leaves = await mibLeaves(5);
+      const root = await dagPbBlock(
+        leaves.map((l, i) => ({ name: `leaf${i}`, cid: l.cid })),
+      );
+      const chunks = await buildCarChunks([root.cid], [root, ...leaves]);
+      await expect(
+        runStalledReadCar(chunks, root.cid, { maxByteLength: 6 * MiB }),
+      )
+        .resolves
+        .toBeUndefined();
+    },
+    30_000,
+  );
 
   it("rejects a block whose bytes do not match its CID", async () => {
     // @ipld/car only parses CAR structure, it does not verify blocks, so this is
