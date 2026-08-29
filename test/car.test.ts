@@ -378,8 +378,8 @@ describe("readCarFile", () => {
     // a section claiming 4MiB, followed by almost none of it. 4MiB is under
     // @ipld/car's own 8MiB default, so only the configured cap can reject this,
     // and rejecting on the varint alone is the point: the bytes are never sent.
-    // padded well past the 1KiB assertion so the byte counter actually
-    // discriminates: buffering the declared body would blow through it
+    // The receive pump reads ahead of the parser up to maxByteLength, so total
+    // buffering is bounded by the budget, never by a hostile declared length.
     const forged = concat([
       headerOf(car),
       varint.encode(4 * 1024 * 1024),
@@ -390,13 +390,16 @@ describe("readCarFile", () => {
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
         ...UNCAPPED,
+        maxByteLength: 128 * 1024,
         maxCarSectionSize: 2 * 1024 * 1024,
       }),
     )
       .rejects
       .toThrow(/maxAllowedSectionSize/);
 
-    expect(state.pulled).toBeLessThan(1024);
+    // the wire offered ~64KiB and the budget allows 128KiB: nothing close to
+    // the declared 4MiB body may ever be waited for or buffered
+    expect(state.pulled).toBeLessThan(128 * 1024);
   });
 
   it("rejects an over-cap header from its declared length, before allocating it", async () => {
@@ -404,7 +407,8 @@ describe("readCarFile", () => {
     const root = await dagPbBlock([{ name: "child", cid: child.cid }]);
 
     // 2MiB is under @ipld/car's own 32MiB default, so only the configured cap
-    // can reject it, and it must do so from the varint alone
+    // can reject it, and it must do so from the varint alone. As above, the
+    // pump bounds buffering by the byte budget, not the declared length.
     const forged = concat([
       varint.encode(2 * 1024 * 1024),
       new Uint8Array(64 * 1024),
@@ -414,13 +418,14 @@ describe("readCarFile", () => {
     await expect(
       readCarFile(bs, drain, root.cid as UnixFsCID, log, {
         ...UNCAPPED,
+        maxByteLength: 128 * 1024,
         maxCarHeaderSize: 1024,
       }),
     )
       .rejects
       .toThrow(/maxAllowedHeaderSize/);
 
-    expect(state.pulled).toBeLessThan(1024);
+    expect(state.pulled).toBeLessThan(128 * 1024);
   });
 
   it("applies a configured maxCarSectionSize to a real over-cap block", async () => {
