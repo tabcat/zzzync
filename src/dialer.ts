@@ -20,8 +20,10 @@ import * as varint from "uint8-varint";
 import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, Sign } from "./challenge.ts";
 import {
+  DEFAULT_ACCEPT_TIMEOUT_MS,
   DEFAULT_ACK_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
+  RECORD_ACCEPTED,
   ZZZYNC,
   ZZZYNC_PUSH_PROTOCOL_ID,
 } from "./constants.ts";
@@ -69,6 +71,12 @@ export interface DialOptions
 {
   /** Per-step deadline (ms) for each read/write step: handshake, record, CAR chunk. */
   writeTimeoutMs?: number;
+  /**
+   * Deadline (ms) waiting for the handler to accept the record before the CAR
+   * is sent. The handler runs allow.multihash and allow.record in that window,
+   * so this covers both of its callback deadlines, not the per-step one.
+   */
+  acceptTimeoutMs?: number;
   /** Deadline (ms) waiting for the handler to close its write side after the CAR. */
   ackTimeoutMs?: number;
   /** Produces the optional auth frame (a delegation-chain CAR) sent after the ipns key. */
@@ -122,6 +130,23 @@ const readHandlerNonce = (
       (await bs.read({ bytes: 32, signal: deadline })).subarray(),
     "read handler nonce",
     "failed while reading challenge nonce",
+    options,
+  );
+
+const readRecordAccepted = (
+  bs: ByteStream<Stream>,
+  options: DeadlineOptions,
+): Promise<void> =>
+  withDeadline(
+    async (deadline) => {
+      const byte =
+        (await bs.read({ bytes: 1, signal: deadline })).subarray()[0];
+      if (byte !== RECORD_ACCEPTED) {
+        throw new Error(`handler answered ${byte} instead of accepting`);
+      }
+    },
+    "handler accepted the record",
+    "failed while waiting for the handler to accept the record",
     options,
   );
 
@@ -313,6 +338,15 @@ export async function zzzync(
     if (cid == null) {
       throw new Error("Unable to parse record value");
     }
+
+    // the handler runs its allow callbacks before it starts reading the CAR;
+    // streaming into that window buffers the whole transfer on its side with
+    // nobody consuming it, so wait to be told it is ready
+    await readRecordAccepted(bs, {
+      signal: options.signal,
+      timeoutMs: options.acceptTimeoutMs ?? DEFAULT_ACCEPT_TIMEOUT_MS,
+      log,
+    });
 
     await writeCarFile(bs, exporter, cid, {
       ...deadlineOptions,

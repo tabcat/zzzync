@@ -22,6 +22,15 @@ export const DEFAULT_MAX_AUTH_FRAME_BYTES = 16 * 1024;
 export const DEFAULT_WRITE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) the dialer waits for the handler to close. */
 export const DEFAULT_ACK_TIMEOUT_MS = 15_000;
+/**
+ * Default deadline (ms) the dialer waits for the handler to accept its record.
+ * The handler runs both allow.multihash and allow.record in that window, each
+ * under its own DEFAULT_CALLBACK_TIMEOUT_MS, so this covers the pair rather
+ * than the per-step write deadline.
+ */
+export const DEFAULT_ACCEPT_TIMEOUT_MS = 60_000;
+/** Byte the handler writes once a record clears allow.record and the CAR may follow. */
+export const RECORD_ACCEPTED = 0x01;
 /** Default handler idle timeout (ms): abort if no bytes arrive for this long. */
 export const DEFAULT_IDLE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) for each application callback (allow.multihash, allow.record, onReceive). A hang guard, not a latency budget: it bounds the handler, not the callback, which keeps running. */
