@@ -342,7 +342,17 @@ export interface Allow {
  */
 export interface CreateHandlerOptions
   extends Partial<StreamSignalOptions>, AuthOptions
-{}
+{
+  /**
+   * Bytes byteStream may buffer before it stops accepting more. Passed
+   * straight through, and worth setting above `CarLimits.maxByteLength`: the
+   * sender runs ahead of the importer, and if the buffer fills first the push
+   * fails on the buffer rather than on the size limit it actually broke.
+   *
+   * Defaults to byteStream's own default of 4MiB.
+   */
+  maxBufferSize?: number;
+}
 
 /**
  * A record received and validated by the handler, ready for the caller to pin
@@ -497,7 +507,12 @@ export const createZzzyncHandler =
     try {
       log("new stream from %s", connection.remotePeer);
 
-      const bs = byteStream(stream);
+      const bs = byteStream(
+        stream,
+        options?.maxBufferSize != null
+          ? { maxBufferSize: options.maxBufferSize }
+          : undefined,
+      );
 
       const callbackTimeoutMs = options.callbackTimeoutMs
         ?? DEFAULT_CALLBACK_TIMEOUT_MS;
@@ -516,15 +531,6 @@ export const createZzzyncHandler =
         },
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
-
-      // The dialer starts streaming the CAR straight after its record, but
-      // nothing here reads again until allow.record has decided. byteStream
-      // buffers whatever arrives meanwhile and discards the lot if that
-      // exceeds its cap, so pause across the callback: paused bytes wait in
-      // the stream's own buffer, which aborts loudly on overflow instead.
-      if (stream.readStatus === "readable") {
-        stream.pause();
-      }
 
       const accepted = await raceDeadline(
         (deadline) => allow.record(name, record, { signal: deadline }),
@@ -558,9 +564,6 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      if (stream.readStatus === "paused") {
-        stream.resume();
-      }
       await readCarFile(bs, importer, value, log, limits, { signal });
 
       await raceDeadline(
