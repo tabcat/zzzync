@@ -9,6 +9,7 @@ import {
   verifyChallenge,
 } from "../src/challenge.ts";
 import type { SupportedPrivateKey } from "../src/challenge.ts";
+import { ZZZYNC_PUSH_PROTOCOL_ID } from "../src/constants.ts";
 import { publicKeyToIpnsMultihash } from "../src/utils.ts";
 
 describe("challenge", () => {
@@ -27,6 +28,77 @@ describe("challenge", () => {
       const a = generateNonce();
       const b = generateNonce();
       expect(a).not.toEqual(b);
+    });
+
+    // Each of the four inputs is a separate defence, and the suite used to
+    // pass with every one of them removed: both sides call buildChallenge, so
+    // any self-consistent definition works end to end. These vary one input at
+    // a time so a dropped binding fails here instead of shipping.
+    it("prefixes the protocol id, so the signature is not reusable elsewhere", async () => {
+      const peerId = peerIdFromPrivateKey(sk);
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
+      const challenge = buildChallenge(
+        peerId,
+        ipnsMh,
+        generateNonce(),
+        generateNonce(),
+      );
+
+      // this key also signs IPNS records; without the domain separator a
+      // signature made elsewhere could be replayed as a challenge response
+      const prefix = new TextEncoder().encode(ZZZYNC_PUSH_PROTOCOL_ID);
+      expect(challenge.subarray(0, prefix.length)).toEqual(prefix);
+    });
+
+    it("binds the handler peer id, so a response cannot be relayed", async () => {
+      const other = peerIdFromPrivateKey(
+        (await generateKeyPair("Ed25519")) as SupportedPrivateKey,
+      );
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
+      const n1 = generateNonce();
+      const n2 = generateNonce();
+
+      expect(buildChallenge(peerIdFromPrivateKey(sk), ipnsMh, n1, n2)).not
+        .toEqual(buildChallenge(other, ipnsMh, n1, n2));
+    });
+
+    it("binds the dialer ipns name", async () => {
+      const peerId = peerIdFromPrivateKey(sk);
+      const otherKey =
+        (await generateKeyPair("Ed25519")) as SupportedPrivateKey;
+      const n1 = generateNonce();
+      const n2 = generateNonce();
+
+      expect(
+        buildChallenge(peerId, publicKeyToIpnsMultihash(sk.publicKey)!, n1, n2),
+      )
+        .not
+        .toEqual(
+          buildChallenge(
+            peerId,
+            publicKeyToIpnsMultihash(otherKey.publicKey)!,
+            n1,
+            n2,
+          ),
+        );
+    });
+
+    it("binds the handler nonce, so a captured response cannot be replayed", async () => {
+      const peerId = peerIdFromPrivateKey(sk);
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
+      const dialerNonce = generateNonce();
+
+      expect(buildChallenge(peerId, ipnsMh, generateNonce(), dialerNonce)).not
+        .toEqual(buildChallenge(peerId, ipnsMh, generateNonce(), dialerNonce));
+    });
+
+    it("binds the dialer nonce, so the handler cannot choose the whole preimage", async () => {
+      const peerId = peerIdFromPrivateKey(sk);
+      const ipnsMh = publicKeyToIpnsMultihash(sk.publicKey)!;
+      const handlerNonce = generateNonce();
+
+      expect(buildChallenge(peerId, ipnsMh, handlerNonce, generateNonce())).not
+        .toEqual(buildChallenge(peerId, ipnsMh, handlerNonce, generateNonce()));
     });
   });
 

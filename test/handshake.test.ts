@@ -39,9 +39,10 @@ async function runDialer(
   sign: Sign,
   signal: AbortSignal,
   timeoutMs = 5000,
+  peerId: PeerId = handlerPeerId,
 ): Promise<void> {
   const bs = byteStream(outbound);
-  await authenticateToHandler(bs, handlerPeerId, dialerIpns, sign, undefined, {
+  await authenticateToHandler(bs, peerId, dialerIpns, sign, undefined, {
     signal,
     timeoutMs,
     log,
@@ -92,6 +93,26 @@ describe("handshake", () => {
     await expect(
       Promise.all([
         runDialer(outbound, createSign(wrongKey), signal),
+        runHandler(inbound, allowAll, signal),
+      ]),
+    )
+      .rejects
+      .toThrow("Dialer challenge response invalid");
+  });
+
+  it("rejects a dialer that signed for a different handler", async () => {
+    const otherHandler = peerIdFromPrivateKey(
+      (await generateKeyPair("Ed25519")) as SupportedPrivateKey,
+    );
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(5000);
+
+    // the key and both nonces are right; only the handler the challenge is
+    // bound to differs, which is what stops one handler relaying a response
+    // it collected to another
+    await expect(
+      Promise.all([
+        runDialer(outbound, createSign(dialerKey), signal, 5000, otherHandler),
         runHandler(inbound, allowAll, signal),
       ]),
     )
