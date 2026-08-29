@@ -251,6 +251,48 @@ describe("zzzync protocol", () => {
     expect(onReceive.called).toBe(false);
   });
 
+  it("does not send the CAR until the handler accepts the record", async () => {
+    const [outbound, inbound] = await streamPair();
+
+    let recordAccepted = false;
+    const allow: Allow = {
+      multihash: () => true,
+      record: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        recordAccepted = true;
+        return true;
+      },
+    };
+
+    // the handler does not read the stream while allow.record runs, so a dialer
+    // that streams the CAR straight after the record piles those bytes into the
+    // handler's read buffer with nobody consuming them
+    let firstChunkWasAccepted: boolean | null = null;
+
+    await Promise.all([
+      zzzync(
+        outbound,
+        handlerPeerId,
+        car(helia),
+        result,
+        createSign(dialerKey),
+        {
+          onProgress: (evt) => {
+            if (
+              evt.type === "zzzync:dialer:car:chunk"
+              && firstChunkWasAccepted == null
+            ) {
+              firstChunkWasAccepted = recordAccepted;
+            }
+          },
+        },
+      ),
+      makeHandler(allow)(inbound, connection),
+    ]);
+
+    expect(firstChunkWasAccepted).toBe(true);
+  });
+
   it("aborts a stalled stream after the idle timeout", async () => {
     const [outbound, inbound] = await streamPair();
 
