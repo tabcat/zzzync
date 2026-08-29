@@ -440,20 +440,6 @@ export async function authenticateDialer(
     ?? DEFAULT_CALLBACK_TIMEOUT_MS;
   const auth = await readAuth(bs, maxBytes, { signal: options?.signal });
 
-  const permitted = await raceDeadline(
-    (deadline) => allow.multihash(dialerIpns, { signal: deadline, auth }),
-    callbackTimeoutMs,
-    "allow.multihash exceeded its deadline",
-    options?.signal,
-  );
-  if (!permitted) {
-    const error = new Error("ipns key not allowed");
-    log.error(error.message);
-    throw error;
-  }
-  log("ipns key %c is allowed", dialerLibp2pKey);
-  log("contenthash is %s", contenthash(dialerPublicKey));
-
   let handlerNonce: Uint8Array;
   try {
     handlerNonce = generateNonce();
@@ -488,6 +474,24 @@ export async function authenticateDialer(
     throw error;
   }
   log("dialer completed challenge");
+
+  // only now, with ownership proven, is it worth running an application
+  // callback. allow.multihash is handed the dialer's auth frame to validate,
+  // which is unbounded work on attacker bytes; above the challenge, anyone who
+  // can dial reaches it for the cost of one write.
+  const permitted = await raceDeadline(
+    (deadline) => allow.multihash(dialerIpns, { signal: deadline, auth }),
+    callbackTimeoutMs,
+    "allow.multihash exceeded its deadline",
+    options?.signal,
+  );
+  if (!permitted) {
+    const error = new Error("ipns key not allowed");
+    log.error(error.message);
+    throw error;
+  }
+  log("ipns key %c is allowed", dialerLibp2pKey);
+  log("contenthash is %s", contenthash(dialerPublicKey));
 
   return dialerLibp2pKey;
 }

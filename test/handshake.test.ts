@@ -154,8 +154,9 @@ describe("handshake", () => {
     const [outbound, inbound] = await streamPair();
     const signal = AbortSignal.timeout(5000);
 
-    // the handler denies before writing its nonce, leaving the dialer waiting,
-    // so abort it afterwards to avoid leaking a pending promise
+    // the handshake completes, then the deny lands, so the dialer is left
+    // waiting on the next step; abort it afterwards rather than leak a pending
+    // promise
     const dialer = runDialer(outbound, createSign(dialerKey), signal).catch(
       () => {},
     );
