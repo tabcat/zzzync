@@ -23,7 +23,6 @@ import { create } from "multiformats/block";
 import type { CID } from "multiformats/cid";
 import * as Digest from "multiformats/hashes/digest";
 import * as varint from "uint8-varint";
-import { Uint8ArrayList } from "uint8arraylist";
 import { buildChallenge, generateNonce, verifyChallenge } from "./challenge.ts";
 import {
   CODEC_DAG_CBOR,
@@ -225,69 +224,21 @@ export async function readCarFile(
 ): Promise<void> {
   const { maxByteLength, maxBlockCount } = limits;
 
-  // Pull eagerly into `queue` so a read is pending on `bs` at all times, and
-  // let the parser drain from the queue. The transport keeps delivering while
-  // the importer hashes and stores the previous block, and byteStream only
-  // tolerates that up to its own buffer cap: on overflow it discards its
-  // entire buffer, and the rejection lands on an already settled promise
-  // whenever no read is pending, so the stream silently continues with a
-  // multi-MiB hole. With a read always pending the buffer never accumulates,
-  // and the byte budget moves to receipt: memory here stays bounded by
-  // maxByteLength, which an uncapped caller set to Infinity explicitly.
-  const queue = new Uint8ArrayList();
-  let pumpError: Error | undefined;
-  let ended = false;
-  let wake: (() => void) | undefined;
-  const notify = (): void => {
-    const resolve = wake;
-    wake = undefined;
-    resolve?.();
-  };
-  // fulfills on every path: errors surface through pumpError to the parser
-  void (async () => {
-    try {
-      let pulled = 0;
-      while (true) {
-        const byteList = await bs.read({ signal: options.signal });
-
-        if (byteList == null) break;
-
-        pulled += byteList.byteLength;
-        if (maxByteLength != null && pulled > maxByteLength) {
-          throw new Error("CAR file exceeded max byte length");
-        }
-
-        queue.append(byteList);
-        notify();
-      }
-    } catch (e) {
-      pumpError = e instanceof Error ? e : new Error(String(e));
-    } finally {
-      ended = true;
-      notify();
-    }
-  })();
-
   const blocks = async function*() {
+    let pulled = 0;
     const car = await CarBlockIterator.fromIterable(
       (async function*(): AsyncIterable<Uint8Array> {
         while (true) {
-          if (queue.byteLength > 0) {
-            const length = queue.byteLength;
-            const chunk = queue.sublist(0, length);
-            queue.consume(length);
-            yield* chunk;
-            continue;
+          const byteList = await bs.read({ signal: options.signal });
+
+          if (byteList == null) break;
+
+          pulled += byteList.byteLength;
+          if (maxByteLength != null && pulled > maxByteLength) {
+            throw new Error("CAR file exceeded max byte length");
           }
-          if (ended) {
-            if (pumpError != null) {
-              throw pumpError;
-            }
-            break;
-          }
-          await new Promise<void>((resolve) => {
-            wake = resolve;
-          });
+
+          yield* byteList;
         }
       })(),
       {
@@ -566,16 +517,15 @@ export const createZzzyncHandler =
       );
       const record = await readIpnsRecord(bs, name, log, { signal });
 
-      // The dialer starts streaming the CAR right after its record, but the
-      // next read here only comes once allow.record decides. byteStream
-      // silently discards its buffer if it overflows while no read is
-      // pending, so pause the stream across the callback: paused bytes wait
-      // in the stream's own buffer, whose overflow aborts loudly instead.
-      // readCarFile keeps a read pending from its first moment, so this is
-      // the only stretch where CAR bytes arrive with no reader.
+      // The dialer starts streaming the CAR straight after its record, but
+      // nothing here reads again until allow.record has decided. byteStream
+      // buffers whatever arrives meanwhile and discards the lot if that
+      // exceeds its cap, so pause across the callback: paused bytes wait in
+      // the stream's own buffer, which aborts loudly on overflow instead.
       if (stream.readStatus === "readable") {
         stream.pause();
       }
+
       const accepted = await raceDeadline(
         (deadline) => allow.record(name, record, { signal: deadline }),
         callbackTimeoutMs,
@@ -608,13 +558,10 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      // arm readCarFile's always-pending read before resuming, so the paused
-      // backlog flushes into a pending read rather than an idle buffer
-      const reading = readCarFile(bs, importer, value, log, limits, { signal });
       if (stream.readStatus === "paused") {
         stream.resume();
       }
-      await reading;
+      await readCarFile(bs, importer, value, log, limits, { signal });
 
       await raceDeadline(
         (deadline) => onReceive({ name, record, pinner }, { signal: deadline }),
