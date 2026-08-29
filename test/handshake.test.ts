@@ -100,6 +100,35 @@ describe("handshake", () => {
       .toThrow("Dialer challenge response invalid");
   });
 
+  it("does not run allow.multihash before the dialer has proven the key", async () => {
+    let called = false;
+    const allow: Allow = {
+      multihash: () => {
+        called = true;
+        return true;
+      },
+      record: () => true,
+    };
+    const [outbound, inbound] = await streamPair();
+    const signal = AbortSignal.timeout(1000);
+
+    // announce a key and an empty auth frame, then go silent. Nothing has been
+    // proven at this point, so an application callback must not run: it is the
+    // expensive half of the handshake (a delegation chain check, a datastore
+    // read) and anyone who can dial can reach it.
+    const bs = byteStream(outbound);
+    await bs.write(dialerIpns.bytes);
+    await bs.write(Uint8Array.of(0));
+
+    const handler = runHandler(inbound, allow, signal).catch(() => {});
+    await delay(300);
+
+    expect(called).toBe(false);
+
+    outbound.abort(new Error("test done"));
+    await handler;
+  });
+
   it("rejects a dialer that signed for a different handler", async () => {
     const otherHandler = peerIdFromPrivateKey(
       (await generateKeyPair("Ed25519")) as SupportedPrivateKey,
