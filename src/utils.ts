@@ -200,7 +200,7 @@ export async function withDeadline<T>(
   }
 }
 
-/** Consecutive under-floor windows tolerated before aborting, so a single congested window is not read as an attack. */
+/** Consecutive under-floor windows required to abort, so a single congested window is not read as an attack. */
 const STARVED_WINDOWS_BEFORE_ABORT = 2;
 
 /** Past this, setTimeout truncates and fires immediately, turning a long deadline into an instant abort. */

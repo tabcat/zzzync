@@ -353,10 +353,11 @@ export interface CreateHandlerOptions
   extends Partial<StreamSignalOptions>, AuthOptions
 {
   /**
-   * Bytes byteStream may buffer before it stops accepting more. Passed
+   * Bytes byteStream may hold before it discards the buffer. It has no
+   * backpressure, so the buffer grows as fast as the sender writes. Passed
    * straight through, and worth setting above `CarLimits.maxByteLength`: the
-   * sender runs ahead of the importer, and if the buffer fills first the push
-   * fails on the buffer rather than on the size limit it actually broke.
+   * sender runs ahead of the importer, and a buffer that fills first loses the
+   * bytes it was holding rather than failing on the limit that was broken.
    *
    * Defaults to byteStream's own default of 4MiB.
    */
@@ -475,10 +476,6 @@ export async function authenticateDialer(
   }
   log("dialer completed challenge");
 
-  // only now, with ownership proven, is it worth running an application
-  // callback. allow.multihash is handed the dialer's auth frame to validate,
-  // which is unbounded work on attacker bytes; above the challenge, anyone who
-  // can dial reaches it for the cost of one write.
   const permitted = await raceDeadline(
     (deadline) => allow.multihash(dialerIpns, { signal: deadline, auth }),
     callbackTimeoutMs,
