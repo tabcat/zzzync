@@ -137,15 +137,7 @@ export async function writeChallengeNonce(
   await bs.write(handlerNonce, options);
 }
 
-/**
- * Tell the dialer its record cleared `allow.record`, so the CAR may follow.
- *
- * Without it the dialer streams the CAR straight after the record and the whole
- * transfer lands while the handler is still inside its application callbacks
- * with nothing reading the stream. byteStream stays registered as a message
- * listener and keeps buffering, and yamux credits its receive window at
- * dispatch time, so nothing throttles the sender until the buffer overflows.
- */
+/** Tell the dialer its record cleared `allow.record`, so the CAR may follow. */
 export async function writeRecordAccepted(
   bs: ByteStream<Stream>,
   options: AbortOptions = {},
@@ -573,17 +565,16 @@ export const createZzzyncHandler =
         throw e;
       }
 
-      // the dialer holds the CAR back until this lands, so every check that can
+      // the dialer holds the CAR back until this lands, so anything that can
       // reject the push has to run above it
       await writeRecordAccepted(bs, { signal });
 
       // Only now retire the handshake deadline and arm the throughput floor.
-      // The allow callbacks run above it deliberately: they do bounded work
-      // with no bytes arriving, so a wall-clock cap fits them and a throughput
-      // floor does not. Under the floor, a delegation-chain check or a cold
-      // cache would abort as "throughput below minimum" for a reason that has
-      // nothing to do with throughput. Arming after the acceptance write keeps
-      // the dialer's round trip off the transfer's clock too.
+      // allow.record runs above it deliberately: it is an application callback
+      // doing bounded work with no bytes arriving, so a wall-clock cap fits it
+      // and a throughput floor does not. Under the floor, a delegation-chain
+      // check or a cold cache would abort as "throughput below minimum" for a
+      // reason that has nothing to do with throughput.
       beginTransfer();
 
       await readCarFile(bs, importer, value, log, limits, { signal });

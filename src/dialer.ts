@@ -71,11 +71,7 @@ export interface DialOptions
 {
   /** Per-step deadline (ms) for each read/write step: handshake, record, CAR chunk. */
   writeTimeoutMs?: number;
-  /**
-   * Deadline (ms) waiting for the handler to accept the record before the CAR
-   * is sent. The handler runs allow.multihash and allow.record in that window,
-   * so this covers both of its callback deadlines, not the per-step one.
-   */
+  /** Deadline (ms) waiting for the handler to accept the record; covers allow.record, not the per-step deadline. */
   acceptTimeoutMs?: number;
   /** Deadline (ms) waiting for the handler to close its write side after the CAR. */
   ackTimeoutMs?: number;
@@ -339,9 +335,8 @@ export async function zzzync(
       throw new Error("Unable to parse record value");
     }
 
-    // the handler runs its allow callbacks before it starts reading the CAR;
-    // streaming into that window buffers the whole transfer on its side with
-    // nobody consuming it, so wait to be told it is ready
+    // the handler is not reading until it accepts; streaming into that window
+    // buffers the whole transfer on its side with nobody consuming it
     await readRecordAccepted(bs, {
       signal: options.signal,
       timeoutMs: options.acceptTimeoutMs ?? DEFAULT_ACCEPT_TIMEOUT_MS,

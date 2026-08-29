@@ -11,6 +11,8 @@ export const ZZZYNC = "zzzync";
 export const ZZZYNC_PUSH = `/${ZZZYNC}/push`;
 export const ZZZYNC_PUSH_VERSION = "1.0.0";
 export const ZZZYNC_PUSH_PROTOCOL_ID = `${ZZZYNC_PUSH}/${ZZZYNC_PUSH_VERSION}`;
+/** Byte the handler writes once a record clears allow.record. */
+export const RECORD_ACCEPTED = 0x01;
 
 /** IPNS record size cap from the IPNS spec. */
 export const MAX_IPNS_RECORD_SIZE = 10 * 1024;
@@ -22,19 +24,13 @@ export const DEFAULT_MAX_AUTH_FRAME_BYTES = 16 * 1024;
 export const DEFAULT_WRITE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) the dialer waits for the handler to close. */
 export const DEFAULT_ACK_TIMEOUT_MS = 15_000;
-/**
- * Default deadline (ms) the dialer waits for the handler to accept its record.
- * The handler runs both allow.multihash and allow.record in that window, each
- * under its own DEFAULT_CALLBACK_TIMEOUT_MS, so this covers the pair rather
- * than the per-step write deadline.
- */
-export const DEFAULT_ACCEPT_TIMEOUT_MS = 60_000;
-/** Byte the handler writes once a record clears allow.record and the CAR may follow. */
-export const RECORD_ACCEPTED = 0x01;
 /** Default handler idle timeout (ms): abort if no bytes arrive for this long. */
 export const DEFAULT_IDLE_TIMEOUT_MS = 10_000;
 /** Default deadline (ms) for each application callback (allow.multihash, allow.record, onReceive). A hang guard, not a latency budget: it bounds the handler, not the callback, which keeps running. */
-export const DEFAULT_CALLBACK_TIMEOUT_MS = 30_000;
+export const DEFAULT_CALLBACK_TIMEOUT_MS = 5_000;
+/** Default deadline (ms) the dialer waits on the handler's record acceptance: allow.record plus a step of network. */
+export const DEFAULT_ACCEPT_TIMEOUT_MS = DEFAULT_CALLBACK_TIMEOUT_MS
+  + DEFAULT_WRITE_TIMEOUT_MS;
 /** Default handler handshake deadline (ms): the handshake carries bounded, latency-bound data, so it gets a wall-clock cap of its own. */
 export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 30_000;
 /** Default minimum bytes/sec a CAR transfer must sustain; makes holding a stream cost bandwidth in proportion to the time held. */
