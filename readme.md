@@ -14,7 +14,7 @@ sequenceDiagram
 
   D->>H: open /zzzync/push/1.0.0
   D->>H: IPNS key
-  D->>H: auth frame (optional; varint length, 0 = none)
+  D->>H: auth frame (optional: varint length, 0 = none)
   H->>D: challenge nonce
   D->>H: dialer nonce + signature
   Note over H: signature proves the dialer holds the key
